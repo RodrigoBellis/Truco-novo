@@ -1,0 +1,23 @@
+{
+  "name": "truco-do-novo",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Truco do Novo — sistema de gerenciamento de campeonatos de truco",
+  "workspaces": [
+    "frontend",
+    "backend",
+    "shared"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace backend",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "build": "npm run build --workspace shared && npm run build --workspace backend && npm run build --workspace frontend",
+    "typecheck": "npm run typecheck --workspace shared && npm run typecheck --workspace backend && npm run typecheck --workspace frontend",
+    "lint": "oxlint shared/src backend/src frontend/src",
+    "test": "npm run test --workspace backend",
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "oxlint": "^1.75.0"
+  }
+}

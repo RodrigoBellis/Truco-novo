@@ -1,0 +1,16 @@
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-shell-content {
+  margin-left: var(--sidebar-width);
+  padding: var(--space-8) 0 var(--space-10);
+  min-height: 100vh;
+}
+
+@media (max-width: 960px) {
+  .app-shell-content {
+    margin-left: 0;
+    padding: var(--space-5) 0 calc(var(--bottomnav-height) + var(--space-8));
+  }
+}

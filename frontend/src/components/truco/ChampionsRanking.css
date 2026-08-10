@@ -1,0 +1,20 @@
+.champions-ranking {
+  padding-top: var(--space-2);
+}
+
+/* Definição única — usada pelo histórico e pelo ranking do Hall da Fama */
+.hof-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-lg);
+  margin-bottom: var(--space-4);
+  color: var(--color-text);
+}
+
+.hof-section-title::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--color-border-strong), transparent);
+}

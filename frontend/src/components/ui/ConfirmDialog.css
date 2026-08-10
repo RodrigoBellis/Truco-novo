@@ -1,0 +1,38 @@
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(var(--rgb-void) / 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-overlay);
+  padding: var(--space-4);
+  animation: fade-in var(--transition-fast);
+}
+
+.confirm-dialog {
+  width: 100%;
+  max-width: 400px;
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-xl), var(--edge-light);
+  animation: scale-in var(--transition-base) var(--ease-out);
+}
+
+.confirm-dialog h3 {
+  font-size: 1.1rem;
+  margin-bottom: var(--space-2);
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}

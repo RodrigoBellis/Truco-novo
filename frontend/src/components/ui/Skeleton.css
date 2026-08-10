@@ -1,0 +1,28 @@
+.skeleton {
+  display: block;
+  background: linear-gradient(
+    90deg,
+    var(--color-surface) 0%,
+    var(--color-surface-hover) 45%,
+    var(--color-surface) 90%
+  );
+  background-size: 180% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-sm { border-radius: var(--radius-sm); }
+.skeleton-md { border-radius: var(--radius-md); }
+.skeleton-lg { border-radius: var(--radius-lg); }
+.skeleton-full { border-radius: var(--radius-full); }
+
+.skeleton-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    background: var(--color-surface);
+  }
+}

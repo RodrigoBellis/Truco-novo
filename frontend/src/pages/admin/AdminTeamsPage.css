@@ -1,0 +1,46 @@
+.admin-teams-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-4);
+}
+
+.admin-teams-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.admin-teams-item .card {
+  width: 100%;
+}
+
+.admin-teams-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.admin-teams-modal-field input {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: 10px var(--space-4);
+  font-size: 0.94rem;
+  color: var(--color-text);
+}
+
+.admin-teams-modal-field input:focus {
+  border-color: var(--color-accent-500);
+  outline: none;
+}
+
+.admin-teams-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}

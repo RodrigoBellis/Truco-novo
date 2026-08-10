@@ -1,0 +1,266 @@
+.tournament-history {
+  margin-bottom: var(--space-8);
+  /* Os cards laterais do carrossel são absolutos e se espalham para a direita.
+     Sem este recorte eles esticam a largura do documento e criam scroll
+     horizontal na página inteira (no mobile chegava a ~2x a largura da tela).
+     `clip` em vez de `hidden` para não criar um container de rolagem. */
+  overflow-x: clip;
+}
+
+/* ---------- Palco 3D ---------- */
+
+.th-stage {
+  position: relative;
+  height: 480px;
+  perspective: 1400px;
+  perspective-origin: 50% 45%;
+  margin-bottom: var(--space-5);
+}
+
+.th-track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+.th-slot {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: min(320px, 80vw);
+  margin-left: calc(min(320px, 80vw) / -2);
+  transform-origin: center center;
+  transition: transform 620ms cubic-bezier(0.22, 0.8, 0.28, 1), opacity 620ms ease;
+  will-change: transform, opacity;
+}
+
+.th-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  height: 480px;
+  padding: var(--space-5) var(--space-4);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--glass-border);
+  background:
+    radial-gradient(130% 75% at 50% 0%, rgb(var(--rgb-accent) / 0.13), transparent 60%),
+    var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-lg), var(--edge-light);
+  overflow: hidden;
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+/* A carta ativa ganha borda âmbar e profundidade máxima */
+.th-card-active {
+  border-color: rgb(var(--rgb-accent) / 0.4);
+  box-shadow: var(--shadow-xl), var(--edge-light);
+}
+
+.th-card-edition {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent-400);
+  background: rgb(var(--rgb-accent) / 0.12);
+  border: 1px solid rgb(var(--rgb-accent) / 0.32);
+  border-radius: var(--radius-full);
+  padding: 4px 14px;
+  margin-bottom: var(--space-1);
+}
+
+.th-card-active .champion-trophy {
+  animation: trophy-float 3.4s ease-in-out infinite;
+}
+
+.th-card-name {
+  font-size: 1.05rem;
+  line-height: 1.25;
+  color: var(--color-text);
+  margin-top: var(--space-1);
+}
+
+.th-card-year {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-accent-500);
+}
+
+.th-card-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-3) 0;
+  margin-top: var(--space-2);
+  border-top: 1px dashed var(--color-border);
+  border-bottom: 1px dashed var(--color-border);
+}
+
+.th-card-side {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.th-card-side-center {
+  align-items: center;
+  text-align: center;
+}
+
+.th-card-side-label {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-faint);
+}
+
+.th-card-side-value {
+  font-size: 0.82rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.th-card-score {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--color-accent-400);
+  padding: 2px 10px;
+  border-radius: var(--radius-sm);
+  background: rgb(var(--rgb-accent) / 0.1);
+  white-space: nowrap;
+}
+
+.th-card-notes {
+  font-size: 0.78rem;
+  line-height: 1.5;
+  margin-top: var(--space-2);
+}
+
+/* ---------- Controles ---------- */
+
+.th-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 50;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-md);
+  color: var(--color-text-muted);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-base);
+}
+
+.th-arrow:hover {
+  border-color: rgb(var(--rgb-accent) / 0.5);
+  color: var(--color-accent-400);
+  box-shadow: var(--shadow-accent);
+}
+
+.th-arrow:active {
+  transform: translateY(-50%) scale(0.93);
+}
+
+.th-arrow-prev { left: 0; }
+.th-arrow-next { right: 0; }
+
+.th-dots {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.th-dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--color-border-strong);
+  cursor: pointer;
+  transition: width var(--transition-base), background-color var(--transition-base);
+}
+
+.th-dot-active {
+  width: 26px;
+  background: linear-gradient(90deg, var(--color-accent-400), var(--color-accent-600));
+}
+
+/* ---------- Responsivo ---------- */
+
+@media (max-width: 640px) {
+  .th-stage {
+    height: 520px;
+    perspective: 900px;
+  }
+
+  .th-card {
+    height: 520px;
+  }
+
+  .th-arrow {
+    width: 36px;
+    height: 36px;
+    font-size: 1.25rem;
+  }
+}
+
+/* ---------- Acessibilidade ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .th-stage {
+    height: auto;
+    perspective: none;
+    margin-bottom: var(--space-6);
+  }
+
+  .th-track {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-4);
+    height: auto;
+    transform-style: flat;
+  }
+
+  .th-slot {
+    position: static;
+    width: auto;
+    margin-left: 0;
+    transform: none !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  .th-card {
+    height: auto;
+  }
+
+  .th-arrow,
+  .th-dots {
+    display: none;
+  }
+}

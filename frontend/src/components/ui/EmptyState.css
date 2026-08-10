@@ -1,0 +1,63 @@
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-2);
+  padding: var(--space-12) var(--space-5);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-xl);
+  background: rgb(var(--rgb-white) / 0.025);
+  animation: scale-in var(--transition-slow) var(--ease-out);
+}
+
+/* Halo suave atrás do ícone */
+.empty-state-icon {
+  position: relative;
+}
+
+.empty-state-icon::after {
+  content: "";
+  position: absolute;
+  inset: -18px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(var(--rgb-accent) / 0.14), transparent 70%);
+  z-index: -1;
+}
+
+.empty-state-icon {
+  font-size: 2.2rem;
+  margin-bottom: var(--space-2);
+  opacity: 0.8;
+}
+
+.empty-state h3 {
+  font-size: var(--text-lg);
+  color: var(--color-text);
+}
+
+.empty-state p {
+  max-width: 42ch;
+  line-height: 1.5;
+}
+
+/* Falha de carregamento — o mesmo componente, com leitura de erro */
+.empty-state-danger {
+  border-color: rgb(var(--rgb-danger) / 0.4);
+  border-style: solid;
+  background: var(--color-danger-bg);
+}
+
+.empty-state-danger h3 {
+  color: var(--color-danger);
+}
+
+@media (max-width: 600px) {
+  .empty-state {
+    padding: var(--space-8) var(--space-4);
+  }
+}
+
+.empty-state-action {
+  margin-top: var(--space-3);
+}

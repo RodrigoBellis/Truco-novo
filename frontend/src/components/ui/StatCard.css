@@ -1,0 +1,90 @@
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 116px;
+  justify-content: center;
+  transition: transform var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  border-color: rgb(var(--rgb-white) / 0.16);
+  box-shadow: var(--shadow-lg), var(--edge-light);
+}
+
+.stat-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.stat-card-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  font-weight: 700;
+}
+
+/* Ícone dentro de um chip, em vez de solto sobre o card */
+.stat-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background: rgb(var(--rgb-white) / 0.05);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  transition: color var(--transition-base), background-color var(--transition-base);
+}
+
+.stat-card:hover .stat-card-icon {
+  color: var(--color-accent-400);
+  background: rgb(var(--rgb-accent) / 0.12);
+}
+
+.stat-card-value {
+  font-size: clamp(1.6rem, 1.2rem + 1.3vw, 2.15rem);
+  font-family: var(--font-display);
+  font-weight: 780;
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.05;
+  /* break-word (e não anywhere) para não quebrar palavras que caberiam:
+     "anywhere" altera o cálculo de min-content e parte "Aguardando" ao meio. */
+  overflow-wrap: break-word;
+}
+
+.stat-card-hint {
+  font-size: var(--text-sm);
+}
+
+/* Tons: o número recebe a cor, o card recebe um halo discreto */
+.stat-card-gold .stat-card-value {
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.stat-card-gold .stat-card-icon { color: var(--color-accent-400); }
+.stat-card-green .stat-card-value { color: var(--color-success); }
+.stat-card-green .stat-card-icon { color: var(--color-success); }
+.stat-card-danger .stat-card-value { color: var(--color-danger); }
+.stat-card-danger .stat-card-icon { color: var(--color-danger); }
+
+@media (max-width: 600px) {
+  .stat-card {
+    min-height: 94px;
+    gap: var(--space-1);
+  }
+
+  .stat-card-icon {
+    width: 26px;
+    height: 26px;
+  }
+}

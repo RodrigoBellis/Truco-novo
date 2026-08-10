@@ -1,0 +1,45 @@
+.queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 640px;
+}
+
+.queue-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  flex-wrap: wrap;
+}
+
+/* Destaque discreto no próximo jogo da fila — sem rótulo de texto, só a borda. */
+.queue-item-next {
+  border-color: rgb(var(--rgb-accent) / 0.4);
+  box-shadow: var(--shadow-accent);
+}
+
+.queue-item-order {
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--color-accent-400);
+  font-size: var(--text-base);
+  min-width: 64px;
+}
+
+.queue-item-teams {
+  font-size: var(--text-base);
+  font-weight: 650;
+  flex: 1;
+}
+
+@media (max-width: 480px) {
+  .queue-item {
+    padding: var(--space-3);
+  }
+
+  .queue-item-order {
+    min-width: 56px;
+    font-size: var(--text-sm);
+  }
+}

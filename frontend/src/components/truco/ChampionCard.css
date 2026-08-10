@@ -1,0 +1,113 @@
+.champions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-3);
+}
+
+.champion-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-md), var(--edge-light);
+  overflow: hidden;
+  transition:
+    transform var(--transition-base),
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+/* Brilho diagonal que atravessa a carta no hover */
+.champion-card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -70%;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgb(var(--rgb-accent) / 0.14), transparent);
+  transform: skewX(-18deg);
+  transition: left var(--transition-slow);
+  pointer-events: none;
+}
+
+.champion-card:hover::after {
+  left: 130%;
+}
+
+.champion-card:hover {
+  transform: translateY(-4px);
+  border-color: rgb(var(--rgb-accent) / 0.4);
+  box-shadow: var(--shadow-lg), var(--edge-light);
+}
+
+.champion-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.champion-card-rank {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-lg);
+  color: var(--color-accent-400);
+  letter-spacing: var(--tracking-tight);
+}
+
+.champion-card-suit {
+  font-size: 1.2rem;
+  color: var(--color-text-faint);
+  transition: color var(--transition-base), transform var(--transition-base);
+}
+
+.champion-card:hover .champion-card-suit {
+  color: var(--color-accent-400);
+  transform: scale(1.15) rotate(8deg);
+}
+
+.champion-card-name {
+  font-size: var(--text-md);
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+.champion-card-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.champion-card-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 2px;
+}
+
+.champion-card-stat-value {
+  font-weight: 800;
+  font-size: var(--text-lg);
+  font-family: var(--font-display);
+}
+
+.champion-card-stat-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+.champion-card-editions {
+  font-size: var(--text-sm);
+}

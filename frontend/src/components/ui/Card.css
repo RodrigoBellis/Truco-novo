@@ -1,0 +1,87 @@
+.card {
+  position: relative;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md), var(--edge-light);
+  padding: var(--space-5);
+  animation: slide-up var(--transition-base) var(--ease-out);
+  overflow: hidden;
+}
+
+/* Véu de gradiente muito sutil — dá volume sem sujar o conteúdo */
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--gradient-surface);
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Fio de luz no topo, na cor do acento */
+.card-accent-gold {
+  border-color: rgb(var(--rgb-accent) / 0.28);
+}
+
+.card-accent-gold::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(var(--rgb-accent) / 0.75), transparent);
+  pointer-events: none;
+}
+
+.card-accent-green {
+  border-color: rgb(var(--rgb-success) / 0.32);
+}
+
+.card-accent-green::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(var(--rgb-success) / 0.7), transparent);
+  pointer-events: none;
+}
+
+.card-interactive {
+  cursor: pointer;
+  transition:
+    transform var(--transition-base),
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.card-interactive:hover {
+  transform: translateY(-3px);
+  border-color: rgb(var(--rgb-accent) / 0.4);
+  box-shadow: var(--shadow-lg), var(--edge-light);
+}
+
+.card-interactive:active {
+  transform: translateY(-1px);
+}
+
+.card-compact {
+  padding: var(--space-4);
+}
+
+@media (max-width: 600px) {
+  .card {
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
+  }
+}

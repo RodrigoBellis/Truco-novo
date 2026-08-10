@@ -1,0 +1,21 @@
+.admin-draw-info {
+  margin-bottom: var(--space-6);
+}
+
+.admin-draw-pending-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-4);
+}
+
+.admin-draw-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.admin-draw-group-title {
+  font-size: 1rem;
+  margin-bottom: var(--space-3);
+  color: var(--color-accent-400);
+}

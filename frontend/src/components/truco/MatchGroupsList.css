@@ -1,0 +1,37 @@
+.match-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.match-group-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-3);
+}
+
+/* Mesma régua visual do .section-title global */
+.match-group-title::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--color-border), transparent);
+}
+
+.match-group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-4);
+}
+
+@media (max-width: 600px) {
+  .match-group-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+}

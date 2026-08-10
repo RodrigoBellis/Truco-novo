@@ -1,0 +1,53 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(var(--rgb-void) / 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-overlay);
+  padding: var(--space-4);
+  animation: fade-in var(--transition-fast);
+}
+
+.modal-dialog {
+  width: 100%;
+  max-width: 420px;
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl), var(--edge-light);
+  animation: scale-in var(--transition-base) var(--ease-out);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-6) 0;
+}
+
+.modal-header h3 {
+  font-size: 1.05rem;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--color-text-faint);
+  font-size: 1.4rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  color: var(--color-text);
+}
+
+.modal-body {
+  padding: var(--space-5) var(--space-6) var(--space-6);
+}

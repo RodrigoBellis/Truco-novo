@@ -1,0 +1,107 @@
+.bracket-card {
+  margin-bottom: var(--space-6);
+}
+
+.bracket-view {
+  display: flex;
+  gap: var(--space-5);
+  overflow-x: auto;
+  /* Espaço à direita para o .bracket-score, que fica deslocado para fora do card */
+  padding: 0 var(--space-4) var(--space-3) 0;
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+}
+
+.bracket-column {
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  flex-shrink: 0;
+  scroll-snap-align: start;
+}
+
+.bracket-column-title {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-accent-400);
+  text-align: center;
+}
+
+.bracket-column-matches {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: var(--space-5);
+  flex: 1;
+}
+
+.bracket-match {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  position: relative;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  animation: slide-up var(--transition-base) var(--ease-out) both;
+}
+
+.bracket-match:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-hover);
+}
+
+.bracket-slot {
+  padding: 6px 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bracket-slot:first-child {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.bracket-slot-winner {
+  color: var(--color-accent-400);
+}
+
+.bracket-score {
+  position: absolute;
+  top: 50%;
+  right: -14px;
+  transform: translateY(-50%);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 800;
+  padding: 2px 8px;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+.bracket-slot-winner {
+  position: relative;
+}
+
+/* Sinaliza o vencedor sem depender só da cor */
+.bracket-slot-winner::before {
+  content: "▸";
+  margin-right: 4px;
+  color: var(--color-accent-500);
+}
+
+@media (max-width: 600px) {
+  .bracket-column {
+    min-width: 210px;
+  }
+
+  .bracket-view {
+    gap: var(--space-4);
+  }
+}

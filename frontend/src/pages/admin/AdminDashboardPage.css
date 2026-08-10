@@ -1,0 +1,80 @@
+.admin-dashboard-champion-wrap {
+  margin-bottom: var(--space-6);
+}
+
+.admin-dashboard-champion {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.admin-dashboard-champion-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(var(--rgb-accent) / 0.14);
+  color: var(--color-accent-400);
+  flex-shrink: 0;
+}
+
+.admin-dashboard-champion-name {
+  display: block;
+  font-size: var(--text-lg);
+  margin-top: 2px;
+  overflow-wrap: break-word;
+}
+
+.admin-dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+/* Duas colunas no celular em vez de uma coluna muito longa */
+@media (max-width: 600px) {
+  .admin-dashboard-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-3);
+  }
+
+  .admin-dashboard-champion-icon {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+.admin-dashboard-next h3 {
+  font-size: var(--text-md);
+  margin-bottom: var(--space-4);
+}
+
+.admin-dashboard-next-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.admin-dashboard-next-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+@media (max-width: 480px) {
+  /* O badge da rodada sobe para sua própria linha em vez de espremer os nomes */
+  .admin-dashboard-next-list li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+}

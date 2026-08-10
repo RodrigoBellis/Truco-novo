@@ -1,0 +1,106 @@
+.public-layout {
+  min-height: 100vh;
+}
+
+.public-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  flex-wrap: wrap;
+}
+
+.public-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(var(--rgb-accent) / 0.45), transparent);
+}
+
+.public-header-nav {
+  display: flex;
+  gap: var(--space-5);
+  font-size: var(--text-base);
+  font-weight: 650;
+  color: var(--color-text-muted);
+}
+
+.public-header-nav a {
+  position: relative;
+  padding: var(--space-2) 0;
+  transition: color var(--transition-fast);
+}
+
+.public-header-nav a:hover {
+  color: var(--color-text);
+}
+
+/* Sublinhado que cresce a partir do centro */
+.public-header-nav a::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 0;
+  height: 2px;
+  border-radius: var(--radius-full);
+  background: var(--gradient-accent);
+  transform: translateX(-50%);
+  transition: width var(--transition-base);
+}
+
+.public-header-nav a:hover::after,
+.public-header-link-active::after {
+  width: 100%;
+}
+
+.public-header-link-active {
+  color: var(--color-accent-400) !important;
+}
+
+.public-header-cta {
+  background: rgb(var(--rgb-white) / 0.05);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  padding: 9px 20px;
+  font-size: var(--text-sm);
+  font-weight: 650;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.public-header-cta:hover {
+  border-color: rgb(var(--rgb-accent) / 0.5);
+  background: rgb(var(--rgb-accent) / 0.1);
+  color: var(--color-accent-400);
+  transform: translateY(-1px);
+}
+
+.public-main {
+  padding: var(--space-10) 0 var(--space-12);
+}
+
+@media (max-width: 600px) {
+  .public-header {
+    padding: var(--space-3) var(--space-4);
+    gap: var(--space-3);
+  }
+
+  .public-main {
+    padding: var(--space-6) 0 var(--space-10);
+  }
+}

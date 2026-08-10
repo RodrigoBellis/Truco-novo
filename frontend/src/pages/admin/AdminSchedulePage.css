@@ -1,0 +1,22 @@
+.admin-schedule-table {
+  min-width: 620px;
+}
+
+.admin-schedule-input {
+  background: rgb(var(--rgb-white) / 0.05);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  padding: 6px 8px;
+  font-size: var(--text-sm);
+  width: 90px;
+}
+
+.admin-schedule-input:focus {
+  outline: none;
+  border-color: var(--color-accent-500);
+}
+
+.admin-schedule-row-saving {
+  opacity: 0.6;
+}

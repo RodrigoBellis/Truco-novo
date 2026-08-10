@@ -1,0 +1,111 @@
+.player-home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.player-home-hero,
+.player-home-next,
+.player-home-status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.player-home-team-name {
+  font-size: var(--text-lg);
+  overflow-wrap: break-word;
+}
+
+.player-home-hero-tags {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-1);
+}
+
+.player-home-next-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.player-home-next-match {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.player-home-next-match strong {
+  font-size: 1rem;
+}
+
+.player-home-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-3);
+}
+
+.player-home-shortcut {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  transition: transform var(--transition-fast), border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.player-home-shortcut:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-accent-600);
+  background: var(--color-surface-hover);
+}
+
+.player-home-shortcut:active {
+  transform: translateY(0);
+}
+
+.player-home-shortcut-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: rgb(var(--rgb-accent) / 0.12);
+  color: var(--color-accent-400);
+  flex-shrink: 0;
+}
+
+.player-home-shortcut-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.player-home-shortcut-text strong {
+  font-size: var(--text-base);
+}
+
+.player-home-shortcut-text span {
+  font-size: var(--text-sm);
+}
+
+.player-home-shortcut-chevron {
+  color: var(--color-text-faint);
+  font-size: 1.3rem;
+  line-height: 1;
+  transition: transform var(--transition-fast), color var(--transition-fast);
+}
+
+.player-home-shortcut:hover .player-home-shortcut-chevron {
+  color: var(--color-accent-400);
+  transform: translateX(3px);
+}

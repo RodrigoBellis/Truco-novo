@@ -1,0 +1,226 @@
+.simulation-intro {
+  margin-bottom: var(--space-6);
+}
+
+.simulation-report {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.simulation-status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  text-align: center;
+  padding: var(--space-6);
+}
+
+.simulation-status-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-faint);
+}
+
+.simulation-status strong {
+  font-size: 1.5rem;
+  letter-spacing: 0.02em;
+}
+
+.simulation-status-ok strong {
+  color: var(--color-accent-400);
+}
+
+.simulation-status-fail {
+  border-color: rgb(var(--rgb-danger) / 0.4);
+}
+
+.simulation-status-fail strong {
+  color: var(--color-danger);
+}
+
+.simulation-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-4);
+}
+
+.simulation-metric {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.simulation-metric span {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.simulation-metric strong {
+  font-size: 1.6rem;
+  font-family: var(--font-display);
+}
+
+.simulation-metric small {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.simulation-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.simulation-columns h3,
+.simulation-report > .card h3 {
+  font-size: 0.98rem;
+  margin-bottom: var(--space-4);
+}
+
+.simulation-final {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.simulation-final > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.simulation-final > div:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.simulation-final dt {
+  font-size: 0.8rem;
+  color: var(--color-text-faint);
+}
+
+.simulation-final dd {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.simulation-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.simulation-group-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 0.86rem;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.simulation-group-list li > span:nth-child(2) {
+  flex: 1;
+  font-weight: 600;
+}
+
+.simulation-group-position {
+  font-weight: 800;
+  color: var(--color-accent-400);
+  min-width: 24px;
+}
+
+.simulation-checks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.simulation-checks li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.simulation-checks strong {
+  font-size: 0.88rem;
+}
+
+.simulation-checks p {
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+.simulation-check-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.simulation-check-ok .simulation-check-mark {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.simulation-check-aviso {
+  border-color: rgb(var(--rgb-accent) / 0.35);
+}
+
+.simulation-check-aviso .simulation-check-mark {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.simulation-check-erro {
+  border-color: rgb(var(--rgb-danger) / 0.4);
+}
+
+.simulation-check-erro .simulation-check-mark {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.simulation-issue-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: 0.84rem;
+}
+
+.simulation-issue-list li {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.simulation-issue-error li {
+  border-color: rgb(var(--rgb-danger) / 0.4);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.simulation-issue-warning li {
+  border-color: rgb(var(--rgb-accent) / 0.35);
+  background: var(--color-warning-bg);
+  color: var(--color-accent-300);
+}

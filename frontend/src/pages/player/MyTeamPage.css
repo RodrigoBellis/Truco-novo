@@ -1,0 +1,81 @@
+.my-team-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.my-team-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.2rem;
+  color: var(--color-accent-400);
+  flex-shrink: 0;
+}
+
+.my-team-avatar-sm {
+  width: 40px;
+  height: 40px;
+  font-size: 0.95rem;
+}
+
+.my-team-name {
+  font-size: 1.1rem;
+}
+
+.my-team-badges {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+}
+
+.my-team-players {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.my-team-player-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.my-team-stats h3 {
+  font-size: 0.98rem;
+  margin-bottom: var(--space-4);
+}
+
+.my-team-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+}
+
+.my-team-stats-grid span {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.my-team-stats-grid strong {
+  font-size: 1.3rem;
+  color: var(--color-accent-400);
+}
+
+@media (max-width: 480px) {
+  .my-team-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-5);
+  }
+}
