@@ -12,7 +12,7 @@ import { useFetchData } from "../../hooks/useFetchData";
 import { useToast } from "../../hooks/useToast";
 import { getTeams } from "../../services/teamsService";
 import { getMatches, recordMatchResult } from "../../services/matchesService";
-import { getBracket, generateBracket } from "../../services/bracketService";
+import { getBracket } from "../../services/bracketService";
 import { teamLabel } from "../../utils/teamHelpers";
 import { ApiError } from "../../services/api";
 
@@ -31,7 +31,6 @@ export function AdminBracketPage() {
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
 
   async function handleSubmit(matchId: string, result: MatchResult) {
     setIsSubmitting(true);
@@ -47,19 +46,6 @@ export function AdminBracketPage() {
     }
   }
 
-  async function handleGenerate() {
-    setIsGenerating(true);
-    try {
-      await generateBracket();
-      showToast("success", "Chave do mata-mata gerada com sucesso.");
-      refetch();
-    } catch (err) {
-      showToast("error", err instanceof ApiError ? err.message : "A fase de grupos ainda não foi concluída.");
-    } finally {
-      setIsGenerating(false);
-    }
-  }
-
   if (isLoading) return <Loading fullHeight label="Carregando mata-mata..." />;
   if (error || !data) return <EmptyState icon="⚠️" tone="danger" title="Não foi possível carregar o mata-mata" description={error ?? ""} />;
 
@@ -69,13 +55,8 @@ export function AdminBracketPage() {
         <PageHeader title="Mata-mata" subtitle="Chave eliminatória do campeonato" />
         <EmptyState
           icon="🏆"
-          title="Chave ainda não gerada"
-          description="A chave é montada automaticamente assim que a fase de grupos é concluída. Você também pode gerá-la manualmente."
-          action={
-            <Button isLoading={isGenerating} onClick={handleGenerate}>
-              Gerar mata-mata
-            </Button>
-          }
+          title="Aguardando regra da repescagem"
+          description="O 1º de cada grupo vai direto à semifinal e as posições 2º a 4º disputam a repescagem. Os cruzamentos entre Grupo A e Grupo B ainda precisam ser definidos pelo administrador antes de gerar a chave."
         />
       </div>
     );
@@ -84,7 +65,7 @@ export function AdminBracketPage() {
   const pendingMatches = data.matches.filter((m) => m.status === "pendente");
 
   return (
-    <div>
+    <div className="page-enter">
       <PageHeader title="Mata-mata" subtitle="Chave eliminatória do campeonato" />
 
       <Card className="bracket-card">

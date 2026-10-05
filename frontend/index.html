@@ -3,16 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover é o que faz env(safe-area-inset-*) reportar valores
+         reais no iPhone. Sem ele os insets vêm sempre 0, e o padding que o
+         bottom nav já reservava para a faixa inferior nunca era aplicado. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Truco do Novo — gestão de campeonatos de truco" />
     <title>Truco do Novo</title>
     <script>
       (function () {
         try {
           var theme = localStorage.getItem("truco-do-novo:theme");
-          document.documentElement.setAttribute("data-theme", theme === "light" ? "light" : "dark");
+          document.documentElement.setAttribute("data-theme", theme === "dark" ? "dark" : "light");
         } catch (e) {
-          document.documentElement.setAttribute("data-theme", "dark");
+          document.documentElement.setAttribute("data-theme", "light");
         }
       })();
     </script>

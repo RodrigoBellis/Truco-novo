@@ -12,9 +12,9 @@ function readStoredTheme(): Theme | null {
   }
 }
 
-/** Truco do Novo nasceu com identidade escura — sem preferência salva, mantemos o escuro. */
+/** Tema claro é o padrão do produto — sem preferência salva, usamos o claro. */
 function initialTheme(): Theme {
-  return readStoredTheme() ?? "dark";
+  return readStoredTheme() ?? "light";
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

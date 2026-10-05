@@ -17,6 +17,10 @@ export function TeamCard({ team, highlight = false }: TeamCardProps) {
         <strong>{team.name}</strong>
         <div className="team-card-badges">
           {team.groupId && <Badge tone="green">Grupo {team.groupId}</Badge>}
+          <Badge tone="gold" aria-label={`Força ${team.strength} de 5`}>
+            <span aria-hidden="true">{"★".repeat(team.strength)}</span>
+            <span className="team-card-strength-label">Força {team.strength}/5</span>
+          </Badge>
           {team.seeded && <Badge tone="gold">★ Cabeça de chave</Badge>}
           <Badge tone={team.status === "aprovada" ? "info" : "neutral"}>
             {team.status === "aprovada" ? "Aprovada" : "Pendente"}

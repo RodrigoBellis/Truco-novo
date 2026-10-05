@@ -1,6 +1,7 @@
 import type { BracketMatch, BracketRound, BracketSlotSource, Match, Team } from "@truco/shared";
 import { teamLabel } from "../../utils/teamHelpers";
 import { formatScore } from "../../utils/format";
+import { useValueChangePulse } from "../../hooks/useValueChangePulse";
 import "./BracketView.css";
 
 interface BracketViewProps {
@@ -16,6 +17,20 @@ const ROUND_LABELS: Record<BracketRound, string> = {
   semifinal: "Semifinal",
   final: "Final",
 };
+
+/** Componente próprio porque cada vaga precisa do seu próprio hook de pulso —
+ *  hooks não podem ser chamados dentro do map. */
+function BracketSlot({ name, won }: { name: string; won: boolean }) {
+  // A vaga passa de "A definir" para o nome de quem venceu: é o instante em
+  // que a dupla avança no mata-mata, e merece ser visto acontecendo.
+  const ref = useValueChangePulse<HTMLDivElement>(name, "rise");
+
+  return (
+    <div ref={ref} className={`bracket-slot${won ? " bracket-slot-winner" : ""}`}>
+      {name}
+    </div>
+  );
+}
 
 export function BracketView({ bracketMatches, matches, teams }: BracketViewProps) {
   function resolveName(slot: BracketSlotSource): string {
@@ -49,8 +64,8 @@ export function BracketView({ bracketMatches, matches, teams }: BracketViewProps
 
                 return (
                   <div key={bracketMatch.id} className="bracket-match">
-                    <div className={`bracket-slot${aWon ? " bracket-slot-winner" : ""}`}>{nameA}</div>
-                    <div className={`bracket-slot${bWon ? " bracket-slot-winner" : ""}`}>{nameB}</div>
+                    <BracketSlot name={nameA} won={Boolean(aWon)} />
+                    <BracketSlot name={nameB} won={Boolean(bWon)} />
                     <div className="bracket-score">{match ? formatScore(match.result) : "—"}</div>
                   </div>
                 );

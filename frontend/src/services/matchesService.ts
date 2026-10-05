@@ -19,3 +19,17 @@ export function getMatches(filters: MatchFilters = {}): Promise<Match[]> {
 export function recordMatchResult(matchId: string, result: MatchResult): Promise<Match> {
   return apiRequest<Match>(`/matches/${matchId}/result`, { method: "POST", body: result });
 }
+
+export interface MatchResultAuditEntry {
+  id: string;
+  matchId: string | null;
+  actorId: string | null;
+  actorName: string;
+  action: string;
+  createdAt: string;
+  metadata: { previous?: MatchResult | null; next?: MatchResult };
+}
+
+export function getMatchResultAudit(): Promise<MatchResultAuditEntry[]> {
+  return apiRequest<MatchResultAuditEntry[]>("/matches/audit");
+}

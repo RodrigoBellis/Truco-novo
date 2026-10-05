@@ -23,6 +23,39 @@ body {
      virar `auto` e transforma o body num container de rolagem de altura fixa —
      a página inteira para de rolar. `clip` corta no eixo X sem criar esse container. */
   overflow-x: clip;
+  /* Impede que a rolagem "vaze" para o navegador ao chegar no fim da página —
+     é o que dispara o pull-to-refresh acidental e o efeito elástico no meio
+     de uma lista de jogos. */
+  overscroll-behavior-y: none;
+}
+
+/* ---------- Toque ----------
+   Regras que só valem em tela sensível ao toque. Ficam juntas de propósito:
+   é a diferença entre uma interface que responde ao dedo e uma versão de
+   desktop espremida. */
+
+/* O Android desenha um retângulo cinza sobre qualquer elemento tocado. Ele
+   aparece ANTES do nosso próprio feedback e denuncia a caixa de clique, que
+   raramente coincide com a forma visível do card. Desligamos e assumimos o
+   feedback — cada elemento interativo tem seu :active. */
+a,
+button,
+[role="button"],
+input,
+select,
+textarea,
+label {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (pointer: coarse) {
+  /* Abaixo de 16px o Safari do iPhone dá zoom ao focar o campo, e a página
+     fica torta até o usuário sair dele. `max()` preserva campos maiores. */
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
 }
 
 /* Brilho ambiente fixo no topo — dá profundidade sem custar repaint na rolagem */
@@ -140,13 +173,15 @@ input, select, textarea {
   gap: var(--space-4);
 }
 
-/* Painel de vidro — a textura base da interface */
+/* Painel de vidro — plano 3, reservado a superfícies que FLUTUAM sobre
+   conteúdo rolável (topbar, nav, modal, sheet). Não use em item de lista:
+   o blur por item é o que custa caro na rolagem. Para conteúdo, use .card. */
 .glass {
-  background: var(--glass-bg);
+  background: var(--elev-3-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-md), var(--edge-light);
+  border: 1px solid var(--elev-3-border);
+  box-shadow: var(--elev-3-shadow), var(--edge-light);
 }
 
 .section-title {
@@ -260,16 +295,39 @@ input, select, textarea {
   to { opacity: 1; transform: perspective(900px) rotateY(0) translateY(0); }
 }
 
-@keyframes glow-pulse {
-  0%, 100% { box-shadow: var(--shadow-lg), 0 0 0 0 rgb(var(--rgb-accent) / 0.3); }
-  50% { box-shadow: var(--shadow-lg), 0 0 28px 4px rgb(var(--rgb-accent) / 0.18); }
+/* Halo pulsante do campeão.
+   Anima `opacity` de um pseudo-elemento em vez de `box-shadow`: box-shadow
+   não é propriedade compositável, então animá-la em loop infinito repinta a
+   cada frame enquanto a tela estiver aberta. Com opacity o efeito é idêntico
+   e roda inteiro na GPU.
+   Requer `position: relative` no elemento (e que ele não corte overflow). */
+.halo-pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 28px 4px rgb(var(--rgb-accent) / 0.22);
+  opacity: 0;
+  animation: halo-breathe 3.6s ease-in-out 1.2s infinite;
+}
+
+@keyframes halo-breathe {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+
+/* Entrada de página inteira: aplique na div raiz de cada tela para um fade+slide
+   suave ao navegar entre rotas. Independente de .stagger, que cuida dos filhos. */
+.page-enter {
+  animation: slide-up var(--motion-enter) both;
 }
 
 /* Entrada em cascata: aplique .stagger no container e os filhos entram em sequência.
-   O :nth-child eleva a especificidade acima do `animation` próprio de .card,
-   cujo CSS é importado depois deste arquivo. */
-.stagger > *:nth-child(n) {
-  animation: slide-up var(--transition-slow) var(--ease-out) both;
+   O hack de especificidade com :nth-child(n) saiu junto com o `animation`
+   incondicional de .card — agora não há mais concorrência para vencer. */
+.stagger > * {
+  animation: slide-up var(--motion-enter) both;
 }
 
 .stagger > *:nth-child(1) { animation-delay: 40ms; }
@@ -280,6 +338,89 @@ input, select, textarea {
 .stagger > *:nth-child(6) { animation-delay: 290ms; }
 .stagger > *:nth-child(7) { animation-delay: 340ms; }
 .stagger > *:nth-child(n + 8) { animation-delay: 390ms; }
+
+/* Rastro de quem mudou de posição — aplicado por useFlipReorder.
+   O deslize já mostra QUE a linha se moveu; a cor diz se foi ganho ou perda,
+   que é o que interessa numa classificação. Um pulso só, e some: brilho
+   permanente viraria ruído numa tabela que atualiza o tempo todo. */
+/* Sem `both` de propósito: com fill, o quadro final (transparent) ficaria
+   retido e apagaria o realce de .standings-row-mine até a classe sair. */
+.flip-moved-up {
+  animation: flip-flash-up 900ms var(--ease-out);
+}
+
+.flip-moved-down {
+  animation: flip-flash-down 900ms var(--ease-out);
+}
+
+@keyframes flip-flash-up {
+  0%, 30% { background-color: rgb(var(--rgb-success) / 0.16); }
+  100% { background-color: transparent; }
+}
+
+@keyframes flip-flash-down {
+  0%, 30% { background-color: rgb(var(--rgb-danger) / 0.12); }
+  100% { background-color: transparent; }
+}
+
+/* ---------- Transições entre telas (View Transitions API) ----------
+   Nativa do navegador: 0 KB de bundle. Onde não houver suporte, o React
+   Router navega direto e nada quebra — por isso tudo mora num @supports.
+
+   Só o CONTEÚDO faz a travessia. A moldura (sidebar, bottom nav, topbar)
+   fica parada: cortar a animação de `root` é o que impede o chrome inteiro
+   de piscar a cada navegação, que é o erro clássico dessa API. */
+@supports (view-transition-name: none) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+
+  /* Os dois nunca coexistem — são layouts distintos —, então o nome
+     continua único em qualquer momento, como a API exige. */
+  .app-shell-content,
+  .public-main {
+    view-transition-name: page-content;
+  }
+
+  ::view-transition-old(page-content) {
+    animation: vt-content-out var(--motion-exit) both;
+  }
+
+  ::view-transition-new(page-content) {
+    animation: vt-content-in var(--motion-enter) both;
+  }
+
+  /* Com a travessia ativa, .page-enter animaria a mesma entrada uma
+     segunda vez, por dentro do snapshot — o deslize sairia dobrado.
+     Na primeira pintura não há transição, e aí quem faz a entrada é o
+     .stagger dos filhos, que continua valendo. */
+  .page-enter {
+    animation: none;
+  }
+}
+
+/* A saída sobe de leve e a entrada vem de baixo: dá direção à navegação
+   em vez de um corte seco. Deslocamento pequeno de propósito — é uma troca
+   frequente, e movimento grande em tarefa frequente cansa. */
+@keyframes vt-content-out {
+  to { opacity: 0; transform: translateY(-6px); }
+}
+
+@keyframes vt-content-in {
+  from { opacity: 0; transform: translateY(10px); }
+}
+
+/* O bloco geral de reduced-motion abaixo usa o seletor `*`, que NÃO alcança
+   os pseudo-elementos de view transition — eles precisam ser desligados aqui. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(page-content),
+  ::view-transition-new(page-content),
+  ::view-transition-old(nav-indicator),
+  ::view-transition-new(nav-indicator) {
+    animation: none;
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

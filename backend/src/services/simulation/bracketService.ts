@@ -80,6 +80,7 @@ export function resolveBracketProgression(): void {
 
     const match: Match = {
       id: nextId("match"),
+      championshipId: "simulation",
       stage: "mata-mata",
       round: roundLabel[bracketMatch.round],
       order: bracketMatch.order,

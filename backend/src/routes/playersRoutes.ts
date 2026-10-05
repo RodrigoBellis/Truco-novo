@@ -1,10 +1,24 @@
 import { Router } from "express";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { store } from "../data/store.js";
-import { requireAuth } from "../middleware/requireAuth.js";
+import { requireAuth, requireRole } from "../middleware/requireAuth.js";
 import { AvatarError, uploadPlayerAvatar } from "../services/avatarService.js";
 
 export const playersRoutes = Router();
+
+playersRoutes.post(
+  "/",
+  requireAuth,
+  requireRole("admin", "superadmin"),
+  asyncHandler(async (req, res) => {
+    const name = req.body?.name;
+    if (typeof name !== "string" || !name.trim()) {
+      res.status(400).json({ message: "Informe o nome do jogador." });
+      return;
+    }
+    res.status(201).json(await store.createPlayer(name));
+  }),
+);
 
 /**
  * Público — a tela de login precisa listar os jogadores antes de existir sessão.

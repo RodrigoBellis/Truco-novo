@@ -1,8 +1,10 @@
 :root {
   /* ============================================================
-     TRUCO DO NOVO — paleta "Mesa Noturna"
-     Grafite azulado como base, âmbar como acento de campeonato e
-     um índigo frio para o toque tecnológico. O verde-mesa saiu.
+     TRUCO DO NOVO — paleta "Mesa Clara" (padrão)
+     Produto premium claro: base branca/quase branca, preto/cinza-escuro
+     como cor dominante de texto e superfícies, e os acentos de campeonato
+     (âmbar) + tecnológico (índigo) usados só em detalhes pontuais —
+     badge, ícone, borda fina, estado ativo. Nunca como fundo grande.
      ============================================================ */
 
   /* --- Canais RGB: permitem compor alpha sem hardcode ---------
@@ -10,63 +12,89 @@
   --rgb-accent: 245 166 35;
   --rgb-accent-hi: 255 197 92;
   --rgb-tech: 99 140 255;
-  --rgb-success: 52 211 153;
-  --rgb-danger: 251 91 91;
-  --rgb-info: 56 189 248;
-  --rgb-white: 255 255 255;
+  --rgb-success: 22 163 116;
+  --rgb-danger: 220 38 38;
+  --rgb-info: 14 116 190;
+  /* --rgb-white é o canal usado para overlays sutis (hover/borda/vidro).
+     No tema claro ele escurece a cena em vez de clarear. */
+  --rgb-white: 15 18 28;
   --rgb-void: 4 6 11;
 
-  /* --- Superfícies (grafite / preto azulado) ----------------- */
-  --color-bg: #080a10;
-  --color-bg-elevated: #0f1219;
-  --color-surface: #151925;
-  --color-surface-hover: #1c2130;
-  --color-surface-alt: #0b0e15;
-  --color-border: rgb(var(--rgb-white) / 0.07);
-  --color-border-strong: rgb(var(--rgb-white) / 0.14);
+  /* --- Superfícies (branco / cinza muito claro) --------------- */
+  --color-bg: #f7f7f5;
+  --color-bg-elevated: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f1f1ee;
+  --color-surface-alt: #eeeeea;
+  --color-border: rgb(15 18 28 / 0.09);
+  --color-border-strong: rgb(15 18 28 / 0.16);
 
-  /* --- Âmbar / dourado: o acento do campeonato --------------- */
+  /* --- Âmbar / dourado: acento de campeonato — só detalhes ---- */
   --color-accent-300: #ffdb96;
-  --color-accent-400: #ffc55c;
-  --color-accent-500: #f5a623;
-  --color-accent-600: #d4881a;
-  --color-accent-700: #96600f;
+  --color-accent-400: #e8940f;
+  --color-accent-500: #c67a0a;
+  --color-accent-600: #a4630a;
+  --color-accent-700: #7a4a08;
   --color-on-accent: #1a1204;
 
-  /* --- Índigo: acento frio, dá a leitura "plataforma" -------- */
-  --color-tech-400: #8fadff;
-  --color-tech-500: #638cff;
-  --color-tech-600: #4361d9;
+  /* --- Índigo: acento tecnológico — só detalhes --------------- */
+  --color-tech-400: #4a68d1;
+  --color-tech-500: #3b56c4;
+  --color-tech-600: #2f45a0;
 
-  /* --- Texto ------------------------------------------------- */
-  --color-text: #eef0f6;
-  --color-text-muted: #98a1b8;
-  --color-text-faint: #646d85;
+  /* --- Texto: preto/cinza-escuro é a cor dominante ------------ */
+  --color-text: #0f1218;
+  --color-text-muted: #4b5165;
+  --color-text-faint: #7d8296;
 
   /* --- Estados ----------------------------------------------- */
-  --color-danger: #fb5b5b;
-  --color-danger-bg: rgb(var(--rgb-danger) / 0.12);
-  --color-success: #34d399;
-  --color-success-bg: rgb(var(--rgb-success) / 0.12);
-  --color-warning: #f5a623;
+  --color-danger: #dc2626;
+  --color-danger-bg: rgb(var(--rgb-danger) / 0.1);
+  --color-success: #16a374;
+  --color-success-bg: rgb(var(--rgb-success) / 0.1);
+  --color-warning: #c67a0a;
   --color-warning-bg: rgb(var(--rgb-accent) / 0.12);
-  --color-info: #38bdf8;
-  --color-info-bg: rgb(var(--rgb-info) / 0.12);
+  --color-info: #0e74be;
+  --color-info-bg: rgb(var(--rgb-info) / 0.1);
 
-  /* --- Gradientes -------------------------------------------- */
+  /* --- Gradientes (discretos no claro) ------------------------ */
   --gradient-accent: linear-gradient(135deg, var(--color-accent-400), var(--color-accent-600));
-  --gradient-surface: linear-gradient(160deg, rgb(var(--rgb-white) / 0.05), rgb(var(--rgb-white) / 0.01));
+  --gradient-surface: linear-gradient(160deg, rgb(15 18 28 / 0.035), rgb(15 18 28 / 0.005));
   --gradient-tech: linear-gradient(135deg, var(--color-tech-400), var(--color-tech-600));
-  /* Brilho ambiente do topo da página */
+  /* Brilho ambiente do topo da página — bem sutil no claro */
   --gradient-ambient:
-    radial-gradient(60% 42% at 18% -8%, rgb(var(--rgb-tech) / 0.16), transparent 70%),
-    radial-gradient(52% 38% at 88% -4%, rgb(var(--rgb-accent) / 0.12), transparent 72%);
+    radial-gradient(60% 42% at 18% -8%, rgb(var(--rgb-tech) / 0.07), transparent 70%),
+    radial-gradient(52% 38% at 88% -4%, rgb(var(--rgb-accent) / 0.08), transparent 72%);
 
   /* --- Glassmorphism discreto -------------------------------- */
-  --glass-bg: rgb(21 25 37 / 0.72);
-  --glass-bg-strong: rgb(15 18 25 / 0.86);
-  --glass-border: rgb(var(--rgb-white) / 0.09);
+  --glass-bg: rgb(255 255 255 / 0.78);
+  --glass-bg-strong: rgb(255 255 255 / 0.92);
+  --glass-border: rgb(15 18 28 / 0.08);
   --glass-blur: saturate(150%) blur(16px);
+
+  /* --- Elevação: 4 planos de profundidade ---------------------
+     Regra: `--glass-blur` é EXCLUSIVO do plano 3 — superfícies que
+     realmente flutuam sobre conteúdo rolável (topbar, bottom nav,
+     sidebar, modal, sheet). Em plano 1/2 cada elemento vira uma
+     camada de composição própria; numa lista de 20 jogos isso
+     derruba frames no celular. Planos 1 e 2 entregam o mesmo volume
+     com superfície sólida + véu de gradiente, a custo ~zero.
+
+       0  fundo da página          — sem caixa
+       1  superfície de conteúdo   — item de lista, linha, painel
+       2  card interativo/destaque — clicável, em foco
+       3  flutuante                — sobrepõe conteúdo (único com blur)  */
+  --elev-1-bg: var(--color-surface);
+  --elev-1-border: var(--color-border);
+  --elev-1-shadow: var(--shadow-sm);
+
+  --elev-2-bg: var(--color-bg-elevated);
+  --elev-2-border: var(--color-border-strong);
+  --elev-2-shadow: var(--shadow-md);
+
+  --elev-3-bg: var(--glass-bg-strong);
+  --elev-3-border: var(--glass-border);
+  --elev-3-shadow: var(--shadow-lg);
 
   /* --- Tipografia -------------------------------------------- */
   --font-sans: "Inter", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -92,26 +120,26 @@
   --radius-xl: 26px;
   --radius-full: 999px;
 
-  /* --- Sombras em camadas (profundidade real) ---------------- */
-  --shadow-sm: 0 1px 2px rgb(var(--rgb-void) / 0.5);
+  /* --- Sombras em camadas: suaves e rasas no claro ------------ */
+  --shadow-sm: 0 1px 2px rgb(15 18 28 / 0.05);
   --shadow-md:
-    0 2px 4px rgb(var(--rgb-void) / 0.4),
-    0 8px 20px -6px rgb(var(--rgb-void) / 0.55);
+    0 2px 4px rgb(15 18 28 / 0.04),
+    0 8px 20px -6px rgb(15 18 28 / 0.09);
   --shadow-lg:
-    0 4px 8px rgb(var(--rgb-void) / 0.45),
-    0 20px 48px -12px rgb(var(--rgb-void) / 0.7);
+    0 4px 8px rgb(15 18 28 / 0.05),
+    0 20px 48px -12px rgb(15 18 28 / 0.13);
   --shadow-xl:
-    0 8px 16px rgb(var(--rgb-void) / 0.5),
-    0 32px 72px -16px rgb(var(--rgb-void) / 0.8);
+    0 8px 16px rgb(15 18 28 / 0.06),
+    0 32px 72px -16px rgb(15 18 28 / 0.16);
   /* Halo do acento — usado em foco, campeão e card ativo */
   --shadow-accent:
-    0 0 0 1px rgb(var(--rgb-accent) / 0.4),
-    0 10px 36px -10px rgb(var(--rgb-accent) / 0.42);
+    0 0 0 1px rgb(var(--rgb-accent) / 0.35),
+    0 10px 30px -12px rgb(var(--rgb-accent) / 0.3);
   --shadow-tech:
-    0 0 0 1px rgb(var(--rgb-tech) / 0.4),
-    0 10px 36px -10px rgb(var(--rgb-tech) / 0.4);
-  /* Luz superior de 1px que dá o acabamento "premium" nos cards */
-  --edge-light: inset 0 1px 0 rgb(var(--rgb-white) / 0.07);
+    0 0 0 1px rgb(var(--rgb-tech) / 0.35),
+    0 10px 30px -12px rgb(var(--rgb-tech) / 0.28);
+  /* Luz superior de 1px — no claro vira uma sombra quase imperceptível */
+  --edge-light: inset 0 1px 0 rgb(255 255 255 / 0.6);
 
   /* --- Espaçamento ------------------------------------------- */
   --space-1: 4px;
@@ -142,50 +170,105 @@
   --transition-slow: 460ms cubic-bezier(0.4, 0, 0.2, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+
+  /* --- Motion por intenção ------------------------------------
+     Escolha pelo QUE o movimento comunica, não pela duração. Isso
+     mantém o ritmo coerente entre telas e evita o efeito "cada
+     componente anima do seu jeito".
+
+       micro  feedback imediato de toque/hover — precisa ser quase
+              instantâneo, senão a interface parece atrasada
+       enter  conteúdo entrando em cena
+       move   algo mudando de lugar (reordenar classificação, avançar
+              chaveamento) — spring, porque o peso é o recado
+       exit   saída: mais rápida que a entrada, e sem spring         */
+  --motion-micro: 120ms var(--ease-out);
+  --motion-enter: 320ms var(--ease-out);
+  --motion-move: 420ms var(--ease-spring);
+  --motion-exit: 160ms var(--ease-in);
 }
 
 /* ================================================================
-   Tema claro — mesmos tokens, superfícies e texto invertidos.
-   Acento âmbar, índigo e cores de estado seguem iguais nos dois temas.
+   Tema escuro — disponível via ThemeToggle, não é mais o padrão.
+   "Mesa Noturna": grafite azulado, âmbar de campeonato, índigo frio.
    ================================================================ */
-:root[data-theme="light"] {
-  /* Overlays sutis (hover/borda/vidro) escurecem em vez de clarear no fundo claro.
-     --rgb-void continua escuro de propósito: sombras e o fundo de modais precisam
-     escurecer a cena nos dois temas, não inverter. */
-  --rgb-white: 15 18 28;
+:root[data-theme="dark"] {
+  --rgb-accent-hi: 255 197 92;
+  --rgb-success: 52 211 153;
+  --rgb-danger: 251 91 91;
+  --rgb-info: 56 189 248;
+  --rgb-white: 255 255 255;
 
-  --color-bg: #f4f5f9;
-  --color-bg-elevated: #ffffff;
-  --color-surface: #ffffff;
-  --color-surface-hover: #eef0f6;
-  --color-surface-alt: #eaecf3;
-  --color-border: rgb(15 18 28 / 0.09);
-  --color-border-strong: rgb(15 18 28 / 0.16);
+  --color-bg: #080a10;
+  --color-bg-elevated: #0f1219;
+  --color-surface: #151925;
+  --color-surface-hover: #1c2130;
+  --color-surface-alt: #0b0e15;
+  --color-border: rgb(var(--rgb-white) / 0.07);
+  --color-border-strong: rgb(var(--rgb-white) / 0.14);
 
+  --color-accent-300: #ffdb96;
+  --color-accent-400: #ffc55c;
+  --color-accent-500: #f5a623;
+  --color-accent-600: #d4881a;
+  --color-accent-700: #96600f;
   --color-on-accent: #1a1204;
 
-  --color-text: #171a24;
-  --color-text-muted: #565f78;
-  --color-text-faint: #848da6;
+  --color-tech-400: #8fadff;
+  --color-tech-500: #638cff;
+  --color-tech-600: #4361d9;
 
-  --gradient-surface: linear-gradient(160deg, rgb(15 18 28 / 0.04), rgb(15 18 28 / 0.01));
+  --color-text: #eef0f6;
+  --color-text-muted: #98a1b8;
+  --color-text-faint: #646d85;
+
+  --color-danger: #fb5b5b;
+  --color-danger-bg: rgb(var(--rgb-danger) / 0.12);
+  --color-success: #34d399;
+  --color-success-bg: rgb(var(--rgb-success) / 0.12);
+  --color-warning: #f5a623;
+  --color-warning-bg: rgb(var(--rgb-accent) / 0.12);
+  --color-info: #38bdf8;
+  --color-info-bg: rgb(var(--rgb-info) / 0.12);
+
+  --gradient-surface: linear-gradient(160deg, rgb(var(--rgb-white) / 0.05), rgb(var(--rgb-white) / 0.01));
   --gradient-ambient:
-    radial-gradient(60% 42% at 18% -8%, rgb(var(--rgb-tech) / 0.10), transparent 70%),
-    radial-gradient(52% 38% at 88% -4%, rgb(var(--rgb-accent) / 0.10), transparent 72%);
+    radial-gradient(60% 42% at 18% -8%, rgb(var(--rgb-tech) / 0.16), transparent 70%),
+    radial-gradient(52% 38% at 88% -4%, rgb(var(--rgb-accent) / 0.12), transparent 72%);
 
-  --glass-bg: rgb(255 255 255 / 0.72);
-  --glass-bg-strong: rgb(255 255 255 / 0.88);
-  --glass-border: rgb(15 18 28 / 0.08);
+  --glass-bg: rgb(21 25 37 / 0.72);
+  --glass-bg-strong: rgb(15 18 25 / 0.86);
+  --glass-border: rgb(var(--rgb-white) / 0.09);
 
-  --shadow-sm: 0 1px 2px rgb(15 18 28 / 0.06);
+  --shadow-sm: 0 1px 2px rgb(var(--rgb-void) / 0.5);
   --shadow-md:
-    0 2px 4px rgb(15 18 28 / 0.05),
-    0 8px 20px -6px rgb(15 18 28 / 0.1);
+    0 2px 4px rgb(var(--rgb-void) / 0.4),
+    0 8px 20px -6px rgb(var(--rgb-void) / 0.55);
   --shadow-lg:
-    0 4px 8px rgb(15 18 28 / 0.06),
-    0 20px 48px -12px rgb(15 18 28 / 0.14);
+    0 4px 8px rgb(var(--rgb-void) / 0.45),
+    0 20px 48px -12px rgb(var(--rgb-void) / 0.7);
   --shadow-xl:
-    0 8px 16px rgb(15 18 28 / 0.07),
-    0 32px 72px -16px rgb(15 18 28 / 0.16);
-  --edge-light: inset 0 1px 0 rgb(255 255 255 / 0.6);
+    0 8px 16px rgb(var(--rgb-void) / 0.5),
+    0 32px 72px -16px rgb(var(--rgb-void) / 0.8);
+  --shadow-accent:
+    0 0 0 1px rgb(var(--rgb-accent) / 0.4),
+    0 10px 36px -10px rgb(var(--rgb-accent) / 0.42);
+  --shadow-tech:
+    0 0 0 1px rgb(var(--rgb-tech) / 0.4),
+    0 10px 36px -10px rgb(var(--rgb-tech) / 0.4);
+  --edge-light: inset 0 1px 0 rgb(var(--rgb-white) / 0.07);
+
+  /* No escuro a hierarquia se inverte: elevar é CLAREAR, e aqui
+     --color-surface é mais claro que --color-bg-elevated. Sem esta
+     troca o plano 2 ficaria mais escuro que o plano 1. */
+  --elev-1-bg: var(--color-bg-elevated);
+  --elev-2-bg: var(--color-surface);
+}
+
+/* Compatibilidade: caso algum seletor explícito :root[data-theme="light"]
+   permaneça referenciado em algum lugar, ele aponta para o mesmo conjunto
+   de tokens do :root (claro é o padrão agora). */
+:root[data-theme="light"] {
+  --rgb-white: 15 18 28;
 }

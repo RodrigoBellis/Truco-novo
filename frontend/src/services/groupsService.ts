@@ -8,3 +8,7 @@ export function getGroups(): Promise<Group[]> {
 export function getStandings(groupId: GroupId): Promise<StandingRow[]> {
   return apiRequest<StandingRow[]>(`/groups/${groupId}/standings`);
 }
+
+export function generateGroupFixtures(): Promise<{ matchesCreated: number }> {
+  return apiRequest<{ matchesCreated: number }>("/groups/generate-matches", { method: "POST" });
+}

@@ -14,7 +14,11 @@ export function PublicLayout() {
           <Logo size={32} />
         </Link>
         <nav className="public-header-nav">
-          <NavLink to="/hall-da-fama" className={({ isActive }) => (isActive ? "public-header-link-active" : "")}>
+          <NavLink
+            to="/hall-da-fama"
+            viewTransition
+            className={({ isActive }) => (isActive ? "public-header-link-active" : "")}
+          >
             Hall da Fama
           </NavLink>
         </nav>

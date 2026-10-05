@@ -36,14 +36,14 @@ export function StandingsPage() {
     return (
       <div>
         <PageHeader title="Classificação" />
-        <EmptyState icon="🎲" title="Sorteio ainda não realizado" description="A classificação será exibida assim que os grupos forem definidos." />
+        <EmptyState icon="♠" title="Grupos ainda não definidos" description="A classificação aparece assim que o administrador definir os grupos." />
       </div>
     );
   }
 
   return (
-    <div>
-      <PageHeader title="Classificação" subtitle="1º colocado avança direto à semifinal · 2º ao 5º disputam o mata-mata · 6º é eliminado" />
+    <div className="page-enter">
+      <PageHeader title="Classificação" subtitle="1º vai direto à semifinal · 2º ao 4º disputam a repescagem · 5º é eliminado" />
 
       <div className="standings-page-groups">
         <section>

@@ -1,13 +1,18 @@
+/* Plano 1 (conteúdo). Sem backdrop-filter de propósito: o card é o tijolo
+   das listas de jogos/duplas, e blur por item transforma cada card numa
+   camada de composição — é o que travava a rolagem no celular. O volume
+   vem do véu de gradiente em ::before + sombra.
+   Sem `animation` aqui também de propósito: entrada é responsabilidade de
+   quem monta a lista (.stagger) ou da página (.page-enter). Animar todo
+   card faz a lista inteira re-animar a cada recarga de dados, o que lê
+   como flicker, não como polimento. */
 .card {
   position: relative;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+  background: var(--elev-1-bg);
+  border: 1px solid var(--elev-1-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md), var(--edge-light);
+  box-shadow: var(--elev-1-shadow), var(--edge-light);
   padding: var(--space-5);
-  animation: slide-up var(--transition-base) var(--ease-out);
   overflow: hidden;
 }
 
@@ -57,12 +62,17 @@
   pointer-events: none;
 }
 
+/* Clicável já nasce no plano 2: ele se destaca do conteúdo estático em
+   volta mesmo parado, sem depender de hover — que no celular não existe. */
 .card-interactive {
   cursor: pointer;
+  background: var(--elev-2-bg);
+  border-color: var(--elev-2-border);
+  box-shadow: var(--elev-2-shadow), var(--edge-light);
   transition:
-    transform var(--transition-base),
-    border-color var(--transition-base),
-    box-shadow var(--transition-base);
+    transform var(--motion-micro),
+    border-color var(--motion-micro),
+    box-shadow var(--motion-micro);
 }
 
 .card-interactive:hover {
@@ -71,8 +81,11 @@
   box-shadow: var(--shadow-lg), var(--edge-light);
 }
 
+/* Feedback de toque: no celular o dedo cobre o card, então afundar lê
+   melhor que levantar. */
 .card-interactive:active {
-  transform: translateY(-1px);
+  transform: scale(0.985);
+  transition-duration: 80ms;
 }
 
 .card-compact {

@@ -47,10 +47,10 @@ export function ProfilePage() {
   }
 
   return (
-    <div>
+    <div className="page-enter">
       <PageHeader title="Perfil" subtitle="Suas informações no Truco do Novo" />
 
-      <Card className="profile-card">
+      <Card className="profile-card" accent="gold">
         <button
           type="button"
           className="profile-avatar-button"

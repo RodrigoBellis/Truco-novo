@@ -14,10 +14,23 @@ interface ScoreFormProps {
   teamBName: string;
   onSubmit: (result: MatchResult) => void;
   isSubmitting?: boolean;
+  /** Resultado já salvo — quando presente, o formulário abre em modo de correção. */
+  currentResult?: MatchResult | null;
+  onCancel?: () => void;
 }
 
-export function ScoreForm({ teamAName, teamBName, onSubmit, isSubmitting = false }: ScoreFormProps) {
-  const [selected, setSelected] = useState<MatchResult | null>(null);
+export function ScoreForm({
+  teamAName,
+  teamBName,
+  onSubmit,
+  isSubmitting = false,
+  currentResult = null,
+  onCancel,
+}: ScoreFormProps) {
+  const [selected, setSelected] = useState<MatchResult | null>(currentResult);
+  const isEditing = currentResult !== null;
+  const isUnchanged =
+    isEditing && selected?.setsA === currentResult.setsA && selected?.setsB === currentResult.setsB;
 
   return (
     <div className="score-form">
@@ -40,14 +53,22 @@ export function ScoreForm({ teamAName, teamBName, onSubmit, isSubmitting = false
           );
         })}
       </div>
-      <button
-        type="button"
-        className="score-form-submit"
-        disabled={!selected || isSubmitting}
-        onClick={() => selected && onSubmit(selected)}
-      >
-        {isSubmitting ? "Salvando..." : "Confirmar resultado"}
-      </button>
+      <div className="score-form-actions">
+        {onCancel && (
+          <button type="button" className="score-form-cancel" onClick={onCancel} disabled={isSubmitting}>
+            Cancelar
+          </button>
+        )}
+        <button
+          type="button"
+          className="score-form-submit"
+          disabled={!selected || isSubmitting || isUnchanged}
+          onClick={() => selected && onSubmit(selected)}
+        >
+          {isSubmitting ? "Salvando..." : isEditing ? "Salvar correção" : "Confirmar resultado"}
+        </button>
+      </div>
+      {isUnchanged && <p className="score-form-hint text-faint">Selecione um placar diferente para corrigir.</p>}
     </div>
   );
 }

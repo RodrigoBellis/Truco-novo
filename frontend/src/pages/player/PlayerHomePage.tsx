@@ -69,29 +69,28 @@ export function PlayerHomePage() {
   const opponentName = queueStatus.opponentTeamId ? teamLabel(teams, queueStatus.opponentTeamId) : null;
 
   return (
-    <div>
+    <div className="page-enter">
       <PageHeader
         title={`Olá, ${user?.name}!`}
         subtitle={`${dashboard.currentPhase} · Truco do Novo`}
       />
 
-      <div className="player-home-grid stagger">
-        <AnimatedBorderCard>
-          <Card accent="gold" className="player-home-hero">
-            <span className="text-faint">Minha dupla</span>
-            <strong className="player-home-team-name">{myTeam ? myTeam.name : "Aguardando confirmação"}</strong>
-            <div className="player-home-hero-tags">
-              {myTeam?.groupId && <Badge tone="green">Grupo {myTeam.groupId}</Badge>}
-              {myTeam?.seeded && <Badge tone="gold">★ Cabeça de chave</Badge>}
-              {myPosition && <Badge tone="info">{myPosition}º colocado no grupo</Badge>}
-            </div>
-          </Card>
-        </AnimatedBorderCard>
+      <AnimatedBorderCard className="player-home-hero-wrap">
+        <Card accent="gold" className="player-home-hero">
+          <span className="player-home-hero-suits" aria-hidden="true">♠ ♥ ♦ ♣</span>
+          <span className="eyebrow">Minha dupla</span>
+          <strong className="player-home-team-name">{myTeam ? myTeam.name : "Aguardando confirmação"}</strong>
+          <div className="player-home-hero-tags">
+            {myTeam?.groupId && <Badge tone="green">Grupo {myTeam.groupId}</Badge>}
+            {myTeam?.seeded && <Badge tone="gold">★ Cabeça de chave</Badge>}
+            {myPosition && <Badge tone="info">{myPosition}º colocado no grupo</Badge>}
+          </div>
 
-        <AnimatedBorderCard>
-          <Card className="player-home-next">
-            <div className="player-home-next-top">
-              <span className="text-faint">Sua fila</span>
+          <div className="player-home-hero-divider" />
+
+          <div className="player-home-hero-next">
+            <div className="player-home-hero-next-top">
+              <span className="eyebrow">Sua fila</span>
               <Badge tone={STATUS_TONE[queueStatus.status]}>{STATUS_LABEL[queueStatus.status]}</Badge>
             </div>
             {queueStatus.status === "finalizado" ? (
@@ -110,16 +109,16 @@ export function PlayerHomePage() {
             ) : (
               <p className="text-muted">Nenhum jogo pendente no momento.</p>
             )}
-          </Card>
-        </AnimatedBorderCard>
+          </div>
+        </Card>
+      </AnimatedBorderCard>
 
-        {dashboard.drawStatus === "pendente" && (
-          <Card accent="none" className="player-home-status">
-            <span className="text-faint">Status do campeonato</span>
-            <p className="text-muted">O sorteio dos grupos ainda não foi realizado. Aguarde a confirmação do administrador.</p>
-          </Card>
-        )}
-      </div>
+      {dashboard.drawStatus === "pendente" && (
+        <Card accent="none" className="player-home-status">
+          <span className="eyebrow">Status do campeonato</span>
+          <p className="text-muted">As duplas e os grupos estão sendo definidos manualmente pelo administrador.</p>
+        </Card>
+      )}
 
       <h2 className="section-title">Explorar</h2>
       <nav className="player-home-actions stagger" aria-label="Atalhos do campeonato">

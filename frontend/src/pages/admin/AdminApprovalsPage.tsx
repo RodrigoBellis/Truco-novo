@@ -46,7 +46,7 @@ export function AdminApprovalsPage() {
   const pending = teams.filter((t) => t.status === "pendente");
 
   return (
-    <div>
+    <div className="page-enter">
       <PageHeader title="Aprovações" subtitle="Inscrições de duplas aguardando análise" />
 
       {pending.length === 0 ? (

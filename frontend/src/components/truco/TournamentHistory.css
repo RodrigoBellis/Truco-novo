@@ -44,13 +44,15 @@
   height: 480px;
   padding: var(--space-5) var(--space-4);
   border-radius: var(--radius-xl);
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--elev-2-border);
+  /* Slide de 480px que é transladado pelo carrossel (com will-change:transform).
+     Blur + transform numa área desse tamanho é o pior caso de composição:
+     o borrão é recalculado durante todo o gesto de arrastar. O gradiente
+     radial sozinho já dá a profundidade que o efeito buscava. */
   background:
     radial-gradient(130% 75% at 50% 0%, rgb(var(--rgb-accent) / 0.13), transparent 60%),
-    var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: var(--shadow-lg), var(--edge-light);
+    var(--elev-2-bg);
+  box-shadow: var(--elev-2-shadow), var(--edge-light);
   overflow: hidden;
   transition: border-color var(--transition-base), box-shadow var(--transition-base);
 }

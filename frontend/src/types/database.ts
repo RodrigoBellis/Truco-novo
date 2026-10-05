@@ -16,6 +16,7 @@ export type Database = {
           entity_id: string | null;
           metadata: Json;
           truco_actor_id: string | null;
+          truco_championship_id: string | null;
           truco_id: string;
         };
         Insert: {
@@ -25,6 +26,7 @@ export type Database = {
           entity_id?: string | null;
           metadata?: Json;
           truco_actor_id?: string | null;
+          truco_championship_id?: string | null;
           truco_id?: string;
         };
         Update: {
@@ -34,6 +36,7 @@ export type Database = {
           entity_id?: string | null;
           metadata?: Json;
           truco_actor_id?: string | null;
+          truco_championship_id?: string | null;
           truco_id?: string;
         };
         Relationships: [];
@@ -222,6 +225,27 @@ export type Database = {
           truco_team_id: string;
         };
         Update: Partial<Database["public"]["Tables"]["truco_team_members"]["Row"]>;
+        Relationships: [];
+      };
+      truco_team_memberships: {
+        Row: {
+          created_at: string;
+          strength: number;
+          truco_championship_id: string;
+          truco_group_id: string | null;
+          truco_id: string;
+          truco_player_1_id: string;
+          truco_player_2_id: string;
+          truco_team_id: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["truco_team_memberships"]["Row"]> & {
+          truco_championship_id: string;
+          truco_player_1_id: string;
+          truco_player_2_id: string;
+          truco_team_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["truco_team_memberships"]["Row"]>;
         Relationships: [];
       };
       truco_teams: {

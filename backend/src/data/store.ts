@@ -40,6 +40,7 @@ function mapMatch(row: MatchRow): Match {
     tableNumber: row.table_number,
     blockNumber: row.block_number,
     queuePosition: row.queue_position,
+    championshipId: row.truco_championship_id,
   };
 }
 
@@ -76,6 +77,7 @@ function mapTeam(row: TeamRow, groupLabel: string | null, memberIds: [string, st
     seeded: row.seeded,
     isPlaceholder: row.is_placeholder,
     groupId: (groupLabel as GroupId | null) ?? null,
+    strength: 3,
   };
 }
 
@@ -117,10 +119,18 @@ class TrucoRepository {
 
     // Sem `email` no select: ele é identificador interno do Supabase Auth e não sai daqui.
     const { data: profiles } = await supabaseAdmin.from("truco_profiles").select("truco_player_id, role");
-    const { data: members } = await supabaseAdmin.from("truco_team_members").select("truco_player_id, truco_team_id");
+    const currentChampionship = await this.getCurrentChampionship();
+    const { data: members, error: membersError } = await supabaseAdmin.from("truco_team_memberships")
+      .select("truco_player_1_id, truco_player_2_id, truco_team_id")
+      .eq("truco_championship_id", currentChampionship.truco_id);
+    if (membersError) fail("carregar participações dos jogadores", membersError);
 
     const profileByPlayer = new Map((profiles ?? []).map((p) => [p.truco_player_id, p]));
-    const teamByPlayer = new Map((members ?? []).map((m) => [m.truco_player_id, m.truco_team_id]));
+    const teamByPlayer = new Map<string, string>();
+    (members ?? []).forEach((m) => {
+      teamByPlayer.set(m.truco_player_1_id, m.truco_team_id);
+      teamByPlayer.set(m.truco_player_2_id, m.truco_team_id);
+    });
 
     return (players ?? []).map((player) => {
       const profile = profileByPlayer.get(player.truco_id);
@@ -141,10 +151,12 @@ class TrucoRepository {
 
   /** Time do jogador logado — usado para restringir o que ele pode consultar (ver requireAuth). */
   async getTeamIdForPlayer(playerId: string): Promise<string | null> {
+    const championship = await this.getCurrentChampionship();
     const { data, error } = await supabaseAdmin
-      .from("truco_team_members")
+      .from("truco_team_memberships")
       .select("truco_team_id")
-      .eq("truco_player_id", playerId)
+      .eq("truco_championship_id", championship.truco_id)
+      .or(`truco_player_1_id.eq.${playerId},truco_player_2_id.eq.${playerId}`)
       .maybeSingle();
     if (error) fail("buscar a dupla do jogador", error);
     return data?.truco_team_id ?? null;
@@ -178,11 +190,20 @@ class TrucoRepository {
     const { data, error } = await supabaseAdmin.from("truco_teams").select("*").eq("truco_championship_id", championshipId);
     if (error) fail("listar duplas", error);
 
-    const [members, groups] = await Promise.all([this.teamMemberIdsByTeam(), this.groupLabelsById()]);
+    const [{ data: memberships, error: membershipError }, groups] = await Promise.all([
+      supabaseAdmin.from("truco_team_memberships").select("truco_team_id, truco_player_1_id, truco_player_2_id, strength, truco_group_id").eq("truco_championship_id", championshipId),
+      this.groupLabelsById(),
+    ]);
+    if (membershipError) fail("carregar participações das duplas", membershipError);
+    const groupById = new Map(groups);
 
-    return (data ?? []).map((row) =>
-      mapTeam(row, row.truco_group_id ? (groups.get(row.truco_group_id) ?? null) : null, members.get(row.truco_id) ?? ["", ""]),
-    );
+    return (memberships ?? []).flatMap((membership) => {
+      const row = (data ?? []).find((team) => team.truco_id === membership.truco_team_id);
+      if (!row) return [];
+      const team = mapTeam(row, membership.truco_group_id ? (groupById.get(membership.truco_group_id) ?? null) : null,
+        [membership.truco_player_1_id, membership.truco_player_2_id]);
+      return [{ ...team, strength: membership.strength }];
+    });
   }
 
   async getTeam(teamId: string): Promise<Team | undefined> {
@@ -190,8 +211,16 @@ class TrucoRepository {
     if (error) fail("buscar dupla", error);
     if (!data) return undefined;
 
-    const [members, groups] = await Promise.all([this.teamMemberIdsByTeam(), this.groupLabelsById()]);
-    return mapTeam(data, data.truco_group_id ? (groups.get(data.truco_group_id) ?? null) : null, members.get(teamId) ?? ["", ""]);
+    const championship = await this.getCurrentChampionship();
+    const { data: membership, error: membershipError } = await supabaseAdmin.from("truco_team_memberships")
+      .select("truco_player_1_id, truco_player_2_id, strength, truco_group_id")
+      .eq("truco_championship_id", championship.truco_id).eq("truco_team_id", teamId).maybeSingle();
+    if (membershipError) fail("carregar participação da dupla", membershipError);
+    if (!membership) return undefined;
+    const groups = await this.groupLabelsById();
+    const team = mapTeam(data, membership.truco_group_id ? (groups.get(membership.truco_group_id) ?? null) : null,
+      [membership.truco_player_1_id, membership.truco_player_2_id]);
+    return { ...team, strength: membership.strength };
   }
 
   async approvedTeams(championshipId: string): Promise<Team[]> {
@@ -207,6 +236,11 @@ class TrucoRepository {
     return team;
   }
 
+  async setTeamStatus(teamId: string, status: Team["status"]): Promise<void> {
+    const { error } = await supabaseAdmin.from("truco_teams").update({ status }).eq("truco_id", teamId);
+    if (error) fail("atualizar status da dupla", error);
+  }
+
   async rejectTeam(teamId: string): Promise<void> {
     const { error } = await supabaseAdmin.from("truco_teams").delete().eq("truco_id", teamId);
     if (error) fail("rejeitar dupla", error);
@@ -220,6 +254,48 @@ class TrucoRepository {
     return team;
   }
 
+  async createTeamParticipation(input: { championshipId: string; name: string; player1Id: string; player2Id: string; groupId: GroupId; strength: number }): Promise<Team> {
+    await this.ensureGroups(input.championshipId);
+    const groupRowId = await this.getGroupRowId(input.championshipId, input.groupId);
+    const { data: teamId, error } = await supabaseAdmin.rpc("truco_rpc_save_team_participation", {
+      p_team_id: null,
+      p_championship_id: input.championshipId,
+      p_team_name: input.name.trim(),
+      p_player_1_id: input.player1Id,
+      p_player_2_id: input.player2Id,
+      p_group_id: groupRowId,
+      p_strength: input.strength,
+    });
+    if (error || !teamId) fail("criar dupla", error);
+    const team = await this.getTeam(teamId);
+    if (!team) throw new Error("Dupla não encontrada após criação.");
+    return team;
+  }
+
+  async updateTeamParticipation(teamId: string, input: { championshipId: string; name: string; player1Id: string; player2Id: string; groupId: GroupId; strength: number }): Promise<Team> {
+    const groupRowId = await this.getGroupRowId(input.championshipId, input.groupId);
+    const { error } = await supabaseAdmin.rpc("truco_rpc_save_team_participation", {
+      p_team_id: teamId,
+      p_championship_id: input.championshipId,
+      p_team_name: input.name.trim(),
+      p_player_1_id: input.player1Id,
+      p_player_2_id: input.player2Id,
+      p_group_id: groupRowId,
+      p_strength: input.strength,
+    });
+    if (error) fail("atualizar participação da dupla", error);
+    const team = await this.getTeam(teamId);
+    if (!team) throw new Error("Dupla não encontrada após atualização.");
+    return team;
+  }
+
+  async createPlayer(name: string): Promise<Player> {
+    const { data, error } = await supabaseAdmin.from("truco_players").insert({ name: name.trim() })
+      .select("truco_id, name, avatar_url").single();
+    if (error) fail("criar jogador", error);
+    return { id: data.truco_id, name: data.name, role: "jogador", teamId: null, avatarUrl: data.avatar_url };
+  }
+
   // ---------- Grupos ----------
 
   async listGroups(championshipId: string): Promise<Group[]> {
@@ -228,14 +304,14 @@ class TrucoRepository {
 
     const { data: teams, error: teamsError } = await supabaseAdmin
       .from("truco_teams")
-      .select("truco_id, truco_group_id")
+      .select("truco_id, truco_group_id, status")
       .eq("truco_championship_id", championshipId);
     if (teamsError) fail("listar duplas dos grupos", teamsError);
 
     return (groups ?? []).map((g: GroupRow) => ({
       id: g.label as GroupId,
       name: g.name,
-      teamIds: (teams ?? []).filter((t) => t.truco_group_id === g.truco_id).map((t) => t.truco_id),
+      teamIds: (teams ?? []).filter((t) => t.status === "aprovada" && t.truco_group_id === g.truco_id).map((t) => t.truco_id),
     }));
   }
 
@@ -315,6 +391,18 @@ class TrucoRepository {
     return { ...mapMatch(data), groupId: data.truco_group_id ? ((groups.get(data.truco_group_id) as GroupId) ?? null) : null };
   }
 
+  async getMatchPlayerIds(championshipId: string, teamAId: string, teamBId: string): Promise<{ playerIds: string[] }> {
+    const { data, error } = await supabaseAdmin.from("truco_team_memberships")
+      .select("truco_team_id, truco_player_1_id, truco_player_2_id")
+      .eq("truco_championship_id", championshipId)
+      .in("truco_team_id", [teamAId, teamBId]);
+    if (error) fail("validar integrantes da partida", error);
+    const membershipA = data?.find((row) => row.truco_team_id === teamAId);
+    const membershipB = data?.find((row) => row.truco_team_id === teamBId);
+    if (!membershipA || !membershipB) return { playerIds: [] };
+    return { playerIds: [membershipA.truco_player_1_id, membershipA.truco_player_2_id, membershipB.truco_player_1_id, membershipB.truco_player_2_id] };
+  }
+
   async createGroupMatches(
     championshipId: string,
     groupId: GroupId,
@@ -335,6 +423,28 @@ class TrucoRepository {
     if (rows.length === 0) return;
     const { error } = await supabaseAdmin.from("truco_matches").insert(rows);
     if (error) fail("criar as partidas da fase de grupos", error);
+  }
+
+  async createAllGroupMatches(championshipId: string, fixtures: Record<GroupId, Array<{ teamAId: string; teamBId: string; order: number }>>): Promise<void> {
+    if (fixtures.A.length !== 10 || fixtures.B.length !== 10) throw new RangeError("A edição deve gerar 10 partidas por grupo.");
+    await this.ensureGroups(championshipId);
+    const groupIds = new Map<GroupId, string>([
+      ["A", await this.getGroupRowId(championshipId, "A")],
+      ["B", await this.getGroupRowId(championshipId, "B")],
+    ]);
+    const rows = (["A", "B"] as const).flatMap((groupId) => fixtures[groupId].map((pair) => ({
+      truco_id: this.newId(),
+      truco_championship_id: championshipId,
+      stage: "grupos" as const,
+      round: `Grupo ${groupId}`,
+      match_order: pair.order,
+      truco_group_id: groupIds.get(groupId)!,
+      truco_team_a_id: pair.teamAId,
+      truco_team_b_id: pair.teamBId,
+      status: "pendente" as const,
+    })));
+    const { error } = await supabaseAdmin.from("truco_matches").insert(rows);
+    if (error) fail("criar partidas da fase de grupos", error);
   }
 
   async createMatch(input: {
@@ -362,12 +472,37 @@ class TrucoRepository {
     return match;
   }
 
-  async updateMatchResult(matchId: string, result: MatchResult): Promise<void> {
-    const { error } = await supabaseAdmin
-      .from("truco_matches")
-      .update({ sets_a: result.setsA, sets_b: result.setsB, status: "realizado" })
-      .eq("truco_id", matchId);
-    if (error) fail("registrar o resultado da partida", error);
+  async listMatchResultAudit(championshipId: string): Promise<Array<{ id: string; matchId: string | null; actorId: string | null; action: string; createdAt: string; metadata: unknown }>> {
+    const { data, error } = await supabaseAdmin.from("truco_audit_log")
+      .select("truco_id, entity_id, truco_actor_id, action, created_at, metadata")
+      .eq("entity", "match_result")
+      .eq("truco_championship_id", championshipId)
+      .order("created_at", { ascending: false });
+    if (error) fail("consultar alterações de resultados", error);
+    const profiles = await supabaseAdmin.from("truco_profiles").select("truco_id, truco_player_id");
+    const players = await supabaseAdmin.from("truco_players").select("truco_id, name");
+    const playerById = new Map((players.data ?? []).map((player) => [player.truco_id, player.name]));
+    const nameByActor = new Map((profiles.data ?? []).map((profile) => [profile.truco_id, playerById.get(profile.truco_player_id) ?? "Conta removida"]));
+    return (data ?? []).map((row) => ({
+      id: row.truco_id,
+      matchId: row.entity_id,
+      actorId: row.truco_actor_id,
+      actorName: row.truco_actor_id ? nameByActor.get(row.truco_actor_id) ?? "Conta desconhecida" : "Sistema",
+      action: row.action,
+      createdAt: row.created_at,
+      metadata: row.metadata,
+    }));
+  }
+
+  async saveMatchResult(input: { championshipId: string; matchId: string; result: MatchResult; actorId: string }): Promise<void> {
+    const { error } = await supabaseAdmin.rpc("truco_rpc_record_match_result", {
+      p_championship_id: input.championshipId,
+      p_match_id: input.matchId,
+      p_sets_a: input.result.setsA,
+      p_sets_b: input.result.setsB,
+      p_actor_id: input.actorId,
+    });
+    if (error) fail("salvar resultado e auditoria", error);
   }
 
   /** Grava mesa/bloco/posição na fila calculados pelo escalonador (schedulerService). */

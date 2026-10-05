@@ -2,9 +2,20 @@ import { Router } from "express";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { store } from "../data/store.js";
 import { recordResult } from "../services/matchService.js";
-import { requireAuth } from "../middleware/requireAuth.js";
+import { requireAuth, requireRole } from "../middleware/requireAuth.js";
+import { canRecordEditionResult } from "../services/matchAuthorization.js";
 
 export const matchesRoutes = Router();
+
+matchesRoutes.get(
+  "/audit",
+  requireAuth,
+  requireRole("admin", "superadmin"),
+  asyncHandler(async (_req, res) => {
+    const championship = await store.getCurrentChampionship();
+    res.json(await store.listMatchResultAudit(championship.truco_id));
+  }),
+);
 
 matchesRoutes.get(
   "/",
@@ -52,22 +63,18 @@ matchesRoutes.post(
     const matchId = String(req.params.id);
     const championship = await store.getCurrentChampionship();
 
-    if (req.authUser!.role === "jogador") {
-      const match = await store.getMatch(matchId);
-      const myTeamId = await store.getTeamIdForPlayer(req.authUser!.playerId);
-      const isMyMatch = match && myTeamId && (match.teamAId === myTeamId || match.teamBId === myTeamId);
-      if (!isMyMatch) {
-        res.status(403).json({ message: "Você só pode registrar o resultado de um jogo da sua dupla." });
+    const match = await store.getMatch(matchId);
+    if (!match) {
+      res.status(404).json({ message: "Jogo não encontrado." });
+      return;
+    }
+    const participants = await store.getMatchPlayerIds(championship.truco_id, match.teamAId, match.teamBId);
+    if (!canRecordEditionResult(req.authUser!.role, req.authUser!.playerId, participants.playerIds, match.championshipId === championship.truco_id)) {
+        res.status(403).json({ message: "Você só pode registrar o resultado de um jogo da sua dupla nesta edição." });
         return;
-      }
-      // Corrigir um resultado já lançado é privilégio do admin — o jogador só lança uma vez.
-      if (match.status === "realizado") {
-        res.status(403).json({ message: "Esse resultado já foi registrado. Peça a um admin para corrigir." });
-        return;
-      }
     }
 
-    await recordResult(championship.truco_id, matchId, { setsA: Number(setsA), setsB: Number(setsB) });
+    await recordResult(championship.truco_id, matchId, { setsA: Number(setsA), setsB: Number(setsB) }, req.authUser!.id);
     res.json(await store.getMatch(matchId));
   }),
 );

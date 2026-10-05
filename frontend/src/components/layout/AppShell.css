@@ -1,11 +1,16 @@
+/* 100vh no celular conta a barra de endereço como se ela nunca existisse, o
+   que estoura a altura e faz a página "pular" quando a barra recolhe. dvh
+   acompanha a altura real; o vh acima fica como reserva para navegador antigo. */
 .app-shell {
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .app-shell-content {
   margin-left: var(--sidebar-width);
   padding: var(--space-8) 0 var(--space-10);
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 @media (max-width: 960px) {

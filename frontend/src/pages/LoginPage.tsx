@@ -11,7 +11,11 @@ import { getRoster, type RosterPlayer } from "../services/playersService";
 import type { LoginIdentifier } from "../services/authService";
 import { ApiError } from "../services/api";
 import { homePathForRole } from "../utils/roles";
-import heroImage from "../assets/truco-5-edicao.png";
+// O PNG original (1536px, 2 MB) segue no repositório como fonte, mas não é
+// mais importado: o que vai para o bundle são estas duas versões em 1120px —
+// o dobro dos 560px em que a imagem é exibida, o suficiente para tela 2x.
+import heroImageAvif from "../assets/truco-5-edicao.avif";
+import heroImageWebp from "../assets/truco-5-edicao.webp";
 import "./LoginPage.css";
 
 const ADMIN_IDENTITY: Identity = { name: "Administrador", credential: { email: "admin@trucodonovo.com" } };
@@ -90,7 +94,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="login-page">
+    <div className="login-page page-enter">
       <div className="login-decor" aria-hidden="true">
         <span>♠</span>
         <span>♣</span>
@@ -109,13 +113,21 @@ export function LoginPage() {
         {step === "role" && (
           <div className="login-step login-step-hero">
             <div className="login-hero-wrap">
-              <img
-                src={heroImage}
-                alt="Truco do Novo — mais que um jogo, uma paixão!"
-                className="login-hero-image"
-                width={1536}
-                height={1024}
-              />
+              {/* AVIF primeiro, WebP para quem não o suporta. O navegador
+                  escolhe uma só — nunca baixa as duas. */}
+              <picture>
+                <source srcSet={heroImageAvif} type="image/avif" />
+                <img
+                  src={heroImageWebp}
+                  alt="Truco do Novo — mais que um jogo, uma paixão!"
+                  className="login-hero-image"
+                  width={1120}
+                  height={747}
+                  // É a maior imagem da primeira tela: sobe na fila de download
+                  // em vez de esperar o resto dos recursos.
+                  fetchPriority="high"
+                />
+              </picture>
               <span className="login-edition-badge">5ª Edição</span>
             </div>
 

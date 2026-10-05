@@ -97,6 +97,7 @@ export const SEED_TEAMS: Team[] = seedTeams.map((team) => ({
   seeded: team.seeded,
   isPlaceholder: team.isPlaceholder,
   groupId: null,
+  strength: 3,
 }));
 
 /**

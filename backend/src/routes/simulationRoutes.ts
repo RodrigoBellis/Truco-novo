@@ -7,7 +7,7 @@ import { runFullSimulation, resetSimulation } from "../services/tournamentSimula
 export const simulationRoutes = Router();
 
 function requireDevEnvironment(_req: Request, res: Response, next: NextFunction): void {
-  if (!isSimulationEnabled()) {
+  if (process.env.NODE_ENV === "production" || !isSimulationEnabled()) {
     res.status(403).json({ message: "O modo de simulação está disponível apenas em ambiente de desenvolvimento." });
     return;
   }

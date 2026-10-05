@@ -27,7 +27,7 @@ export function AdminSettingsPage() {
   }
 
   return (
-    <div>
+    <div className="page-enter">
       <PageHeader title="Configurações" subtitle="Preferências gerais do Truco do Novo" />
 
       <Card className="admin-settings-card">

@@ -35,13 +35,13 @@ export function MyGroupPage() {
     return (
       <div>
         <PageHeader title="Meu Grupo" />
-        <EmptyState icon="🎲" title="Sorteio ainda não realizado" description="Assim que o administrador realizar o sorteio, seu grupo aparecerá aqui." />
+        <EmptyState icon="🎴" title="Grupo ainda não definido" description="O administrador definirá manualmente sua dupla e seu grupo nesta edição." />
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="page-enter">
       <PageHeader title="Meu Grupo" subtitle={`Grupo ${data.groupId} · Truco do Novo`} />
       <StandingsTable rows={data.standings} teams={data.teams} highlightTeamId={user?.teamId} />
     </div>

@@ -23,7 +23,6 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { to: "/admin/jogadores", label: "Jogadores", icon: "players" },
   { to: "/admin/duplas", label: "Duplas", icon: "team" },
   { to: "/admin/aprovacoes", label: "Aprovações", icon: "approvals" },
-  { to: "/admin/sorteio", label: "Sorteio", icon: "draw" },
   { to: "/admin/grupos", label: "Grupos", icon: "group" },
   { to: "/admin/mesas-agora", label: "Ordem dos Jogos", icon: "tables" },
   { to: "/admin/escala", label: "Escala de Mesas", icon: "draw" },
@@ -33,4 +32,4 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { to: "/admin/configuracoes", label: "Configurações", icon: "settings" },
 ];
 
-export const ADMIN_BOTTOM_PRIMARY = ["/admin", "/admin/jogos", "/admin/mata-mata", "/admin/sorteio"];
+export const ADMIN_BOTTOM_PRIMARY = ["/admin", "/admin/jogos", "/admin/mata-mata", "/admin/duplas"];

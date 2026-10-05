@@ -10,6 +10,7 @@ export interface MatchResult {
 
 export interface Match {
   id: string;
+  championshipId: string;
   stage: MatchStage;
   round: string;
   order: number;

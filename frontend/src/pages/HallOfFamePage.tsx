@@ -14,7 +14,7 @@ export function HallOfFamePage() {
   if (!data) return null;
 
   return (
-    <div className="hof">
+    <div className="hof page-enter">
       <header className="hof-hero">
         <span className="hof-hero-badge">
           <span aria-hidden="true">♠</span> Salão dos Campeões

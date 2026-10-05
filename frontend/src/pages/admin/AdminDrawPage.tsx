@@ -45,7 +45,7 @@ export function AdminDrawPage() {
   const groupB = approved.filter((t) => t.groupId === "B");
 
   return (
-    <div>
+    <div className="page-enter">
       <PageHeader
         title="Sorteio"
         subtitle="Distribua automaticamente as duplas aprovadas entre os Grupos A e B"

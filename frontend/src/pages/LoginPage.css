@@ -1,5 +1,6 @@
 .login-page {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -125,11 +126,24 @@
   text-align: center;
 }
 
+/* .login-step é um flex column, então este wrapper é um flex item — e
+   `text-align: center` do pai não alcança flex item. Sem `align-self`, o
+   padrão `stretch` esticava o wrapper por toda a largura (720px) enquanto a
+   imagem, limitada a 560px, encostava na esquerda. `center` faz o wrapper
+   encolher até a imagem e ficar centralizado de verdade. */
 .login-hero-wrap {
   position: relative;
-  display: inline-block;
+  align-self: center;
   max-width: 100%;
   margin-bottom: var(--space-6);
+}
+
+/* <picture> é `display: inline` por padrão. Entre o wrapper (inline-block que
+   encolhe até a imagem) e a <img>, isso cria uma caixa de linha: o wrapper
+   passa a medir a linha, não a imagem, e a centralização sai errada. Como
+   <picture> só existe para escolher o formato, ele não deve pesar no layout. */
+.login-hero-wrap picture {
+  display: block;
 }
 
 .login-hero-image {
@@ -220,12 +234,11 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-8) var(--space-5);
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+  /* Plano 2: é a escolha principal da tela, e é clicável. */
+  background: var(--elev-2-bg);
+  border: 1px solid var(--elev-2-border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-md), var(--edge-light);
+  box-shadow: var(--elev-2-shadow), var(--edge-light);
   cursor: pointer;
   color: var(--color-text);
   overflow: hidden;
@@ -296,9 +309,7 @@
   width: 64px;
   height: 64px;
   border-radius: var(--radius-lg);
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
+  background: var(--elev-1-bg);
   border: 1px solid var(--color-border-strong);
   display: flex;
   align-items: center;

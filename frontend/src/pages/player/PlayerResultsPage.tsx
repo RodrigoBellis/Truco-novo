@@ -28,7 +28,7 @@ export function PlayerResultsPage() {
   if (error) return <EmptyState icon="⚠️" tone="danger" title="Não foi possível carregar os resultados" description={error} />;
 
   return (
-    <div>
+    <div className="page-enter">
       <PageHeader title="Resultados" subtitle="Jogos já disputados no seu grupo — eles afetam a sua classificação" />
       {data && data.matches.length > 0 ? (
         <MatchGroupsList matches={data.matches} teams={data.teams} highlightTeamId={user?.teamId} />

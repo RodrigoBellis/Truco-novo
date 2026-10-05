@@ -29,6 +29,8 @@ export function MatchGroupsList({ matches, teams, highlightTeamId, renderActions
                 match={match}
                 teamAName={teamLabel(teams, match.teamAId)}
                 teamBName={teamLabel(teams, match.teamBId)}
+                teamAStrength={teams.find((team) => team.id === match.teamAId)?.strength ?? 3}
+                teamBStrength={teams.find((team) => team.id === match.teamBId)?.strength ?? 3}
                 highlightTeamId={highlightTeamId}
                 actions={renderActions?.(match)}
                 live={match.id === liveMatchId}

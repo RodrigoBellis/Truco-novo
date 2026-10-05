@@ -11,11 +11,9 @@
   gap: var(--space-2);
   padding: var(--space-4);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--glass-border);
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: var(--shadow-md), var(--edge-light);
+  border: 1px solid var(--elev-1-border);
+  background: var(--elev-1-bg);
+  box-shadow: var(--elev-1-shadow), var(--edge-light);
   overflow: hidden;
   transition:
     transform var(--transition-base),

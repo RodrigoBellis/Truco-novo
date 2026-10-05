@@ -45,7 +45,7 @@ export function MyTeamPage() {
   const teammates = data?.players.filter((p) => p.id === team.player1Id || p.id === team.player2Id) ?? [];
 
   return (
-    <div>
+    <div className="page-enter">
       <PageHeader title="Minha Dupla" subtitle={team.name} />
 
       <Card accent="gold" className="my-team-card">
@@ -54,6 +54,7 @@ export function MyTeamPage() {
           <strong className="my-team-name">{team.name}</strong>
           <div className="my-team-badges">
             {team.groupId && <Badge tone="green">Grupo {team.groupId}</Badge>}
+            <Badge tone="gold"><span aria-hidden="true">{"★".repeat(team.strength)}</span> Força {team.strength}/5</Badge>
             {team.seeded && <Badge tone="gold">★ Cabeça de chave</Badge>}
             <Badge tone={team.status === "aprovada" ? "info" : "neutral"}>
               {team.status === "aprovada" ? "Aprovada" : "Pendente"}

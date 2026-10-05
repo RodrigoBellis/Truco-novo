@@ -16,6 +16,7 @@ export type Database = {
           entity_id: string | null;
           metadata: Json;
           truco_actor_id: string | null;
+          truco_championship_id: string | null;
           truco_id: string;
         };
         Insert: {
@@ -25,6 +26,7 @@ export type Database = {
           entity_id?: string | null;
           metadata?: Json;
           truco_actor_id?: string | null;
+          truco_championship_id?: string | null;
           truco_id?: string;
         };
         Update: {
@@ -34,6 +36,7 @@ export type Database = {
           entity_id?: string | null;
           metadata?: Json;
           truco_actor_id?: string | null;
+          truco_championship_id?: string | null;
           truco_id?: string;
         };
         Relationships: [];
@@ -224,6 +227,27 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["truco_team_members"]["Row"]>;
         Relationships: [];
       };
+      truco_team_memberships: {
+        Row: {
+          created_at: string;
+          strength: number;
+          truco_championship_id: string;
+          truco_group_id: string | null;
+          truco_id: string;
+          truco_player_1_id: string;
+          truco_player_2_id: string;
+          truco_team_id: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["truco_team_memberships"]["Row"]> & {
+          truco_championship_id: string;
+          truco_player_1_id: string;
+          truco_player_2_id: string;
+          truco_team_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["truco_team_memberships"]["Row"]>;
+        Relationships: [];
+      };
       truco_teams: {
         Row: {
           created_at: string;
@@ -246,6 +270,14 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      truco_rpc_save_team_participation: {
+        Args: { p_championship_id: string; p_group_id: string; p_player_1_id: string; p_player_2_id: string; p_strength: number; p_team_id: string | null; p_team_name: string };
+        Returns: string;
+      };
+      truco_rpc_record_match_result: {
+        Args: { p_actor_id: string; p_championship_id: string; p_match_id: string; p_sets_a: number; p_sets_b: number };
+        Returns: undefined;
+      };
       truco_rpc_champions_ranking: {
         Args: Record<string, never>;
         Returns: {

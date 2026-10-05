@@ -17,6 +17,10 @@ export function getPlayers(): Promise<Player[]> {
   return apiRequest<Player[]>("/players");
 }
 
+export function createPlayer(name: string): Promise<Player> {
+  return apiRequest<Player>("/players", { method: "POST", body: { name } });
+}
+
 /** Envia a nova foto de perfil (data URL base64, já redimensionada no cliente). */
 export function uploadMyAvatar(imageDataUrl: string): Promise<{ avatarUrl: string }> {
   return apiRequest<{ avatarUrl: string }>("/players/me/avatar", { method: "POST", body: { imageDataUrl } });

@@ -1,32 +1,10 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "./components/routing/ProtectedRoute";
 import { RequireAuth } from "./components/routing/RequireAuth";
 import { AppShell } from "./components/layout/AppShell";
 import { PublicLayout } from "./components/layout/PublicLayout";
-import { LoginPage } from "./pages/LoginPage";
-import { CreatePasswordPage } from "./pages/CreatePasswordPage";
-import { RootRedirect } from "./pages/RootRedirect";
-import { NotFoundPage } from "./pages/NotFoundPage";
-import { HallOfFamePage } from "./pages/HallOfFamePage";
-import { TablesLivePage } from "./pages/TablesLivePage";
-import { PlayerHomePage } from "./pages/player/PlayerHomePage";
-import { MyTeamPage } from "./pages/player/MyTeamPage";
-import { MyGroupPage } from "./pages/player/MyGroupPage";
-import { PlayerMatchesPage } from "./pages/player/PlayerMatchesPage";
-import { PlayerResultsPage } from "./pages/player/PlayerResultsPage";
-import { StandingsPage } from "./pages/player/StandingsPage";
-import { ProfilePage } from "./pages/player/ProfilePage";
-import { AdminDashboardPage } from "./pages/admin/AdminDashboardPage";
-import { AdminPlayersPage } from "./pages/admin/AdminPlayersPage";
-import { AdminTeamsPage } from "./pages/admin/AdminTeamsPage";
-import { AdminApprovalsPage } from "./pages/admin/AdminApprovalsPage";
-import { AdminDrawPage } from "./pages/admin/AdminDrawPage";
-import { AdminGroupsPage } from "./pages/admin/AdminGroupsPage";
-import { AdminMatchesPage } from "./pages/admin/AdminMatchesPage";
-import { AdminBracketPage } from "./pages/admin/AdminBracketPage";
-import { AdminSettingsPage } from "./pages/admin/AdminSettingsPage";
-import { AdminSimulationPage } from "./pages/admin/AdminSimulationPage";
-import { AdminSchedulePage } from "./pages/admin/AdminSchedulePage";
+import { Loading } from "./components/ui/Loading";
 import {
   PLAYER_NAV_ITEMS,
   PLAYER_BOTTOM_PRIMARY,
@@ -35,8 +13,33 @@ import {
   IS_DEV_BUILD,
 } from "./utils/navigation";
 
+const LoginPage = lazy(() => import("./pages/LoginPage").then((module) => ({ default: module.LoginPage })));
+const CreatePasswordPage = lazy(() => import("./pages/CreatePasswordPage").then((module) => ({ default: module.CreatePasswordPage })));
+const RootRedirect = lazy(() => import("./pages/RootRedirect").then((module) => ({ default: module.RootRedirect })));
+const NotFoundPage = lazy(() => import("./pages/NotFoundPage").then((module) => ({ default: module.NotFoundPage })));
+const HallOfFamePage = lazy(() => import("./pages/HallOfFamePage").then((module) => ({ default: module.HallOfFamePage })));
+const TablesLivePage = lazy(() => import("./pages/TablesLivePage").then((module) => ({ default: module.TablesLivePage })));
+const PlayerHomePage = lazy(() => import("./pages/player/PlayerHomePage").then((module) => ({ default: module.PlayerHomePage })));
+const MyTeamPage = lazy(() => import("./pages/player/MyTeamPage").then((module) => ({ default: module.MyTeamPage })));
+const MyGroupPage = lazy(() => import("./pages/player/MyGroupPage").then((module) => ({ default: module.MyGroupPage })));
+const PlayerMatchesPage = lazy(() => import("./pages/player/PlayerMatchesPage").then((module) => ({ default: module.PlayerMatchesPage })));
+const PlayerResultsPage = lazy(() => import("./pages/player/PlayerResultsPage").then((module) => ({ default: module.PlayerResultsPage })));
+const StandingsPage = lazy(() => import("./pages/player/StandingsPage").then((module) => ({ default: module.StandingsPage })));
+const ProfilePage = lazy(() => import("./pages/player/ProfilePage").then((module) => ({ default: module.ProfilePage })));
+const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage").then((module) => ({ default: module.AdminDashboardPage })));
+const AdminPlayersPage = lazy(() => import("./pages/admin/AdminPlayersPage").then((module) => ({ default: module.AdminPlayersPage })));
+const AdminTeamsPage = lazy(() => import("./pages/admin/AdminTeamsPage").then((module) => ({ default: module.AdminTeamsPage })));
+const AdminApprovalsPage = lazy(() => import("./pages/admin/AdminApprovalsPage").then((module) => ({ default: module.AdminApprovalsPage })));
+const AdminGroupsPage = lazy(() => import("./pages/admin/AdminGroupsPage").then((module) => ({ default: module.AdminGroupsPage })));
+const AdminMatchesPage = lazy(() => import("./pages/admin/AdminMatchesPage").then((module) => ({ default: module.AdminMatchesPage })));
+const AdminBracketPage = lazy(() => import("./pages/admin/AdminBracketPage").then((module) => ({ default: module.AdminBracketPage })));
+const AdminSettingsPage = lazy(() => import("./pages/admin/AdminSettingsPage").then((module) => ({ default: module.AdminSettingsPage })));
+const AdminSimulationPage = lazy(() => import("./pages/admin/AdminSimulationPage").then((module) => ({ default: module.AdminSimulationPage })));
+const AdminSchedulePage = lazy(() => import("./pages/admin/AdminSchedulePage").then((module) => ({ default: module.AdminSchedulePage })));
+
 function App() {
   return (
+    <Suspense fallback={<Loading fullHeight label="Carregando tela..." />}>
     <Routes>
       <Route path="/" element={<RootRedirect />} />
       <Route path="/login" element={<LoginPage />} />
@@ -70,7 +73,6 @@ function App() {
           <Route path="/admin/jogadores" element={<AdminPlayersPage />} />
           <Route path="/admin/duplas" element={<AdminTeamsPage />} />
           <Route path="/admin/aprovacoes" element={<AdminApprovalsPage />} />
-          <Route path="/admin/sorteio" element={<AdminDrawPage />} />
           <Route path="/admin/grupos" element={<AdminGroupsPage />} />
           <Route path="/admin/mesas-agora" element={<TablesLivePage />} />
           <Route path="/admin/escala" element={<AdminSchedulePage />} />
@@ -86,6 +88,7 @@ function App() {
 
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
+    </Suspense>
   );
 }
 

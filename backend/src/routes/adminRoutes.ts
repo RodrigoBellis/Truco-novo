@@ -12,6 +12,10 @@ adminRoutes.post(
   requireRole("admin", "superadmin"),
   asyncHandler(async (_req, res) => {
     const championship = await store.getCurrentChampionship();
+    if (championship.edition === 5) {
+      res.status(409).json({ message: "A 5ª edição usa grupos definidos manualmente. O sorteio automático está desativado." });
+      return;
+    }
     await performDraw(championship.truco_id);
     res.json({
       groups: await store.listGroups(championship.truco_id),

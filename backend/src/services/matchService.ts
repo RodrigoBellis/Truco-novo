@@ -7,16 +7,22 @@ export class MatchError extends Error {}
 
 const VALID_SCORES = new Set(["2-0", "2-1", "1-2", "0-2"]);
 
-export async function recordResult(championshipId: string, matchId: string, result: MatchResult): Promise<void> {
+export async function recordResult(championshipId: string, matchId: string, result: MatchResult, actorId: string): Promise<void> {
   const match = await store.getMatch(matchId);
   if (!match) throw new MatchError("Jogo não encontrado.");
+  if (match.championshipId !== championshipId) throw new MatchError("A partida não pertence à edição em andamento.");
 
   const key = `${result.setsA}-${result.setsB}`;
   if (!VALID_SCORES.has(key)) {
     throw new MatchError("Placar inválido. Utilize 2x0, 2x1, 1x2 ou 0x2.");
   }
 
-  await store.updateMatchResult(matchId, result);
+  await store.saveMatchResult({
+    championshipId,
+    matchId,
+    result,
+    actorId,
+  });
 
   if (match.stage === "grupos") {
     const bracketMatches = await store.listBracketMatches(championshipId);

@@ -21,6 +21,10 @@ bracketRoutes.post(
   requireRole("admin", "superadmin"),
   asyncHandler(async (_req, res) => {
     const championship = await store.getCurrentChampionship();
+    if (championship.edition === 5) {
+      res.status(409).json({ message: "A regra dos cruzamentos da repescagem ainda não foi definida; a geração automática do chaveamento está bloqueada." });
+      return;
+    }
     await generateBracket(championship.truco_id);
     res.json(await store.listBracketMatches(championship.truco_id));
   }),

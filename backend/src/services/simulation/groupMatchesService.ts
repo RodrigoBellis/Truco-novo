@@ -1,7 +1,7 @@
 import type { GroupId, Match } from "@truco/shared";
 import { nextId } from "../../utils/id.js";
 
-/** Gera todos os confrontos de um turno único (todos contra todos) para um grupo de 6 duplas. */
+/** Gera todos os confrontos em turno único para grupos do simulador isolado. */
 export function generateGroupMatches(groupId: GroupId, teamIds: string[]): Match[] {
   const matches: Match[] = [];
   let order = 0;
@@ -10,6 +10,7 @@ export function generateGroupMatches(groupId: GroupId, teamIds: string[]): Match
     for (let j = i + 1; j < teamIds.length; j += 1) {
       matches.push({
         id: nextId("match"),
+        championshipId: "simulation",
         stage: "grupos",
         round: `Grupo ${groupId}`,
         order,

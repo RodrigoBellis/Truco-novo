@@ -13,6 +13,10 @@ function winnerOf(bracketMatchId: string): BracketSlotSource {
 }
 
 export async function generateBracket(championshipId: string): Promise<void> {
+  const championship = await store.getCurrentChampionship();
+  if (championship.truco_id === championshipId && championship.edition === 5) {
+    throw new BracketError("A regra dos cruzamentos da repescagem da 5ª edição ainda não foi definida; o chaveamento automático está bloqueado.");
+  }
   if (!(await isGroupComplete(championshipId, "A")) || !(await isGroupComplete(championshipId, "B"))) {
     throw new BracketError("A fase de grupos precisa estar concluída em ambos os grupos.");
   }

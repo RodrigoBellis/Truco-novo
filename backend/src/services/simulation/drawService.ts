@@ -4,6 +4,8 @@ import { shuffle } from "../../utils/shuffle.js";
 import type { RandomFn } from "../../utils/seededRandom.js";
 import { generateGroupMatches } from "./groupMatchesService.js";
 
+export const LEGACY_SIMULATION_WARNING = "Simulador legado: usa 12 duplas, seis por grupo, e cruzamentos antigos. Ele não representa as regras oficiais da 5ª edição.";
+
 export class DrawError extends Error {}
 
 /**

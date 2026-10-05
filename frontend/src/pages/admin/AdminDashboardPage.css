@@ -6,6 +6,10 @@
   display: flex;
   align-items: center;
   gap: var(--space-4);
+  /* Sem halo pulsante aqui: este card já está dentro de um AnimatedBorderCard,
+     cujo feixe girando na borda é o destaque. Dois brilhos infinitos no mesmo
+     elemento competiam entre si e dobravam o custo de pintura à toa. */
+  animation: slide-up var(--motion-enter) both;
 }
 
 .admin-dashboard-champion-icon {
@@ -27,11 +31,57 @@
   overflow-wrap: break-word;
 }
 
+.admin-dashboard-attention {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+.admin-dashboard-attention-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text);
+  text-decoration: none;
+  transition: transform var(--transition-fast), border-color var(--transition-fast);
+}
+
+.admin-dashboard-attention-card:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-accent-500);
+}
+
+.admin-dashboard-attention-card:focus-visible {
+  outline: 2px solid var(--color-tech-500);
+  outline-offset: 2px;
+}
+
+.admin-dashboard-attention-card > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.admin-dashboard-attention-danger {
+  border-color: rgb(var(--rgb-danger) / 0.5);
+  background: var(--color-danger-bg);
+}
+
+.admin-dashboard-attention-chevron {
+  color: var(--color-text-faint);
+  font-size: var(--text-lg);
+}
+
 .admin-dashboard-stats {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: var(--space-4);
-  margin-bottom: var(--space-6);
 }
 
 /* Duas colunas no celular em vez de uma coluna muito longa */
@@ -47,6 +97,10 @@
   }
 }
 
+.admin-dashboard-next {
+  margin-bottom: var(--space-6);
+}
+
 .admin-dashboard-next h3 {
   font-size: var(--text-md);
   margin-bottom: var(--space-4);
@@ -56,6 +110,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+.admin-dashboard-next-list {
+  animation: fade-in var(--transition-slow) both;
 }
 
 .admin-dashboard-next-list li {
@@ -68,6 +126,13 @@
   border-radius: var(--radius-md);
   font-size: var(--text-base);
   font-weight: 600;
+  transition: transform var(--transition-fast), border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.admin-dashboard-next-list li:hover {
+  transform: translateX(2px);
+  border-color: var(--color-accent-600);
+  background: var(--color-surface-hover);
 }
 
 @media (max-width: 480px) {

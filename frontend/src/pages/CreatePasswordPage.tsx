@@ -47,7 +47,7 @@ export function CreatePasswordPage() {
   }
 
   return (
-    <div className="create-password-page">
+    <div className="create-password-page page-enter">
       <div className="create-password-card">
         <Logo size={40} />
 

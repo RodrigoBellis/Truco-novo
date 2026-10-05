@@ -71,7 +71,7 @@ export function AdminSimulationPage() {
   const approved = report?.status === "SIMULAÇÃO APROVADA";
 
   return (
-    <div>
+    <div className="page-enter">
       <PageHeader
         title="Simular Campeonato Completo"
         subtitle={`Modo de teste local · ambiente "${availability.environment}" · seed ${availability.defaultSeed}`}

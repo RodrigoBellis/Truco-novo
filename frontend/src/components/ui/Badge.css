@@ -10,8 +10,9 @@
   letter-spacing: var(--tracking-wide);
   line-height: 1.6;
   white-space: nowrap;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  /* Sem blur: badge é o elemento mais repetido da interface (vários por card,
+     dezenas por lista). Blur aqui multiplicava camadas de composição sem
+     nenhum ganho visual — os fundos já são translúcidos. */
   box-shadow: var(--edge-light);
 }
 

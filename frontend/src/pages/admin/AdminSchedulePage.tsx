@@ -60,7 +60,7 @@ export function AdminSchedulePage() {
   const pending = data.matches.filter((m) => m.status === "pendente").sort((a, b) => (a.queuePosition ?? 9999) - (b.queuePosition ?? 9999));
 
   return (
-    <div>
+    <div className="page-enter">
       <PageHeader
         title="Escala de Mesas"
         subtitle="Organize automaticamente a ordem dos jogos nas 3 mesas, ou ajuste manualmente"
@@ -72,7 +72,7 @@ export function AdminSchedulePage() {
       />
 
       {pending.length === 0 ? (
-        <EmptyState icon="🎲" title="Nenhum jogo pendente" description="Sorteio ainda não realizado ou fase de grupos já concluída." />
+        <EmptyState icon="🎴" title="Nenhum jogo pendente" description="Os jogos aparecem depois que o administrador definir cinco duplas em cada grupo e gerar os confrontos." />
       ) : (
         <div className="data-table-wrap">
           <table className="data-table admin-schedule-table">

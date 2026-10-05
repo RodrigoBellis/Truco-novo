@@ -13,6 +13,7 @@ import { store } from "../data/simulationStore.js";
 import { CURRENT_EDITION, CURRENT_SEASON_YEAR } from "../data/tournamentConfig.js";
 import { createSeededRandom, DEFAULT_SIMULATION_SEED, type RandomFn } from "../utils/seededRandom.js";
 import { performDraw } from "./simulation/drawService.js";
+import { LEGACY_SIMULATION_WARNING } from "./simulation/drawService.js";
 import { recordResult } from "./simulation/matchService.js";
 import { computeStandings } from "./simulation/standingsService.js";
 import { finalizeTournament, findTournamentOutcome, type TournamentOutcome } from "./simulation/championService.js";
@@ -120,7 +121,7 @@ function validateGroups(collector: CheckCollector, standingsA: StandingRow[], st
   addCheck(
     collector,
     "grupos-tamanho",
-    "Cada grupo possui exatamente 6 duplas",
+    "Cada grupo possui exatamente 6 duplas no simulador isolado legado",
     groupA.teamIds.length === TEAMS_PER_GROUP && groupB.teamIds.length === TEAMS_PER_GROUP,
     `Grupo A: ${groupA.teamIds.length} duplas · Grupo B: ${groupB.teamIds.length} duplas.`,
   );
@@ -459,7 +460,7 @@ export function runFullSimulation(options: SimulationOptions = {}): SimulationRe
   const random = createSeededRandom(seed);
   const collector: CheckCollector = { checks: [], warnings: [] };
 
-  // 1-2. Estado limpo e 12 duplas aprovadas.
+  // 1-2. Sandbox legado limpo e 12 duplas aprovadas.
   resetSimulation();
   ensureApprovedTeams(collector);
 
@@ -502,6 +503,7 @@ export function runFullSimulation(options: SimulationOptions = {}): SimulationRe
 
   const errors = collector.checks.filter((c) => !c.passed && c.severity === "erro").map((c) => `${c.label}: ${c.detail}`);
   const warnings = [
+    LEGACY_SIMULATION_WARNING,
     ...collector.warnings,
     ...collector.checks.filter((c) => !c.passed && c.severity === "aviso").map((c) => `${c.label}: ${c.detail}`),
   ];
@@ -511,6 +513,7 @@ export function runFullSimulation(options: SimulationOptions = {}): SimulationRe
 
   return {
     seed,
+    warnings,
     executedAt: new Date().toISOString(),
     totalPlayers: store.players.filter((p) => p.role === "jogador").length,
     totalTeams: store.teams.length,
@@ -526,7 +529,6 @@ export function runFullSimulation(options: SimulationOptions = {}): SimulationRe
     },
     checks: collector.checks,
     errors,
-    warnings,
     status: errors.length === 0 ? "SIMULAÇÃO APROVADA" : "SIMULAÇÃO REPROVADA",
   };
 }

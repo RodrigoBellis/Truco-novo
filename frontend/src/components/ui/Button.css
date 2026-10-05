@@ -19,22 +19,33 @@
     opacity var(--transition-fast);
 }
 
-/* Varredura de luz que cruza o botão no hover */
+/* Varredura de luz que cruza o botão no hover.
+   Percorre via `transform`, não via `left`: animar `left` recalcula layout a
+   cada quadro, e isso acontecia em todo botão sob o cursor. Com translate o
+   efeito é idêntico e roda no compositor. */
 .btn::after {
   content: "";
   position: absolute;
   top: 0;
-  left: -60%;
+  left: 0;
   width: 40%;
   height: 100%;
   background: linear-gradient(90deg, transparent, rgb(var(--rgb-white) / 0.22), transparent);
-  transform: skewX(-20deg);
-  transition: left var(--transition-slow);
+  transform: translateX(-160%) skewX(-20deg);
+  transition: transform var(--transition-slow);
   pointer-events: none;
 }
 
 .btn:hover:not(:disabled)::after {
-  left: 130%;
+  transform: translateX(325%) skewX(-20deg);
+}
+
+/* Em tela de toque não existe hover: a varredura ficaria presa no estado
+   final depois do tap, parecendo um brilho grudado no botão. */
+@media (pointer: coarse) {
+  .btn::after {
+    display: none;
+  }
 }
 
 .btn:active:not(:disabled) {
@@ -83,8 +94,6 @@
   background: rgb(var(--rgb-white) / 0.05);
   color: var(--color-text);
   border-color: var(--color-border-strong);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
 }
 
 .btn-secondary:hover:not(:disabled) {

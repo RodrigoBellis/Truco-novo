@@ -16,11 +16,14 @@ async function toAuthUser(authUserId: string): Promise<AuthUser> {
     .select("name, avatar_url")
     .eq("truco_id", profile.truco_player_id)
     .maybeSingle();
-  const { data: member } = await supabaseAdmin
-    .from("truco_team_members")
+  const { data: championship } = await supabaseAdmin.from("truco_championships").select("truco_id")
+    .eq("status", "em_andamento").order("edition", { ascending: false }).limit(1).maybeSingle();
+  const { data: member } = championship ? await supabaseAdmin
+    .from("truco_team_memberships")
     .select("truco_team_id")
-    .eq("truco_player_id", profile.truco_player_id)
-    .maybeSingle();
+    .eq("truco_championship_id", championship.truco_id)
+    .or(`truco_player_1_id.eq.${profile.truco_player_id},truco_player_2_id.eq.${profile.truco_player_id}`)
+    .maybeSingle() : { data: null };
 
   return {
     id: profile.truco_id,

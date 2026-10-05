@@ -39,15 +39,13 @@
   width: 100%;
   padding: var(--space-5) var(--space-3) var(--space-4);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--elev-2-border);
   border-bottom: none;
   background:
     radial-gradient(130% 90% at 50% 0%, rgb(var(--rgb-accent) / 0.14), transparent 62%),
-    var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
+    var(--elev-2-bg);
   box-shadow: var(--shadow-lg), var(--edge-light);
-  transition: transform var(--transition-base), box-shadow var(--transition-base);
+  transition: transform var(--motion-micro), box-shadow var(--motion-micro);
 }
 
 .podium-card:hover {
@@ -55,10 +53,22 @@
   box-shadow: var(--shadow-xl), var(--edge-light);
 }
 
-/* O campeão ganha halo pulsante e borda âmbar */
+/* O campeão ganha halo pulsante e borda âmbar.
+   O halo vem de .halo-pulse (global.css), que respira via opacity —
+   ver comentário lá sobre por que não é box-shadow animado. */
 .podium-slot-1 .podium-card {
   border-color: rgb(var(--rgb-accent) / 0.45);
-  animation: glow-pulse 3.6s ease-in-out 1.2s infinite;
+}
+
+.podium-slot-1 .podium-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 28px 4px rgb(var(--rgb-accent) / 0.22);
+  opacity: 0;
+  animation: halo-breathe 3.6s ease-in-out 1.2s infinite;
 }
 
 .podium-crown {

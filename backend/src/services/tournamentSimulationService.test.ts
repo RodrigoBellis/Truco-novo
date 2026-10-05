@@ -44,6 +44,7 @@ test("a simulação completa é aprovada sem erros", () => {
   assert.equal(report.groupMatches, 30);
   assert.equal(report.knockoutMatches, 9);
   assert.equal(report.totalMatches, 39);
+  assert.match(report.warnings[0] ?? "", /12 duplas, seis por grupo/);
   assert.ok(report.final.championTeamName);
   assert.ok(report.final.runnerUpTeamName);
   assert.notEqual(report.final.championTeamName, report.final.runnerUpTeamName);

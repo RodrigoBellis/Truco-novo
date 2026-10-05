@@ -27,6 +27,7 @@ export function Sidebar({ items }: SidebarProps) {
             key={item.to}
             to={item.to}
             end={item.to === "/admin"}
+            viewTransition
             className={({ isActive }) => `sidebar-link${isActive ? " sidebar-link-active" : ""}`}
           >
             <Icon name={item.icon} />
