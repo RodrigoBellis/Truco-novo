@@ -29,7 +29,7 @@ Fonte de cores e escalas: `frontend/src/styles/variables.css`.
 
 ## Semântica das cores
 
-Verde suave identifica a zona de semifinal; amarelo/laranja suave, repescagem; vermelho suave, eliminação, aplicados aos badges. As linhas da tabela usam a superfície do tema ativo. Uma faixa lateral laranja fina e bordas suaves identificam “Sua dupla”, sem preencher a linha inteira de azul. Usar rótulos para não depender exclusivamente da cor.
+Verde identifica a zona de semifinal; laranja, repescagem; vermelho, eliminação. A pedido do usuário (06/10/2026), além dos badges, o fundo de cada linha da classificação é pintado na cor da zona, com faixa lateral sólida da mesma cor (tinta mais forte no tema escuro). “Sua dupla” ganha moldura laranja em volta da linha e o selo “Sua dupla”, sem preencher a linha de azul. Usar rótulos para não depender exclusivamente da cor.
 
 Preservar a separação entre superfícies e detalhes, com esporte, diversão e contraste. A solicitação mais recente de fundo preto prevalece sobre a direção clara das rodadas anteriores.
 

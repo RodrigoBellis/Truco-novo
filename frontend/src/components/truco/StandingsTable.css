@@ -7,21 +7,31 @@
 .standings-table .standings-team{color:var(--color-text);font-weight:700;line-height:1.4}
 .standings-players,.standings-mobile-stats{display:block;margin-top:4px;color:var(--color-text-muted);font-size:12px;font-weight:400}
 .standings-table .standings-points{font-weight:800;font-size:20px;color:var(--color-tech-400)}
-.standings-row{background:var(--color-surface)}
-.standings-row-mine td{border-top:1px solid rgb(var(--rgb-accent) / .55);border-bottom:1px solid rgb(var(--rgb-accent) / .55)}
-.standings-row-mine td:first-child{box-shadow:inset 2px 0 0 var(--color-action)}
-.standings-row{transition:background-color var(--transition-fast)}
-.standings-row:hover{background:var(--color-surface-hover)}
-.standings-tag{display:inline-block;padding:4px 9px;border-radius:7px;font-size:11px;font-weight:650;white-space:nowrap}
+/* Fundo da linha na cor da zona (pedido do usuário): verde semifinal, laranja repescagem, vermelho eliminado. */
+.standings-row{--zone-color:transparent;--zone-bg:var(--color-surface);background:var(--zone-bg);transition:background-color var(--transition-fast)}
+.standings-row-semifinal{--zone-color:var(--color-success);--zone-bg:rgb(var(--rgb-success) / .13)}
+.standings-row-repescagem{--zone-color:var(--color-action);--zone-bg:rgb(var(--rgb-accent) / .13)}
+.standings-row-eliminado{--zone-color:var(--color-danger);--zone-bg:rgb(var(--rgb-danger) / .11)}
+.standings-row td:first-child{box-shadow:inset 4px 0 0 var(--zone-color)}
+/* No escuro a mesma transparência some sobre o preto: tinta mais forte para as três cores lerem. */
+:root[data-theme="dark"] .standings-row-semifinal{--zone-bg:rgb(var(--rgb-success) / .17)}
+:root[data-theme="dark"] .standings-row-repescagem{--zone-bg:rgb(255 140 40 / .2)}
+:root[data-theme="dark"] .standings-row-eliminado{--zone-bg:rgb(var(--rgb-danger) / .17)}
+.standings-row:hover{background:linear-gradient(rgb(var(--rgb-white) / .04),rgb(var(--rgb-white) / .04)),var(--zone-bg)}
+/* Sua dupla: moldura laranja em volta da linha, visível sobre qualquer cor de zona. */
+.standings-row-mine td{border-top:2px solid var(--color-action);border-bottom:2px solid var(--color-action)}
+.standings-row-mine td:last-child{box-shadow:inset -2px 0 0 var(--color-action)}
+@media(max-width:700px){.standings-row-mine .standings-points{box-shadow:inset -2px 0 0 var(--color-action)}}
+.standings-tag{display:inline-block;padding:4px 9px;border-radius:7px;border:1px solid color-mix(in srgb,currentColor 35%,transparent);font-size:11px;font-weight:650;white-space:nowrap}
 .standings-tag-semifinal{background:#e5f5eb;color:#17633a}
-.standings-tag-repescagem{background:#fff1d6;color:#805100}
+.standings-tag-repescagem{background:#ffe6d0;color:#9c3d06}
 .standings-tag-eliminado{background:#fce8e8;color:#9c2929}
-.standings-you{display:inline-block;margin:4px 0 0 8px;padding:2px 7px;border-radius:5px;background:var(--color-orange-soft);color:var(--color-accent-600);font-size:10px;font-weight:700;vertical-align:middle}
+.standings-you{display:inline-block;margin:4px 0 0 8px;padding:2px 7px;border-radius:5px;background:var(--color-orange-soft);border:1px solid rgb(var(--rgb-accent) / .45);color:var(--color-accent-600);font-size:10px;font-weight:700;vertical-align:middle}
 .standings-stars-mobile,.standings-mobile-stats,.standings-mobile-status{display:none}
 .standings-legend{display:flex;flex-wrap:wrap;gap:12px 20px;margin:16px 0 0;padding:0;list-style:none;font-size:12px;color:var(--color-text-muted)}
 .standings-legend li{display:flex;align-items:center;gap:7px}
 .standings-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.standings-legend-dot-semifinal{background:#21834d}.standings-legend-dot-repescagem{background:#bd8614}.standings-legend-dot-eliminado{background:#cf5a5a}
+.standings-legend-dot-semifinal{background:var(--color-success)}.standings-legend-dot-repescagem{background:var(--color-action)}.standings-legend-dot-eliminado{background:var(--color-danger)}
 @media(max-width:700px){.standings-table{min-width:0}.standings-col-opt,.standings-col-status,.standings-col-stars{display:none}.standings-table th,.standings-table td{padding:14px 10px}.standings-table .standings-position{font-size:15px;vertical-align:top;padding-top:18px}.standings-table .standings-team{font-size:14px}.standings-table .standings-points{font-size:19px}.standings-stars-mobile{display:block;margin:5px 0}.standings-mobile-stats{display:block;font-size:11px;line-height:1.6}.standings-mobile-status{display:inline-block;margin-top:6px;font-size:10px}.standings-you{margin-left:0;margin-top:5px}.standings-players{font-size:11px}.standings-team{max-width:220px;overflow-wrap:break-word}}
 .standings-team-name{display:flex;align-items:center;gap:10px}
 .standings-team-name .team-crest{margin-left:3px}
