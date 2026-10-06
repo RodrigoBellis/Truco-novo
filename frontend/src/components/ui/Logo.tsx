@@ -25,7 +25,7 @@ export function Logo({ size = 36, withLabel = true }: LogoProps) {
       </svg>
       {withLabel && (
         <span className="logo-label">
-          Truco <strong>do Novo</strong>
+          Truco do Novo <strong>· 5ª Edição</strong>
         </span>
       )}
     </div>

@@ -7,15 +7,20 @@
          reais no iPhone. Sem ele os insets vêm sempre 0, e o padding que o
          bottom nav já reservava para a faixa inferior nunca era aplicado. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="description" content="Truco do Novo — gestão de campeonatos de truco" />
-    <title>Truco do Novo</title>
+    <meta name="description" content="Truco do Novo — 5ª Edição do campeonato de 2026" />
+    <title>Truco do Novo · 5ª Edição</title>
     <script>
       (function () {
         try {
           var theme = localStorage.getItem("truco-do-novo:theme");
-          document.documentElement.setAttribute("data-theme", theme === "dark" ? "dark" : "light");
+          if (localStorage.getItem("truco-do-novo:appearance-version") !== "black-background-v1") {
+            theme = "dark";
+            localStorage.setItem("truco-do-novo:theme", theme);
+            localStorage.setItem("truco-do-novo:appearance-version", "black-background-v1");
+          }
+          document.documentElement.setAttribute("data-theme", theme === "light" ? "light" : "dark");
         } catch (e) {
-          document.documentElement.setAttribute("data-theme", "light");
+          document.documentElement.setAttribute("data-theme", "dark");
         }
       })();
     </script>

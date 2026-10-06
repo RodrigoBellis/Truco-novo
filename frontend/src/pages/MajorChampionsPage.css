@@ -1,0 +1,83 @@
+.major-champions-page{display:flex;flex-direction:column;gap:32px;padding-bottom:32px}
+/* Cabeçalho: mesma faixa azul com brilho laranja do Hall da Fama e do banner da Home. */
+.major-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:32px;padding:44px;border-radius:24px;border:1px solid rgb(255 255 255 / .12);background:radial-gradient(48% 130% at 100% 40%,rgb(244 123 32 / .4),transparent 70%),linear-gradient(115deg,#051a3e,#0a47a0 64%,#0d57bd);color:#fff;box-shadow:0 26px 50px -30px rgb(7 62 128 / .95),inset 0 1px 0 rgb(255 255 255 / .16);overflow:hidden}
+.major-hero-copy{min-width:0;max-width:56ch}
+.major-hero h1{font-size:clamp(2.3rem,1.6rem + 3vw,3.6rem);font-weight:850;line-height:1.02;letter-spacing:-.04em;color:#fff}
+.major-hero p{margin-top:16px;max-width:46ch;color:#d3e2ff;font-size:1rem;line-height:1.6}
+.major-hero-link{display:inline-flex;align-items:center;gap:10px;min-height:44px;margin-top:24px;padding:10px 18px;border-radius:12px;background:#fff;color:#0a2c66;font-size:.82rem;font-weight:800;transition:transform var(--motion-micro),background-color var(--transition-fast)}
+.major-hero-link:hover{background:#eaf1ff;transform:translateY(-1px)}
+.major-hero-link:focus-visible{outline-color:#fff}
+.major-hero-link svg,.major-mine-link svg{transition:transform var(--motion-micro)}
+.major-hero-link:hover svg,.major-mine-link:hover svg{transform:translateX(4px)}
+.major-hero-stats{display:flex;flex:0 0 auto;margin:0;padding:18px 6px;border-radius:20px;border:1px solid rgb(255 214 170 / .34);background:rgb(4 14 36 / .46);box-shadow:inset 0 1px 0 rgb(255 255 255 / .14)}
+.major-hero-stats > div{display:flex;flex-direction:column;gap:6px;padding:2px 22px;min-width:0}
+.major-hero-stats > div + div{border-left:1px solid rgb(255 255 255 / .16)}
+.major-hero-stats dd{margin:0;font-size:2.2rem;font-weight:850;line-height:1;letter-spacing:-.03em;color:#fff;font-variant-numeric:tabular-nums}
+.major-hero-stats > div:first-child dd{color:#ffd09e}
+.major-hero-stats dt{font-size:.74rem;font-weight:650;color:#d3e2ff;line-height:1.3;max-width:11ch}
+.major-hero-copy > *{animation:rise-in var(--motion-reveal) backwards}
+.major-hero-copy > :nth-child(2){animation-delay:90ms}
+.major-hero-copy > :nth-child(3){animation-delay:180ms}
+.major-hero-stats{animation:pop-in var(--motion-move) 200ms backwards}
+
+/* Sua dupla na corrida */
+.major-mine{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:16px 26px;padding:26px 30px;border-radius:22px;border:1px solid var(--color-border-strong);background:radial-gradient(70% 160% at 0% 0%,var(--team-soft),transparent 60%),var(--color-surface);box-shadow:var(--shadow-lg),var(--edge-light);overflow:hidden}
+.major-mine::before{content:"";position:absolute;inset:0 0 auto;height:1px;background:linear-gradient(90deg,var(--team-color),var(--team-line) 40%,transparent);pointer-events:none}
+.major-mine h2{font-size:1.3rem;font-weight:850;letter-spacing:-.02em;line-height:1.2;overflow-wrap:anywhere}
+.major-mine p{margin-top:6px;max-width:58ch;color:var(--color-text-muted);font-size:.9rem;line-height:1.55}
+.major-mine-stats{display:flex;margin:0}
+.major-mine-stats > div{display:flex;flex-direction:column;gap:6px;padding:0 20px}
+.major-mine-stats > div + div{border-left:1px solid var(--color-border)}
+.major-mine-stats dd{margin:0;font-size:2rem;font-weight:850;line-height:1;letter-spacing:-.03em;color:var(--team-ink);font-variant-numeric:tabular-nums}
+.major-mine-stats dt{font-size:.74rem;font-weight:650;color:var(--color-text-muted)}
+.major-mine-link{display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:46px;padding:12px 20px;border-radius:12px;background:var(--color-action);color:var(--color-on-action);font-weight:800;font-size:.85rem;white-space:nowrap;box-shadow:0 8px 18px -10px rgb(var(--rgb-accent) / .7),inset 0 1px 0 rgb(255 255 255 / .3);transition:transform var(--motion-micro),background-color var(--transition-fast)}
+.major-mine-link:hover{background:var(--color-action-hover);transform:translateY(-1px)}
+
+.major-section-heading{margin-bottom:18px}
+.major-section-heading h2{margin:0 0 6px;font-size:var(--text-xl);font-weight:850;letter-spacing:var(--tracking-tight)}
+.major-section-heading p{margin:0;max-width:72ch;color:var(--color-text-muted);font-size:.85rem;line-height:1.6}
+
+/* Ranking completo */
+.major-ranking-list{margin:0;padding:6px 24px;list-style:none;background:var(--color-surface);border:1px solid var(--color-border-strong);border-radius:20px;box-shadow:var(--shadow-md),var(--edge-light)}
+.major-row{position:relative;display:grid;grid-template-columns:52px minmax(0,1fr) auto 84px;align-items:center;gap:20px;padding:18px 0;transition:background-color var(--transition-fast)}
+.major-row + .major-row{border-top:1px solid var(--color-border)}
+.major-row-rank{font-size:1.35rem;font-weight:850;letter-spacing:-.02em;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
+.major-row-first .major-row-rank{color:var(--color-accent-500)}
+.major-row-duo{display:flex;min-width:0;flex-direction:column;gap:4px}
+.major-row-duo strong{font-size:1rem;font-weight:750;line-height:1.35;overflow-wrap:anywhere}
+.major-row-duo span,.major-row-editions{color:var(--color-text-muted);font-size:.76rem;line-height:1.5}
+.major-row-mine .major-row-duo span{align-self:flex-start;padding:2px 9px;border-radius:999px;background:var(--color-orange-soft);color:var(--color-accent-600);font-weight:750}
+.major-track{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.major-track li{display:grid;place-items:center;width:28px;height:28px;border-radius:8px;border:1px solid var(--color-border-strong);color:var(--color-text-faint);font-size:.72rem;font-weight:750;font-variant-numeric:tabular-nums;transition:transform var(--motion-micro)}
+.major-track .major-track-won{border-color:var(--color-action);background:var(--color-action);color:var(--color-on-action);box-shadow:0 6px 12px -8px rgb(var(--rgb-accent) / .9),inset 0 1px 0 rgb(255 255 255 / .3)}
+.major-row:hover .major-track-won{transform:translateY(-2px)}
+.major-row-titles{display:flex;flex-direction:column;align-items:flex-end;gap:3px;color:var(--color-text-muted);font-size:.74rem;font-weight:650;white-space:nowrap}
+.major-row-titles b{font-size:1.7rem;font-weight:850;line-height:1;letter-spacing:-.03em;color:var(--color-text);font-variant-numeric:tabular-nums}
+.major-row-first .major-row-titles b{color:var(--color-accent-500)}
+
+@media(max-width:900px){
+  .major-hero{flex-direction:column;align-items:stretch;padding:34px 30px}
+  .major-hero-stats{justify-content:space-between}
+  .major-mine{grid-template-columns:auto minmax(0,1fr)}
+  .major-mine-stats{grid-column:1 / -1}
+  .major-mine-stats > div:first-child{padding-left:0}
+  .major-mine-link{grid-column:1 / -1}
+}
+@media(max-width:600px){
+  .major-champions-page{gap:26px}
+  .major-hero{padding:28px 22px;border-radius:20px;gap:24px}
+  .major-hero-link{width:100%;justify-content:center}
+  .major-hero-stats{padding:16px 2px}
+  .major-hero-stats > div{padding:2px 12px;flex:1}
+  .major-hero-stats dd{font-size:1.7rem}
+  .major-mine{padding:22px 20px;gap:14px 16px}
+  .major-mine > .team-crest{width:54px;height:54px;border-radius:16px;font-size:1.15rem}
+  .major-ranking-list{padding:4px 16px}
+  .major-row{grid-template-columns:36px minmax(0,1fr) auto;gap:8px 12px;padding:16px 0}
+  .major-row-rank{font-size:1.1rem}
+  .major-row-duo strong{font-size:.92rem}
+  .major-track,.major-row-editions{grid-column:2 / -1;grid-row:2}
+  .major-row-titles{grid-column:3;grid-row:1}
+  .major-track li{width:26px;height:26px}
+  .major-row-titles b{font-size:1.4rem}
+}

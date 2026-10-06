@@ -1,5 +1,6 @@
+import { getAccessToken } from "../lib/authSession";
+
 const BASE_URL = import.meta.env.VITE_API_URL ?? "/api";
-const STORAGE_KEY = "truco-do-novo:session";
 
 export class ApiError extends Error {
   status: number;
@@ -15,19 +16,8 @@ interface RequestOptions {
   body?: unknown;
 }
 
-function readStoredToken(): string | null {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const session = JSON.parse(raw) as { token?: string };
-    return session.token ?? null;
-  } catch {
-    return null;
-  }
-}
-
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const token = readStoredToken();
+  const token = await getAccessToken();
   const headers: Record<string, string> = {};
   if (options.body) headers["Content-Type"] = "application/json";
   if (token) headers.Authorization = `Bearer ${token}`;

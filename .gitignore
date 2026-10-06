@@ -4,3 +4,9 @@ dist/
 .env.local
 *.log
 .DS_Store
+*.local.mjs
+login.json
+tok.txt
+matches.json
+test-results/
+playwright-report/

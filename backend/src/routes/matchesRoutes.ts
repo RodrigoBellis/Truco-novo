@@ -32,25 +32,8 @@ matchesRoutes.get(
       teamId: req.authUser!.role === "jogador" ? undefined : typeof teamId === "string" ? teamId : undefined,
     });
 
-    if (req.authUser!.role === "jogador") {
-      const myTeamId = await store.getTeamIdForPlayer(req.authUser!.playerId);
-      const myTeam = myTeamId ? await store.getTeam(myTeamId) : undefined;
-      const myGroupId = myTeam?.groupId ?? null;
-
-      // "Meus jogos": qualquer partida da própria dupla, em qualquer status.
-      // "Resultados do grupo": partidas já realizadas de duplas do mesmo grupo — precisa
-      // disso porque afeta a classificação que o jogador acompanha. Jogos PENDENTES de
-      // outras duplas continuam invisíveis (não vaza a agenda de quem ele não é).
-      const filtered = matches.filter(
-        (m) =>
-          m.teamAId === myTeamId ||
-          m.teamBId === myTeamId ||
-          (m.status === "realizado" && myGroupId !== null && m.groupId === myGroupId),
-      );
-      res.json(filtered);
-      return;
-    }
-
+    // A agenda e os placares são públicos para usuários autenticados em ambos os grupos.
+    // A autorização de escrita permanece no POST /:id/result e valida a dupla participante.
     res.json(matches);
   }),
 );

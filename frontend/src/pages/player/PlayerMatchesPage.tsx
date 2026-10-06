@@ -1,9 +1,10 @@
 import { useState } from "react";
-import type { GroupId, Match, MatchResult, StandingRow, Team } from "@truco/shared";
+import type { GroupId, Match, MatchResult, Player, StandingRow, Team } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Loading } from "../../components/ui/Loading";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Button } from "../../components/ui/Button";
+import { Icon } from "../../components/ui/Icon";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { MatchGroupsList } from "../../components/truco/MatchGroupsList";
 import { ScoreForm } from "../../components/truco/ScoreForm";
@@ -15,16 +16,22 @@ import { useRealtimeMatches } from "../../hooks/useRealtimeMatches";
 import { useToast } from "../../hooks/useToast";
 import { getTeams } from "../../services/teamsService";
 import { getMatches, recordMatchResult } from "../../services/matchesService";
+import { getPlayers } from "../../services/playersService";
 import { getStandings } from "../../services/groupsService";
 import { teamLabel } from "../../utils/teamHelpers";
 import { ApiError } from "../../services/api";
+import "./PlayerMatchesPage.css";
 
 interface Data {
   teams: Team[];
   matches: Match[];
+  players: Player[];
   groupId: GroupId | null;
   standings: StandingRow[];
 }
+
+type GroupFilter = "mine" | GroupId | "all";
+type StatusFilter = "all" | "upcoming" | "finished";
 
 export function PlayerMatchesPage() {
   const { user } = useAuth();
@@ -33,28 +40,19 @@ export function PlayerMatchesPage() {
   const myTeamId = user?.teamId ?? null;
 
   const { data, isLoading, error, refetch } = useFetchData<Data>(async () => {
-    const [teams, matches] = await Promise.all([getTeams(), getMatches()]);
+    const [teams, matches, players] = await Promise.all([getTeams(), getMatches(), getPlayers()]);
     const myTeam = teams.find((t) => t.id === myTeamId);
     const groupId = myTeam?.groupId ?? null;
     // Classificação real do grupo — base das mensagens do próximo confronto.
     const standings = groupId ? await getStandings(groupId) : [];
-    // Pendentes de qualquer dupla visível + os jogos JÁ REALIZADOS da própria dupla,
-    // para que o placar lançado continue à vista e possa ser corrigido.
-    return {
-      teams,
-      groupId,
-      standings,
-      matches: matches.filter(
-        (m) =>
-          m.status === "pendente" ||
-          (myTeamId !== null && (m.teamAId === myTeamId || m.teamBId === myTeamId)),
-      ),
-    };
+    return { teams, players, groupId, standings, matches };
   }, [myTeamId]);
 
   useRealtimeMatches(refetch);
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [groupFilter, setGroupFilter] = useState<GroupFilter>("mine");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [isSubmitting, setIsSubmitting] = useState(false);
   /** Correção de um placar já lançado aguardando confirmação. */
   const [pendingEdit, setPendingEdit] = useState<{ matchId: string; result: MatchResult } | null>(null);
@@ -89,7 +87,7 @@ export function PlayerMatchesPage() {
   }
 
   if (isLoading) return <Loading fullHeight label="Carregando jogos..." />;
-  if (error) return <EmptyState icon="⚠️" tone="danger" title="Não foi possível carregar os jogos" description={error} />;
+  if (error) return <EmptyState icon={<Icon name="matches" size={36} />} tone="danger" title="Não foi possível carregar os jogos" description={error} />;
 
   // Próximo confronto da dupla: o pendente de menor posição na fila.
   const nextMatch = myTeamId
@@ -104,11 +102,26 @@ export function PlayerMatchesPage() {
       : nextMatch.teamAId
     : null;
 
+  const visibleMatches = (data?.matches ?? []).filter((match) => {
+    const inSelectedGroup = groupFilter === "all" || (groupFilter === "mine"
+      ? myTeamId !== null && (match.teamAId === myTeamId || match.teamBId === myTeamId)
+      : match.groupId === groupFilter);
+    const inSelectedStatus = statusFilter === "all" || (statusFilter === "upcoming" ? match.status === "pendente" : match.status === "realizado");
+    return inSelectedGroup && inSelectedStatus;
+  });
+
   return (
     <div className="page-enter">
-      <PageHeader title="Jogos" subtitle="Registre o placar assim que a partida terminar — dá para corrigir depois se errar" />
+      <PageHeader title="Jogos" subtitle="Acompanhe a ordem, os confrontos e os placares da edição" />
 
-      {data && nextMatch && opponentId && myTeamId && data.groupId && (
+      <div className="matches-filter-section">
+        <div className="matches-group-filters" role="tablist" aria-label="Filtrar jogos por grupo">
+          {([{ value: "mine", label: "Meus Jogos" }, { value: "A", label: "Grupo A" }, { value: "B", label: "Grupo B" }, { value: "all", label: "Todos" }] as const).map((filter) => <button key={filter.value} type="button" role="tab" aria-selected={groupFilter === filter.value} className={`matches-filter-chip${groupFilter === filter.value ? " matches-filter-chip-active" : ""}`} onClick={() => setGroupFilter(filter.value)}>{filter.label}</button>)}
+        </div>
+        <label className="matches-status-filter">Situação <select aria-label="Filtrar por situação" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}><option value="all">Todos</option><option value="upcoming">Próximos</option><option value="finished">Finalizados</option></select></label>
+      </div>
+
+      {groupFilter === "mine" && statusFilter !== "finished" && data && nextMatch && opponentId && myTeamId && data.groupId && (
         <NextOpponentCard
           opponentName={teamLabel(data.teams, opponentId)}
           insight={buildOpponentInsight({
@@ -120,16 +133,17 @@ export function PlayerMatchesPage() {
           })}
         />
       )}
-      {data && data.matches.length > 0 ? (
+      {data && visibleMatches.length > 0 ? (
         <MatchGroupsList
-          matches={data.matches}
+          matches={visibleMatches}
           teams={data.teams}
+          players={data.players}
           highlightTeamId={user?.teamId}
           liveMatchId={expandedId}
           renderActions={(match) => {
             // Só a própria dupla lança/corrige o placar. Jogos realizados de outras duplas
             // podem aparecer na lista (classificação do grupo), mas sem ação disponível.
-            const isMine = match.teamAId === user?.teamId || match.teamBId === user?.teamId;
+            const isMine = myTeamId !== null && (match.teamAId === myTeamId || match.teamBId === myTeamId);
             if (!isMine) return null;
 
             return (
@@ -145,7 +159,7 @@ export function PlayerMatchesPage() {
                   />
                 ) : (
                   <Button variant="ghost" size="sm" onClick={() => setExpandedId(match.id)}>
-                    {match.status === "realizado" ? "Editar resultado" : "Registrar resultado"}
+                    {match.status === "realizado" ? "Editar resultado" : "Lançar resultado"}
                   </Button>
                 )}
               </div>
@@ -153,7 +167,7 @@ export function PlayerMatchesPage() {
           }}
         />
       ) : (
-        <EmptyState icon="🎴" title="Nenhum jogo pendente" description="Sua dupla não tem confrontos pendentes. O administrador definirá os jogos depois de formar os grupos." />
+        <EmptyState icon={<Icon name="matches" size={36} />} title="Nenhum jogo neste filtro" description={groupFilter === "mine" ? "Sua dupla ainda não tem jogos nesta situação. Você também pode consultar os Grupos A e B." : "Não encontramos partidas com esses filtros."} />
       )}
 
       <ConfirmDialog

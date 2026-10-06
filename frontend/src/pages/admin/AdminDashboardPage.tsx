@@ -26,7 +26,7 @@ export function AdminDashboardPage() {
 
   return (
     <div className="page-enter">
-      <PageHeader title="Dashboard" subtitle="Visão geral do Truco do Novo" />
+      <PageHeader title="Painel do campeonato" subtitle="Visão geral da 5ª Edição · 2026" />
 
       {stats.champion && (
         <AnimatedBorderCard duration={4.5} className="admin-dashboard-champion-wrap">

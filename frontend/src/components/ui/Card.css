@@ -18,12 +18,7 @@
 
 /* Véu de gradiente muito sutil — dá volume sem sujar o conteúdo */
 .card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--gradient-surface);
-  pointer-events: none;
-  border-radius: inherit;
+  display: none;
 }
 
 .card > * {

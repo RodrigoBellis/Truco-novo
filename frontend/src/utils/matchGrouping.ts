@@ -6,7 +6,7 @@ export interface MatchGroup {
 }
 
 export function groupMatchesByRound(matches: Match[]): MatchGroup[] {
-  const sorted = [...matches].sort((a, b) => a.order - b.order);
+  const sorted = [...matches].sort((a, b) => (a.queuePosition ?? a.order + 1) - (b.queuePosition ?? b.order + 1));
   const groups: MatchGroup[] = [];
 
   sorted.forEach((match) => {

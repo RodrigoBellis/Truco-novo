@@ -1,5 +1,11 @@
-import type { HallOfFame, HistoryEntry } from "@truco/shared";
+import type { HallOfFame, HistoryEntry, MajorChampionEntry } from "@truco/shared";
 import { supabase } from "../lib/supabaseClient";
+import { apiRequest } from "./api";
+
+/** Ranking acumulado de duplas calculado no backend a partir das participações e campeões armazenados. */
+export function getMajorChampions(): Promise<MajorChampionEntry[]> {
+  return apiRequest<MajorChampionEntry[]>("/history/major-champions");
+}
 
 interface TeamMemberRow {
   position: number;

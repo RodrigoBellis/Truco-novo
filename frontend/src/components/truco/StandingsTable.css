@@ -1,185 +1,27 @@
-.standings-table-wrap {
-  overflow-x: auto;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-elevated);
-}
-
-.standings-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--text-base);
-  min-width: 640px;
-  font-variant-numeric: tabular-nums;
-}
-
-.standings-table th {
-  text-align: left;
-  padding: var(--space-3) var(--space-4);
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-text-faint);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.standings-table td {
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--color-border);
-  color: var(--color-text-muted);
-}
-
-.standings-row:last-child td {
-  border-bottom: none;
-}
-
-.standings-position {
-  font-weight: 800;
-  color: var(--color-text);
-}
-
-.standings-team {
-  color: var(--color-text);
-  font-weight: 600;
-}
-
-.standings-points {
-  font-weight: 800;
-  color: var(--color-accent-400);
-}
-
-.standings-row-mine {
-  background: rgb(var(--rgb-accent) / 0.06);
-}
-
-.standings-row {
-  transition: background-color var(--transition-fast);
-}
-
-.standings-row:hover {
-  background: var(--color-surface-hover);
-}
-
-.standings-row-mine {
-  background: rgb(var(--rgb-accent) / 0.1);
-}
-
-.standings-tag {
-  display: inline-block;
-  padding: 2px 10px;
-  border-radius: var(--radius-full);
-  font-size: 0.72rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.standings-tag-semifinal {
-  background: #e5f5eb;
-  color: #17633a;
-}
-
-.standings-tag-repescagem {
-  background: #fff3d6;
-  color: #805100;
-}
-
-.standings-tag-eliminado {
-  background: #fce8e8;
-  color: #9c2929;
-}
-
-.standings-row-semifinal { --tone: #21834d; }
-.standings-row-repescagem { --tone: #d39a22; }
-.standings-row-eliminado { --tone: #cf5a5a; }
-.standings-stars { color: #a86500; white-space: nowrap; font-size: 0.78rem; letter-spacing: -0.08em; }
-.standings-stars span { color: #c8c7c1; }
-.standings-stars-mobile { display: none; }
-
-.standings-you {
-  display: inline-block;
-  margin-left: var(--space-2);
-  padding: 1px 8px;
-  border-radius: var(--radius-full);
-  background: rgb(var(--rgb-accent) / 0.16);
-  color: var(--color-accent-400);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  vertical-align: middle;
-}
-
-/* A legenda só existe quando a coluna "Situação" some (mobile) */
-.standings-legend {
-  display: none;
-}
-
-.standings-legend-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.standings-legend-dot-semifinal { background: #21834d; }
-.standings-legend-dot-repescagem { background: #d39a22; }
-.standings-legend-dot-eliminado { background: #cf5a5a; }
-
-@media (max-width: 700px) {
-  /* Sem colunas secundárias a tabela cabe inteira: acaba o scroll horizontal */
-  .standings-table {
-    min-width: 0;
-  }
-
-  .standings-col-opt,
-  .standings-col-status,
-  .standings-col-stars {
-    display: none;
-  }
-
-  .standings-stars-mobile {
-    display: inline-block;
-    margin-left: var(--space-2);
-    color: #a86500;
-    font-size: 0.7rem;
-    white-space: nowrap;
-    letter-spacing: -0.08em;
-  }
-  .standings-stars-mobile span { color: #c8c7c1; }
-
-  .standings-table th,
-  .standings-table td {
-    padding: var(--space-3) var(--space-2);
-  }
-
-  .standings-table th:first-child,
-  .standings-table td:first-child {
-    padding-left: var(--space-3);
-  }
-
-  .standings-table th:last-child,
-  .standings-table td:last-child {
-    padding-right: var(--space-3);
-  }
-
-  /* A situação vira uma faixa colorida na borda da linha */
-  .standings-row td:first-child {
-    box-shadow: inset 3px 0 0 var(--tone, transparent);
-  }
-
-  .standings-legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2) var(--space-4);
-    margin-top: var(--space-3);
-    padding: 0 var(--space-1);
-    font-size: var(--text-xs);
-    color: var(--color-text-faint);
-  }
-
-  .standings-legend li {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-  }
-}
+﻿.standings-table-wrap{overflow-x:auto;border-radius:var(--radius-lg);border:1px solid var(--color-border);background:var(--color-surface)}
+.standings-table{width:100%;border-collapse:collapse;font-size:14px;min-width:640px;font-variant-numeric:tabular-nums}
+.standings-table th{text-align:left;padding:14px 16px;font-size:12px;font-weight:700;color:var(--color-tech-400);background:var(--color-blue-soft);border-bottom:1px solid var(--color-border)}
+.standings-table td{padding:18px 16px;border-bottom:1px solid var(--color-border);color:var(--color-text-muted)}
+.standings-row:last-child td{border-bottom:none}
+.standings-table .standings-position{font-weight:800;font-size:18px;color:var(--color-text)}
+.standings-table .standings-team{color:var(--color-text);font-weight:700;line-height:1.4}
+.standings-players,.standings-mobile-stats{display:block;margin-top:4px;color:var(--color-text-muted);font-size:12px;font-weight:400}
+.standings-table .standings-points{font-weight:800;font-size:20px;color:var(--color-tech-400)}
+.standings-row{background:var(--color-surface)}
+.standings-row-mine td{border-top:1px solid rgb(var(--rgb-accent) / .55);border-bottom:1px solid rgb(var(--rgb-accent) / .55)}
+.standings-row-mine td:first-child{box-shadow:inset 2px 0 0 var(--color-action)}
+.standings-row{transition:background-color var(--transition-fast)}
+.standings-row:hover{background:var(--color-surface-hover)}
+.standings-tag{display:inline-block;padding:4px 9px;border-radius:7px;font-size:11px;font-weight:650;white-space:nowrap}
+.standings-tag-semifinal{background:#e5f5eb;color:#17633a}
+.standings-tag-repescagem{background:#fff1d6;color:#805100}
+.standings-tag-eliminado{background:#fce8e8;color:#9c2929}
+.standings-you{display:inline-block;margin:4px 0 0 8px;padding:2px 7px;border-radius:5px;background:var(--color-orange-soft);color:var(--color-accent-600);font-size:10px;font-weight:700;vertical-align:middle}
+.standings-stars-mobile,.standings-mobile-stats,.standings-mobile-status{display:none}
+.standings-legend{display:flex;flex-wrap:wrap;gap:12px 20px;margin:16px 0 0;padding:0;list-style:none;font-size:12px;color:var(--color-text-muted)}
+.standings-legend li{display:flex;align-items:center;gap:7px}
+.standings-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.standings-legend-dot-semifinal{background:#21834d}.standings-legend-dot-repescagem{background:#bd8614}.standings-legend-dot-eliminado{background:#cf5a5a}
+@media(max-width:700px){.standings-table{min-width:0}.standings-col-opt,.standings-col-status,.standings-col-stars{display:none}.standings-table th,.standings-table td{padding:14px 10px}.standings-table .standings-position{font-size:15px;vertical-align:top;padding-top:18px}.standings-table .standings-team{font-size:14px}.standings-table .standings-points{font-size:19px}.standings-stars-mobile{display:block;margin:5px 0}.standings-mobile-stats{display:block;font-size:11px;line-height:1.6}.standings-mobile-status{display:inline-block;margin-top:6px;font-size:10px}.standings-you{margin-left:0;margin-top:5px}.standings-players{font-size:11px}.standings-team{max-width:220px;overflow-wrap:break-word}}
+.standings-team-name{display:flex;align-items:center;gap:10px}
+.standings-team-name .team-crest{margin-left:3px}

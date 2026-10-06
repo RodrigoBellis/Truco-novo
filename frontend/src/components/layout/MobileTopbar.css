@@ -2,6 +2,14 @@
   display: none;
 }
 
+@media (max-width: 370px) {
+  .mobile-topbar { padding-inline: 14px; gap: 8px; }
+  .mobile-topbar .logo { gap: 8px; min-width: 0; }
+  .mobile-topbar .logo svg { flex-shrink: 0; }
+  .mobile-topbar .logo-label { white-space: normal; font-size: 13px; line-height: 1.3; }
+  .mobile-topbar .logo-label strong { display: block; }
+}
+
 @media (max-width: 960px) {
   .mobile-topbar {
     display: flex;

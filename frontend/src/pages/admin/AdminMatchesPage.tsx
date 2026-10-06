@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Match, MatchResult, Team } from "@truco/shared";
+import type { Match, MatchResult, Player, Team } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Loading } from "../../components/ui/Loading";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -11,18 +11,20 @@ import { useFetchData } from "../../hooks/useFetchData";
 import { useToast } from "../../hooks/useToast";
 import { getTeams } from "../../services/teamsService";
 import { getMatches, getMatchResultAudit, recordMatchResult, type MatchResultAuditEntry } from "../../services/matchesService";
+import { getPlayers } from "../../services/playersService";
 import { teamLabel } from "../../utils/teamHelpers";
 import { ApiError } from "../../services/api";
 
 interface Data {
   teams: Team[];
   matches: Match[];
+  players: Player[];
 }
 
 export function AdminMatchesPage() {
   const { data, isLoading, error, refetch } = useFetchData<Data>(async () => {
-    const [teams, matches] = await Promise.all([getTeams(), getMatches({ stage: "grupos" })]);
-    return { teams, matches };
+    const [teams, matches, players] = await Promise.all([getTeams(), getMatches({ stage: "grupos" }), getPlayers()]);
+    return { teams, matches, players };
   });
   const { showToast } = useToast();
 
@@ -104,6 +106,7 @@ export function AdminMatchesPage() {
       <MatchGroupsList
         matches={data.matches}
         teams={data.teams}
+        players={data.players}
         liveMatchId={expandedId}
         renderActions={(match) => (
           <div>

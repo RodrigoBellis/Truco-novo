@@ -4,11 +4,17 @@ import { DrawError } from "../services/drawService.js";
 import { BracketError } from "../services/bracketService.js";
 import { MatchError } from "../services/matchService.js";
 import { SimulationError } from "../services/tournamentSimulationService.js";
+import { EditionSetupError } from "../services/editionSetupError.js";
 
 const KNOWN_ERRORS = [AuthError, DrawError, BracketError, MatchError, SimulationError];
 
 // O Express identifica o middleware de erro pela aridade — os 4 parâmetros são obrigatórios.
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction): void {
+  if (err instanceof EditionSetupError) {
+    res.status(503).json({ message: err.message });
+    return;
+  }
+
   if (KNOWN_ERRORS.some((ErrorType) => err instanceof ErrorType)) {
     res.status(400).json({ message: (err as Error).message });
     return;

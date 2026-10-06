@@ -1,0 +1,35 @@
+.champions-podium-real{display:flex;flex-wrap:wrap;gap:18px;align-items:stretch}
+.champions-podium-place{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px 18px;padding:22px 24px;flex:1 1 260px;min-width:0;border:1px solid var(--color-border-strong);border-radius:20px;background:var(--color-surface);box-shadow:var(--shadow-md),var(--edge-light);transition:transform var(--motion-micro),border-color var(--transition-fast),box-shadow var(--transition-base)}
+.champions-podium-place:hover{transform:translateY(-3px);border-color:rgb(var(--rgb-accent) / .45);box-shadow:var(--shadow-lg),var(--edge-light)}
+.champions-podium-cup{display:grid;place-items:center;width:56px;height:56px;border-radius:16px;background:var(--color-orange-soft);color:var(--color-accent-500)}
+.champions-podium-body{min-width:0}
+.champions-podium-rank{display:inline-block;font-size:.75rem;font-weight:750;color:var(--color-tech-400)}
+.champions-podium-place h3{margin-top:4px;font-size:1.1rem;font-weight:800;line-height:1.3;overflow-wrap:anywhere;text-wrap:balance}
+.champions-podium-editions{list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 0;padding:0}
+.champions-podium-editions li{padding:3px 10px;border-radius:999px;border:1px solid var(--color-border-strong);background:var(--color-surface-alt);color:var(--color-text-muted);font-size:.72rem;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.champions-podium-titles{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:.75rem;font-weight:700;color:var(--color-text-muted);white-space:nowrap}
+.champions-podium-titles b{font-size:2.2rem;font-weight:850;line-height:1;letter-spacing:-.03em;color:var(--color-text);font-variant-numeric:tabular-nums}
+
+/* 1º lugar: faixa azul da marca com brilho laranja, igual nos dois temas. */
+.champions-podium-place-1{--color-accent-300:#ffe2c7;--color-accent-500:#ff9a4f;--color-accent-700:#a64509;--color-bg:#080a10;flex-basis:100%;gap:10px 30px;padding:34px 40px;border-color:rgb(255 214 170 / .4);border-radius:24px;background:radial-gradient(42% 150% at 0% 50%,rgb(244 123 32 / .36),transparent 70%),linear-gradient(115deg,#051a3e,#0a47a0 66%,#0d57bd);color:#fff;box-shadow:0 26px 50px -30px rgb(7 62 128 / .95),inset 0 1px 0 rgb(255 255 255 / .16)}
+.champions-podium-place-1:hover{border-color:rgb(255 214 170 / .7);box-shadow:0 30px 56px -30px rgb(7 62 128 / 1),inset 0 1px 0 rgb(255 255 255 / .2)}
+.champions-podium-place-1 .champions-podium-cup{width:auto;height:auto;background:none;filter:drop-shadow(0 14px 18px rgb(4 6 11 / .5))}
+.champions-podium-place-1 .champions-podium-rank{padding:4px 12px;border-radius:999px;background:var(--color-action);color:var(--color-on-action);font-weight:800}
+.champions-podium-place-1 h3{margin-top:12px;font-size:clamp(1.5rem,1.1rem + 1.6vw,2.2rem);font-weight:850;letter-spacing:-.02em;line-height:1.12;color:#fff}
+.champions-podium-place-1 .champions-podium-editions{margin-top:16px}
+.champions-podium-place-1 .champions-podium-editions li{border-color:rgb(255 255 255 / .22);background:rgb(4 14 36 / .4);color:#d3e2ff}
+.champions-podium-place-1 .champions-podium-titles{color:#ffd09e;font-size:.85rem}
+.champions-podium-place-1 .champions-podium-titles b{font-size:clamp(3.4rem,2.4rem + 4vw,5.2rem);color:#fff}
+.champions-podium-place-1 .champions-podium-cup svg{animation:trophy-drop 720ms var(--ease-out) 200ms backwards}
+.champions-podium-place-1 .champions-podium-titles b{animation:pop-in var(--motion-move) 380ms backwards}
+
+@media(max-width:600px){
+  .champions-podium-real{gap:12px}
+  .champions-podium-place{padding:18px;gap:6px 14px}
+  .champions-podium-cup{width:46px;height:46px;border-radius:14px}
+  .champions-podium-titles b{font-size:1.8rem}
+  .champions-podium-place-1{grid-template-columns:auto minmax(0,1fr);padding:24px 22px;border-radius:20px}
+  .champions-podium-place-1 .champions-podium-cup svg{width:68px;height:68px}
+  .champions-podium-place-1 .champions-podium-body{grid-column:1 / -1;grid-row:2}
+  .champions-podium-place-1 .champions-podium-titles{grid-column:2;grid-row:1;align-items:flex-end}
+}

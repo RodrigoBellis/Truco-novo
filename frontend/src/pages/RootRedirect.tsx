@@ -1,7 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { Loading } from "../components/ui/Loading";
-import { homePathForRole } from "../utils/roles";
+import { entryPathForUser } from "../utils/playerEntry";
 
 export function RootRedirect() {
   const { user, isLoading } = useAuth();
@@ -18,5 +18,5 @@ export function RootRedirect() {
     return <Navigate to="/criar-senha" replace />;
   }
 
-  return <Navigate to={homePathForRole(user.role)} replace />;
+  return <Navigate to={entryPathForUser(user)} replace />;
 }

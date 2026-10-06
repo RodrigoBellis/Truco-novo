@@ -60,15 +60,7 @@ groupsRoutes.get(
       return;
     }
 
-    if (req.authUser!.role === "jogador") {
-      const myTeamId = await store.getTeamIdForPlayer(req.authUser!.playerId);
-      const myTeam = myTeamId ? await store.getTeam(myTeamId) : undefined;
-      if (myTeam?.groupId !== groupId) {
-        res.status(403).json({ message: "Você só pode ver a classificação do seu próprio grupo." });
-        return;
-      }
-    }
-
+    // As duas classificações são visíveis a todos os jogadores autenticados.
     const championship = await store.getCurrentChampionship();
     res.json(await computeStandings(championship.truco_id, groupId));
   }),

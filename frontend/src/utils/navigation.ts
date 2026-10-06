@@ -3,16 +3,14 @@ import type { NavItem } from "../types";
 export const PLAYER_NAV_ITEMS: NavItem[] = [
   { to: "/inicio", label: "Início", icon: "home" },
   { to: "/hall-da-fama", label: "Hall da Fama", icon: "ranking" },
+  { to: "/maiores-campeoes", label: "Maiores Campeões", icon: "crown" },
   { to: "/minha-dupla", label: "Minha Dupla", icon: "team" },
-  { to: "/meu-grupo", label: "Meu Grupo", icon: "group" },
-  { to: "/mesas-agora", label: "Ordem dos Jogos", icon: "tables" },
+  { to: "/grupos", label: "Grupos", icon: "group" },
   { to: "/jogos", label: "Jogos", icon: "matches" },
-  { to: "/resultados", label: "Resultados", icon: "results" },
-  { to: "/classificacao", label: "Classificação", icon: "standings" },
   { to: "/perfil", label: "Perfil", icon: "profile" },
 ];
 
-export const PLAYER_BOTTOM_PRIMARY = ["/inicio", "/jogos", "/classificacao", "/hall-da-fama"];
+export const PLAYER_BOTTOM_PRIMARY = ["/inicio", "/grupos", "/jogos", "/hall-da-fama"];
 
 /** O modo de simulação existe apenas no build de desenvolvimento. */
 export const IS_DEV_BUILD = import.meta.env.DEV;

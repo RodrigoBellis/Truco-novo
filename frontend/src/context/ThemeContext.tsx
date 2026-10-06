@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { ThemeContext, type Theme } from "./theme-context";
 
 const STORAGE_KEY = "truco-do-novo:theme";
+const APPEARANCE_KEY = "truco-do-novo:appearance-version";
+const APPEARANCE_VERSION = "black-background-v1";
 
 function readStoredTheme(): Theme | null {
   try {
@@ -12,16 +14,29 @@ function readStoredTheme(): Theme | null {
   }
 }
 
-/** Tema claro é o padrão do produto — sem preferência salva, usamos o claro. */
+/** Fundo preto restaurado; a escolha posterior pelo tema claro continua disponível. */
 function initialTheme(): Theme {
-  return readStoredTheme() ?? "light";
+  return readStoredTheme() ?? "dark";
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(initialTheme);
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
+    let appliedTheme = theme;
+    try {
+      // Aplicar a direção restaurada uma vez também aos navegadores que
+      // ficaram com a aparência clara salva durante a rodada anterior.
+      if (window.localStorage.getItem(APPEARANCE_KEY) !== APPEARANCE_VERSION) {
+        appliedTheme = "dark";
+        window.localStorage.setItem(APPEARANCE_KEY, APPEARANCE_VERSION);
+        window.localStorage.setItem(STORAGE_KEY, appliedTheme);
+      }
+    } catch {
+      // A alternância continua funcionando sem armazenamento disponível.
+    }
+    if (appliedTheme !== theme) setThemeState(appliedTheme);
+    document.documentElement.setAttribute("data-theme", appliedTheme);
   }, [theme]);
 
   const setTheme = useCallback((next: Theme) => {

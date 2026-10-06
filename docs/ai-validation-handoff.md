@@ -20,6 +20,8 @@ Este arquivo registra o escopo, as regras confirmadas e o estado de validação 
 - Carregamento sob demanda das rotas e telas menos frequentes.
 - Autorização no servidor para resultados e rotas administrativas; migration versionada para participações, regras de acesso e auditoria de resultados.
 - Configuração Playwright para Chromium desktop e viewport móvel, com fluxos de administrador, jogador, resultados, classificação, Hall da Fama e acesso sem permissão.
+- Perfil permite tirar foto com a câmera frontal do celular ou escolher da galeria; avatares aparecem na dupla, diretório administrativo e confrontos. A tela de entrada usa a arte 2 no tema claro e a arte otimizada no escuro, com seletor de tema antes do login.
+- Se faltar a migration de participações, o backend agora retorna orientação específica em vez de erro genérico. A home oferece tentar novamente e esclarece que isso não significa perda da dupla.
 - Arquivos `.env.example` contêm somente nomes e placeholders; chaves reais não devem ser adicionadas ao repositório.
 
 ## Validação executada
@@ -29,12 +31,13 @@ Este arquivo registra o escopo, as regras confirmadas e o estado de validação 
 - Testes unitários: 20/20 passaram (base anterior: 9).
 - Build: passou.
 - E2E Playwright: 14/14 passaram em Chromium desktop e viewport móvel. Os cenários usam respostas HTTP simuladas para validar a interface; não são um teste de integração com Supabase.
+- Após a rodada de fotos/tema: E2E Playwright 20/20 passaram em Chromium desktop e viewport móvel, incluindo o fluxo de foto e mudança de tema. Os cenários usam respostas simuladas; não testam upload real ao Storage.
 - Bundle principal: 527,25 kB (149,85 kB gzip) antes; 460,89 kB (134,06 kB gzip) depois.
 - Supabase remoto: não validado. A migration ainda não foi aplicada.
 
 ## Próximos passos para validação
 
-1. Revisar e aplicar `supabase/migrations/202610050001_manual_edition_participation.sql` em um projeto Supabase de homologação e conferir o backfill antes de produção.
+1. Revisar e aplicar `supabase/migrations/202610050001_manual_edition_participation.sql` e `supabase/migrations/202610050002_player_avatars.sql` em um projeto Supabase de homologação e conferir o backfill e a visibilidade pública das fotos antes de produção.
 2. Verificar permissões com contas de teste: jogador A não pode alterar partidas da dupla B nem acessar administração; utilizador não autenticado não pode registrar resultados.
 3. Conferir os dados reais da 5ª edição e selecionar exatamente cinco duplas aprovadas por grupo antes de gerar os jogos.
 4. Validar com contas individuais reais que os dois integrantes veem os mesmos jogos e resultados após atualização.

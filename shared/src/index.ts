@@ -7,4 +7,5 @@ export * from "./ranking.js";
 export * from "./auth.js";
 export * from "./dashboard.js";
 export * from "./simulation.js";
+export * from "./majorChampions.js";
 export * from "./schedule.js";

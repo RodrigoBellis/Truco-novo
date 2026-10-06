@@ -18,7 +18,6 @@ export function Sidebar({ items }: SidebarProps) {
     <aside className="sidebar">
       <div className="sidebar-logo">
         <Logo />
-        <ThemeToggle />
       </div>
 
       <nav className="sidebar-nav">
@@ -37,6 +36,7 @@ export function Sidebar({ items }: SidebarProps) {
       </nav>
 
       <div className="sidebar-footer">
+        <div className="sidebar-appearance"><span>Aparência</span><ThemeToggle /></div>
         <div className="sidebar-user">
           {user?.avatarUrl ? (
             <img src={user.avatarUrl} alt="" className="sidebar-user-avatar sidebar-user-avatar-img" />

@@ -30,7 +30,7 @@ export function TablesLivePage() {
   const items = data.queue.items;
 
   return (
-    <div>
+    <div className="page-enter">
       <PageHeader title="Ordem dos Jogos" subtitle="A fila de confrontos, na ordem em que serão disputados" />
 
       {items.length === 0 ? (

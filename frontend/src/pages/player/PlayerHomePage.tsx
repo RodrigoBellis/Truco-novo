@@ -1,142 +1,88 @@
 import { Link } from "react-router-dom";
-import type { DashboardStats, QueueStatus, StandingRow, Team } from "@truco/shared";
+import type { DashboardStats, Match, MyQueueStatus, Player, StandingRow, Team } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
-import { Card } from "../../components/ui/Card";
 import { Badge } from "../../components/ui/Badge";
 import { Icon } from "../../components/ui/Icon";
 import { Loading } from "../../components/ui/Loading";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { AnimatedBorderCard } from "../../components/ui/AnimatedBorderCard";
+import { Button } from "../../components/ui/Button";
+import { TeamIdentityCard } from "../../components/truco/TeamIdentityCard";
+import { TeamCampaignStats } from "../../components/truco/TeamCampaignStats";
+import { TeamCrest } from "../../components/truco/TeamCrest";
+import { TeamStrength } from "../../components/truco/TeamStrength";
 import { useAuth } from "../../hooks/useAuth";
 import { useFetchData } from "../../hooks/useFetchData";
 import { useRealtimeMatches } from "../../hooks/useRealtimeMatches";
 import { getTeams } from "../../services/teamsService";
+import { getPlayers } from "../../services/playersService";
+import { getMatches } from "../../services/matchesService";
 import { getStandings } from "../../services/groupsService";
 import { getDashboardStats } from "../../services/dashboardService";
 import { getMyQueueStatus } from "../../services/scheduleService";
-import { teamLabel } from "../../utils/teamHelpers";
+import { findTeam } from "../../utils/teamHelpers";
+import { teamHue } from "../../utils/teamColor";
 import "./PlayerHomePage.css";
 
-const SHORTCUTS = [
-  { to: "/mesas-agora", icon: "tables", label: "Ordem dos Jogos", hint: "Veja a fila de confrontos" },
-  { to: "/jogos", icon: "matches", label: "Jogos", hint: "Próximos confrontos" },
-  { to: "/classificacao", icon: "standings", label: "Classificação", hint: "Tabela do seu grupo" },
-  { to: "/hall-da-fama", icon: "trophy", label: "Hall da Fama", hint: "Campeões de todas as edições" },
-] as const;
-
-const STATUS_LABEL: Record<QueueStatus, string> = {
-  aguardando: "Aguardando",
-  "prepare-se": "Prepare-se",
-  "proximo-jogo": "Próximo jogo",
-  "em-jogo": "Em jogo",
-  finalizado: "Finalizado",
-};
-
-const STATUS_TONE: Record<QueueStatus, "neutral" | "gold" | "green" | "danger" | "info"> = {
-  aguardando: "neutral",
-  "prepare-se": "info",
-  "proximo-jogo": "gold",
-  "em-jogo": "danger",
-  finalizado: "green",
-};
-
 interface HomeData {
-  teams: Team[];
-  myTeam: Team | undefined;
-  queueStatus: Awaited<ReturnType<typeof getMyQueueStatus>>;
-  standings: StandingRow[];
-  dashboard: DashboardStats;
+  teams: Team[]; players: Player[]; myTeam?: Team; matches: Match[];
+  standings: StandingRow[]; queue: MyQueueStatus | null;
+  dashboard: DashboardStats | null; unavailable: string[];
 }
 
 export function PlayerHomePage() {
   const { user } = useAuth();
-
   const { data, isLoading, error, refetch } = useFetchData<HomeData>(async () => {
-    const teams = await getTeams();
-    const myTeam = teams.find((team) => team.id === user?.teamId);
-    const [queueStatus, dashboard] = await Promise.all([getMyQueueStatus(), getDashboardStats()]);
-    const standings = myTeam?.groupId ? await getStandings(myTeam.groupId) : [];
-    return { teams, myTeam, queueStatus, standings, dashboard };
+    const [teams, players, matches] = await Promise.all([getTeams(), getPlayers(), getMatches()]);
+    const myTeam = teams.find(team => team.id === user?.teamId);
+    const [queue, dashboard, standings] = await Promise.allSettled([
+      getMyQueueStatus(), getDashboardStats(), myTeam?.groupId ? getStandings(myTeam.groupId) : Promise.resolve([]),
+    ]);
+    return {
+      teams, players, matches, myTeam,
+      queue: queue.status === "fulfilled" ? queue.value : null,
+      dashboard: dashboard.status === "fulfilled" ? dashboard.value : null,
+      standings: standings.status === "fulfilled" ? standings.value : [],
+      unavailable: [queue.status === "rejected" ? "fila" : "", dashboard.status === "rejected" ? "fase" : "", standings.status === "rejected" ? "classificação" : ""].filter(Boolean),
+    };
   }, [user?.teamId]);
-
   useRealtimeMatches(refetch);
-
-  if (isLoading) return <Loading fullHeight label="Carregando seu painel..." />;
-  if (error || !data) return <EmptyState icon="⚠️" tone="danger" title="Não foi possível carregar seus dados" description={error ?? ""} />;
-
-  const { teams, myTeam, queueStatus, standings, dashboard } = data;
-  const myPosition = standings.find((row) => row.teamId === myTeam?.id)?.position;
-  const opponentName = queueStatus.opponentTeamId ? teamLabel(teams, queueStatus.opponentTeamId) : null;
-
-  return (
-    <div className="page-enter">
-      <PageHeader
-        title={`Olá, ${user?.name}!`}
-        subtitle={`${dashboard.currentPhase} · Truco do Novo`}
-      />
-
-      <AnimatedBorderCard className="player-home-hero-wrap">
-        <Card accent="gold" className="player-home-hero">
-          <span className="player-home-hero-suits" aria-hidden="true">♠ ♥ ♦ ♣</span>
-          <span className="eyebrow">Minha dupla</span>
-          <strong className="player-home-team-name">{myTeam ? myTeam.name : "Aguardando confirmação"}</strong>
-          <div className="player-home-hero-tags">
-            {myTeam?.groupId && <Badge tone="green">Grupo {myTeam.groupId}</Badge>}
-            {myTeam?.seeded && <Badge tone="gold">★ Cabeça de chave</Badge>}
-            {myPosition && <Badge tone="info">{myPosition}º colocado no grupo</Badge>}
+  if (isLoading) return <Loading fullHeight label="Carregando sua campanha..." />;
+  if (error || !data) return <EmptyState icon={<Icon name="team" size={36} />} tone="danger" title={error?.includes("202610050001_manual_edition_participation.sql") ? "Falta concluir uma atualização do campeonato" : "Não conseguimos carregar sua campanha"} description={error ?? "Tente atualizar as informações."} action={<Button onClick={refetch}>Tentar novamente</Button>} />;
+  const myTeam = data.myTeam;
+  const standing = data.standings.find(row => row.teamId === myTeam?.id);
+  const next = myTeam ? data.matches.filter(match => match.status === "pendente" && [match.teamAId, match.teamBId].includes(myTeam.id)).sort((a,b) => (a.queuePosition ?? a.order) - (b.queuePosition ?? b.order))[0] : undefined;
+  const opponentId = next ? (next.teamAId === myTeam?.id ? next.teamBId : next.teamAId) : null;
+  const opponent = findTeam(data.teams, opponentId);
+  const queueNote = data.queue?.matchesAhead == null ? "Acompanhe a ordem e prepare sua dupla." : data.queue.matchesAhead === 0 ? "Sua dupla é a próxima da fila." : `${data.queue.matchesAhead} jogo(s) antes do seu confronto.`;
+  return <div className="player-home page-enter">
+    <PageHeader title={`Olá, ${user?.name}!`} subtitle={`${data.dashboard?.currentPhase ?? "Sua campanha no campeonato"} · 5ª Edição 2026`} actions={<Link className="home-opening-link" to="/abertura">Rever abertura <Icon name="arrow" size={16} /></Link>} />
+    {data.unavailable.length > 0 && <div className="home-notice" role="status">Não foi possível atualizar: {data.unavailable.join(", ")}. <Button variant="secondary" size="sm" onClick={refetch}>Atualizar</Button></div>}
+    {myTeam ? <TeamIdentityCard team={myTeam} players={data.players} teams={data.teams} standing={standing} playerId={user?.playerId} /> : <EmptyState icon={<Icon name="team" size={36} />} title="Sua dupla está a caminho" description="Fale com o administrador para confirmar sua participação nesta edição." />}
+    <div className="home-grid">
+      <section className="home-next premium-panel" aria-labelledby="home-next-title">
+        <header className="premium-panel-head"><h2 id="home-next-title">Próximo confronto</h2>{next && <Badge tone="info">{next.round} · Jogo {next.queuePosition ?? next.order + 1}</Badge>}</header>
+        {next && myTeam ? <>
+          <div className="home-versus">
+            <div className="home-versus-side"><TeamCrest name={myTeam.name} hue={teamHue(myTeam.id, data.teams)} /><strong>{myTeam.name}</strong><span>Sua dupla</span></div>
+            <span className="home-versus-x">contra</span>
+            <div className="home-versus-side home-opponent"><TeamCrest name={opponent?.name ?? "A definir"} hue={teamHue(opponentId, data.teams)} /><strong>{opponent?.name ?? "A definir"}</strong><TeamStrength value={opponent?.strength} compact /></div>
           </div>
-
-          <div className="player-home-hero-divider" />
-
-          <div className="player-home-hero-next">
-            <div className="player-home-hero-next-top">
-              <span className="eyebrow">Sua fila</span>
-              <Badge tone={STATUS_TONE[queueStatus.status]}>{STATUS_LABEL[queueStatus.status]}</Badge>
-            </div>
-            {queueStatus.status === "finalizado" ? (
-              <p className="text-muted">Sua dupla já disputou todos os jogos da fase de grupos.</p>
-            ) : opponentName ? (
-              <div className="player-home-next-match">
-                <strong>Contra {opponentName}</strong>
-                <span className="text-muted">
-                  {queueStatus.matchesAhead === 0
-                    ? "É a sua vez"
-                    : queueStatus.matchesAhead !== null
-                      ? `${queueStatus.matchesAhead} jogo(s) antes do seu`
-                      : "Aguardando definição"}
-                </span>
-              </div>
-            ) : (
-              <p className="text-muted">Nenhum jogo pendente no momento.</p>
-            )}
-          </div>
-        </Card>
-      </AnimatedBorderCard>
-
-      {dashboard.drawStatus === "pendente" && (
-        <Card accent="none" className="player-home-status">
-          <span className="eyebrow">Status do campeonato</span>
-          <p className="text-muted">As duplas e os grupos estão sendo definidos manualmente pelo administrador.</p>
-        </Card>
-      )}
-
-      <h2 className="section-title">Explorar</h2>
-      <nav className="player-home-actions stagger" aria-label="Atalhos do campeonato">
-        {SHORTCUTS.map((shortcut) => (
-          <Link key={shortcut.to} to={shortcut.to} className="player-home-shortcut">
-            <span className="player-home-shortcut-icon">
-              <Icon name={shortcut.icon} size={20} />
-            </span>
-            <span className="player-home-shortcut-text">
-              <strong>{shortcut.label}</strong>
-              <span className="text-faint">{shortcut.hint}</span>
-            </span>
-            <span className="player-home-shortcut-chevron" aria-hidden="true">
-              ›
-            </span>
-          </Link>
-        ))}
-      </nav>
+          <p className="home-match-note">{queueNote}</p>
+        </> : <div className="home-next-empty">
+          <p className="home-opponent">{myTeam ? "Nenhum confronto pendente." : "Aguardando confirmação da dupla."}</p>
+          <p className="home-match-note">Os jogos definidos pelo campeonato aparecerão aqui.</p>
+        </div>}
+        <Link className="home-primary-link" to="/jogos">{next ? "Ver meus jogos" : "Acompanhar jogos"} <Icon name="arrow" size={18} /></Link>
+      </section>
+      {myTeam && <TeamCampaignStats standing={standing} />}
     </div>
-  );
+    <section className="home-banner" aria-labelledby="home-banner-title">
+      <div className="home-banner-copy">
+        <h2 id="home-banner-title">O próximo caneco pode ter o nome de vocês.</h2>
+        <p>Cada set vencido deixa {myTeam ? myTeam.name : "a sua dupla"} mais perto do título. Entrem para jogar a final.</p>
+        <Link to="/maiores-campeoes">Conhecer os maiores campeões <Icon name="arrow" size={18} /></Link>
+      </div>
+      <span className="home-banner-trophy" aria-hidden="true"><Icon name="trophy" size={52} /></span>
+    </section>
+  </div>;
 }

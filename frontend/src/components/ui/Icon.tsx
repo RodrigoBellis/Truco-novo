@@ -1,11 +1,14 @@
 import type { NavIconName } from "../../types";
 
 interface IconProps {
-  name: NavIconName | "menu" | "close" | "check" | "trophy" | "spade";
+  name: NavIconName | "menu" | "close" | "check" | "trophy" | "spade" | "star" | "arrow" | "bolt";
   size?: number;
 }
 
 const PATHS: Record<string, string> = {
+  star: "m12 3 2.8 5.7 6.3.9-4.5 4.4 1 6.3L12 17.3 6.4 20.3l1-6.3L3 9.6l6.3-.9L12 3Z",
+  arrow: "M4 12h16m-6-6 6 6-6 6",
+  bolt: "m13 2-8 12h6l-1 8 9-13h-6l1-7Z",
   home: "M4 11.5 12 4l8 7.5M6 10v9h12v-9",
   team: "M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2.5 20c.7-3 2.9-5 5.5-5s4.8 2 5.5 5M10.5 20c.7-3 2.9-5 5.5-5s4.8 2 5.5 5",
   group: "M4 6h16M4 12h16M4 18h10",
@@ -13,6 +16,7 @@ const PATHS: Record<string, string> = {
   results: "M9 12.5 11.2 15 15.5 9M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z",
   standings: "M5 20V11M12 20V4M19 20v-7",
   ranking: "M8 21h8M12 17v4M6 4h12v3a6 6 0 0 1-12 0V4ZM6 5H3v2a3 3 0 0 0 3 3M18 5h3v2a3 3 0 0 1-3 3",
+  crown: "m3 8 4.5 4L12 4l4.5 8L21 8l-2 12H5L3 8Zm2 12h14",
   profile: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8c.8-3.6 3.6-6 7-6s6.2 2.4 7 6",
   dashboard: "M4 4h7v7H4V4Zm9 0h7v4h-7V4Zm0 7h7v9h-7v-9ZM4 14h7v6H4v-6Z",
   players: "M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2.5 20c.7-3 2.9-5 5.5-5s4.8 2 5.5 5M10.5 20c.7-3 2.9-5 5.5-5s4.8 2 5.5 5",

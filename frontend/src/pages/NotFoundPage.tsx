@@ -4,7 +4,7 @@ import { Button } from "../components/ui/Button";
 
 export function NotFoundPage() {
   return (
-    <div className="container" style={{ paddingTop: "10vh" }}>
+    <div className="container page-enter" style={{ paddingTop: "10vh" }}>
       <EmptyState
         icon="🂠"
         title="Página não encontrada"

@@ -1,268 +1,100 @@
-.tournament-history {
-  margin-bottom: var(--space-8);
-  /* Os cards laterais do carrossel são absolutos e se espalham para a direita.
-     Sem este recorte eles esticam a largura do documento e criam scroll
-     horizontal na página inteira (no mobile chegava a ~2x a largura da tela).
-     `clip` em vez de `hidden` para não criar um container de rolagem. */
-  overflow-x: clip;
-}
+.tournament-history{display:flex;flex-direction:column;gap:22px;min-width:0}
+.history-head h2{font-size:var(--text-xl);font-weight:850;letter-spacing:var(--tracking-tight)}
+.history-head p{margin-top:6px;color:var(--color-text-muted);font-size:var(--text-base)}
 
-/* ---------- Palco 3D ---------- */
+/* Seletor de edições */
+.history-editions{display:flex;gap:12px;overflow-x:auto;padding:4px 4px 10px;margin:0 -4px;max-width:calc(100% + 8px);scroll-snap-type:x proximity;scrollbar-width:thin}
+.history-editions button{display:flex;align-items:center;gap:14px;flex:0 0 auto;min-width:164px;min-height:64px;padding:12px 20px 12px 16px;font:inherit;text-align:left;white-space:nowrap;color:var(--color-text);background:var(--color-surface);border:1px solid var(--color-border-strong);border-radius:16px;box-shadow:var(--shadow-sm),var(--edge-light);cursor:pointer;scroll-snap-align:start;transition:transform var(--motion-micro),background-color var(--transition-fast),border-color var(--transition-fast),box-shadow var(--transition-base)}
+.history-edition-number{font-size:1.7rem;font-weight:850;line-height:1;letter-spacing:-.03em;color:var(--color-tech-400);font-variant-numeric:tabular-nums;transition:color var(--transition-fast)}
+.history-edition-text{display:flex;flex-direction:column;gap:3px}
+.history-edition-text strong{font-size:.85rem;font-weight:750}
+.history-edition-text span{font-size:.75rem;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
+.history-editions button:hover{border-color:rgb(var(--rgb-accent) / .5);transform:translateY(-2px);box-shadow:var(--shadow-md),var(--edge-light)}
+.history-editions button:active{transform:scale(.97)}
+.history-editions button[aria-pressed=true]{border-color:var(--color-action);background:linear-gradient(140deg,rgb(var(--rgb-accent) / .16),transparent 70%),var(--color-surface);box-shadow:0 0 0 1px var(--color-action),0 14px 26px -16px rgb(var(--rgb-accent) / .75),var(--edge-light)}
+.history-editions button[aria-pressed=true] .history-edition-number{color:var(--color-accent-500)}
 
-.th-stage {
-  position: relative;
-  height: 480px;
-  perspective: 1400px;
-  perspective-origin: 50% 45%;
-  margin-bottom: var(--space-5);
-}
+/* Destaque da edição escolhida */
+.history-spotlight{display:grid;grid-template-columns:280px minmax(0,1fr);background:var(--color-surface);border:1px solid var(--color-border-strong);border-radius:24px;box-shadow:var(--shadow-lg),var(--edge-light);overflow:hidden;scroll-margin:96px 0;animation:history-enter 380ms var(--ease-out) backwards}
+.history-medal{--color-accent-300:#ffe2c7;--color-accent-500:#ff9a4f;--color-accent-700:#a64509;--color-bg:#080a10;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:40px 24px;background:radial-gradient(80% 60% at 50% 38%,rgb(244 123 32 / .34),transparent 72%),linear-gradient(165deg,#0a3a86,#051a3e);color:#fff;overflow:hidden;isolation:isolate}
+.history-medal-ghost{position:absolute;right:14px;bottom:-40px;z-index:-1;font-size:11rem;font-weight:850;line-height:1;letter-spacing:-.06em;color:rgb(255 255 255 / .07);font-variant-numeric:tabular-nums;pointer-events:none}
+.history-medal svg{filter:drop-shadow(0 14px 18px rgb(4 6 11 / .5));margin-bottom:10px}
+.history-medal > strong{font-size:2.1rem;font-weight:850;line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.history-medal > span:not(.history-medal-ghost){color:#ffd09e;font-size:.82rem;font-weight:750}
+.history-story{padding:38px 40px;align-self:center;min-width:0}
+.history-story h3{font-size:var(--text-xl);font-weight:850;letter-spacing:var(--tracking-tight);line-height:1.15}
+.history-notes{margin-top:10px;max-width:62ch;color:var(--color-text-muted);line-height:1.65;font-size:.92rem}
+.history-final{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:22px 28px;margin:26px 0 0;padding-top:24px;border-top:1px solid var(--color-border)}
+.history-final dt{font-size:.75rem;font-weight:650;color:var(--color-text-muted);margin-bottom:10px}
+.history-final dd{font-size:1rem;font-weight:750;margin:0;line-height:1.4}
+.history-champion{grid-column:1}
+.history-champion dd{font-size:1.3rem;font-weight:850;color:var(--color-text)}
+.history-duo{display:flex;flex-wrap:wrap;gap:12px 22px}
+.history-player{display:inline-flex;align-items:center;gap:12px;min-width:0;overflow-wrap:anywhere}
+.history-player .player-avatar{border-color:rgb(var(--rgb-accent) / .5);box-shadow:0 0 0 3px rgb(var(--rgb-accent) / .14);color:var(--color-accent-500)}
+.history-runner-up{grid-column:1}
+.history-result{grid-column:2;grid-row:1 / span 2;align-self:center;min-width:132px;padding:18px 22px;border-radius:18px;border:1px solid rgb(var(--rgb-tech) / .28);background:var(--color-blue-soft);text-align:center}
+.history-result dt{margin-bottom:6px}
+.history-result dd{font-size:2.2rem;font-weight:850;line-height:1.1;letter-spacing:-.02em;color:var(--color-tech-400);font-variant-numeric:tabular-nums}
+.history-legacy{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:26px;padding:12px 16px;border-radius:14px;background:var(--color-orange-soft);color:var(--color-text);font-size:.82rem;font-weight:650;line-height:1.45}
+.history-legacy > svg{flex:0 0 auto;color:var(--color-accent-500)}
+.history-legacy a{display:inline-flex;align-items:center;gap:8px;margin-left:auto;min-height:32px;color:var(--color-accent-600);font-weight:800}
+.history-legacy a:hover{text-decoration:underline;text-underline-offset:4px}
 
-.th-track {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  transform-style: preserve-3d;
-}
+/* Linha do tempo */
+.history-archive{margin-top:14px;padding:26px 28px 14px;background:var(--color-surface);border:1px solid var(--color-border-strong);border-radius:20px;box-shadow:var(--shadow-md),var(--edge-light)}
+.history-archive h3{font-size:1.05rem;font-weight:800;letter-spacing:var(--tracking-tight);margin-bottom:10px}
+.history-timeline{position:relative;list-style:none;padding:0;margin:0;display:flex;flex-direction:column}
+/* Trilho vertical: liga as edições como marcos de uma mesma história. */
+.history-timeline::before{content:"";position:absolute;top:26px;bottom:26px;left:83px;width:1px;background:linear-gradient(var(--color-border-strong),var(--color-border))}
+.history-timeline li{position:relative;display:grid;grid-template-columns:60px minmax(0,1fr) auto;column-gap:48px;align-items:center;padding:16px 12px 16px 0;border-radius:12px;transition:background-color var(--transition-fast)}
+.history-timeline li + li{border-top:1px solid var(--color-border)}
+.history-timeline li::before{content:"";position:absolute;left:78px;top:50%;width:11px;height:11px;margin-top:-5.5px;border-radius:50%;background:var(--color-surface);border:2px solid var(--color-tech-400);transition:background-color var(--transition-fast),border-color var(--transition-fast),box-shadow var(--transition-base)}
+.history-timeline li:hover{background:rgb(var(--rgb-white) / .03)}
+.history-timeline-year{font-size:1.05rem;font-weight:850;color:var(--color-text);font-variant-numeric:tabular-nums;letter-spacing:-.01em;text-align:right}
+.history-timeline-body{min-width:0}
+.history-timeline-body strong{display:block;font-size:.95rem;font-weight:750;line-height:1.4;overflow-wrap:anywhere}
+.history-timeline-body span{display:block;margin-top:3px;font-size:.78rem;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
+.history-timeline button{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:8px 14px;font:inherit;font-size:.8rem;font-weight:750;color:var(--color-tech-500);background:transparent;border:1px solid transparent;border-radius:10px;cursor:pointer;white-space:nowrap;transition:background-color var(--transition-fast),border-color var(--transition-fast)}
+.history-timeline button svg{transition:transform var(--motion-micro)}
+.history-timeline button:hover{background:var(--color-blue-soft);border-color:rgb(var(--rgb-tech) / .24)}
+.history-timeline button:hover svg{transform:translateX(3px)}
+.history-timeline-active::before{background:var(--color-action)!important;border-color:var(--color-action)!important;box-shadow:0 0 0 4px rgb(var(--rgb-accent) / .2)}
+.history-timeline-active .history-timeline-year{color:var(--color-accent-500)}
+.history-timeline-active button{color:var(--color-accent-600);cursor:default}
+.history-timeline-active button:hover{background:transparent;border-color:transparent}
 
-.th-slot {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: min(320px, 80vw);
-  margin-left: calc(min(320px, 80vw) / -2);
-  transform-origin: center center;
-  transition: transform 620ms cubic-bezier(0.22, 0.8, 0.28, 1), opacity 620ms ease;
-  will-change: transform, opacity;
-}
+@keyframes history-enter{from{opacity:0;transform:translateY(14px) scale(.985)}}
+/* Movimento. O destaque é remontado a cada troca de edição (key no article),
+   então troféu e texto repetem a entrada e deixam claro que o conteúdo mudou. */
+.history-medal svg{animation:trophy-drop 620ms var(--ease-out) 60ms backwards}
+.history-medal > strong,.history-medal > span:not(.history-medal-ghost){animation:rise-in var(--motion-enter) 220ms backwards}
+.history-story > *{animation:rise-in var(--motion-reveal) 120ms backwards}
+.history-story > :nth-child(2){animation-delay:180ms}
+.history-story > :nth-child(3){animation-delay:240ms}
+.history-story > :nth-child(4){animation-delay:300ms}
+.history-result{animation:pop-in var(--motion-move) 360ms backwards}
+@media(prefers-reduced-motion:no-preference){@supports(animation-timeline:view()){.history-timeline li{animation:rise-in 1ms linear both;animation-timeline:view();animation-range:entry 0% entry 100%}}}
+@media(prefers-reduced-motion:reduce){.history-spotlight,.history-spotlight *{animation:none}}
 
-.th-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 4px;
-  height: 480px;
-  padding: var(--space-5) var(--space-4);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--elev-2-border);
-  /* Slide de 480px que é transladado pelo carrossel (com will-change:transform).
-     Blur + transform numa área desse tamanho é o pior caso de composição:
-     o borrão é recalculado durante todo o gesto de arrastar. O gradiente
-     radial sozinho já dá a profundidade que o efeito buscava. */
-  background:
-    radial-gradient(130% 75% at 50% 0%, rgb(var(--rgb-accent) / 0.13), transparent 60%),
-    var(--elev-2-bg);
-  box-shadow: var(--elev-2-shadow), var(--edge-light);
-  overflow: hidden;
-  transition: border-color var(--transition-base), box-shadow var(--transition-base);
-}
-
-/* A carta ativa ganha borda âmbar e profundidade máxima */
-.th-card-active {
-  border-color: rgb(var(--rgb-accent) / 0.4);
-  box-shadow: var(--shadow-xl), var(--edge-light);
-}
-
-.th-card-edition {
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--color-accent-400);
-  background: rgb(var(--rgb-accent) / 0.12);
-  border: 1px solid rgb(var(--rgb-accent) / 0.32);
-  border-radius: var(--radius-full);
-  padding: 4px 14px;
-  margin-bottom: var(--space-1);
-}
-
-.th-card-active .champion-trophy {
-  animation: trophy-float 3.4s ease-in-out infinite;
-}
-
-.th-card-name {
-  font-size: 1.05rem;
-  line-height: 1.25;
-  color: var(--color-text);
-  margin-top: var(--space-1);
-}
-
-.th-card-year {
-  font-family: var(--font-display);
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--color-accent-500);
-}
-
-.th-card-result {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  padding: var(--space-3) 0;
-  margin-top: var(--space-2);
-  border-top: 1px dashed var(--color-border);
-  border-bottom: 1px dashed var(--color-border);
-}
-
-.th-card-side {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.th-card-side-center {
-  align-items: center;
-  text-align: center;
-}
-
-.th-card-side-label {
-  font-size: 0.66rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--color-text-faint);
-}
-
-.th-card-side-value {
-  font-size: 0.82rem;
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-
-.th-card-score {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1rem;
-  color: var(--color-accent-400);
-  padding: 2px 10px;
-  border-radius: var(--radius-sm);
-  background: rgb(var(--rgb-accent) / 0.1);
-  white-space: nowrap;
-}
-
-.th-card-notes {
-  font-size: 0.78rem;
-  line-height: 1.5;
-  margin-top: var(--space-2);
-}
-
-/* ---------- Controles ---------- */
-
-.th-arrow {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 50;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 1px solid var(--glass-border);
-  background: var(--glass-bg-strong);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: var(--shadow-md);
-  color: var(--color-text-muted);
-  font-size: 1.5rem;
-  line-height: 1;
-  cursor: pointer;
-  transition:
-    border-color var(--transition-fast),
-    color var(--transition-fast),
-    transform var(--transition-fast),
-    box-shadow var(--transition-base);
-}
-
-.th-arrow:hover {
-  border-color: rgb(var(--rgb-accent) / 0.5);
-  color: var(--color-accent-400);
-  box-shadow: var(--shadow-accent);
-}
-
-.th-arrow:active {
-  transform: translateY(-50%) scale(0.93);
-}
-
-.th-arrow-prev { left: 0; }
-.th-arrow-next { right: 0; }
-
-.th-dots {
-  display: flex;
-  justify-content: center;
-  gap: var(--space-2);
-}
-
-.th-dot {
-  width: 8px;
-  height: 8px;
-  padding: 0;
-  border-radius: var(--radius-full);
-  border: none;
-  background: var(--color-border-strong);
-  cursor: pointer;
-  transition: width var(--transition-base), background-color var(--transition-base);
-}
-
-.th-dot-active {
-  width: 26px;
-  background: linear-gradient(90deg, var(--color-accent-400), var(--color-accent-600));
-}
-
-/* ---------- Responsivo ---------- */
-
-@media (max-width: 640px) {
-  .th-stage {
-    height: 520px;
-    perspective: 900px;
-  }
-
-  .th-card {
-    height: 520px;
-  }
-
-  .th-arrow {
-    width: 36px;
-    height: 36px;
-    font-size: 1.25rem;
-  }
-}
-
-/* ---------- Acessibilidade ---------- */
-
-@media (prefers-reduced-motion: reduce) {
-  .th-stage {
-    height: auto;
-    perspective: none;
-    margin-bottom: var(--space-6);
-  }
-
-  .th-track {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: var(--space-4);
-    height: auto;
-    transform-style: flat;
-  }
-
-  .th-slot {
-    position: static;
-    width: auto;
-    margin-left: 0;
-    transform: none !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-  }
-
-  .th-card {
-    height: auto;
-  }
-
-  .th-arrow,
-  .th-dots {
-    display: none;
-  }
+@media(max-width:800px){
+  .history-spotlight{grid-template-columns:1fr;border-radius:20px}
+  .history-medal{flex-direction:row;justify-content:flex-start;flex-wrap:wrap;gap:4px 16px;padding:20px 22px}
+  .history-medal svg{width:68px;height:68px;margin:0;grid-row:span 2}
+  .history-medal > strong{font-size:1.7rem}
+  .history-medal > span:not(.history-medal-ghost){flex-basis:auto}
+  .history-medal-ghost{font-size:7rem;bottom:-24px}
+  .history-story{padding:24px 22px}
+  .history-final{grid-template-columns:1fr;gap:18px}
+  .history-result{grid-column:1;grid-row:auto;display:flex;align-items:center;justify-content:space-between;text-align:left;padding:12px 18px}
+  .history-result dt{margin:0}
+  .history-result dd{font-size:1.7rem}
+  .history-legacy a{margin-left:0}
+  .history-archive{padding:22px 18px 8px}
+  .history-timeline::before{left:5px;top:22px;bottom:22px}
+  .history-timeline li{grid-template-columns:minmax(0,1fr) auto;column-gap:10px;row-gap:2px;padding:14px 0 14px 26px}
+  .history-timeline li::before{left:0;top:22px;margin-top:0}
+  .history-timeline-year{grid-column:1;text-align:left;font-size:.95rem}
+  .history-timeline-body{grid-column:1}
+  .history-timeline button{grid-column:2;grid-row:1 / span 2;padding:8px 8px}
 }

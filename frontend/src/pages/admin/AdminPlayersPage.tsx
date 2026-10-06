@@ -4,6 +4,7 @@ import { PageHeader } from "../../components/ui/PageHeader";
 import { Loading } from "../../components/ui/Loading";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Badge } from "../../components/ui/Badge";
+import { PlayerAvatar } from "../../components/ui/PlayerAvatar";
 import { useFetchData } from "../../hooks/useFetchData";
 import { getPlayers } from "../../services/playersService";
 import { createPlayer } from "../../services/playersService";
@@ -65,7 +66,7 @@ export function AdminPlayersPage() {
           <tbody>
             {data.players.map((player) => (
               <tr key={player.id}>
-                <td>{player.name}</td>
+                <td><span className="player-directory-identity"><PlayerAvatar name={player.name} avatarUrl={player.avatarUrl} size="sm" />{player.name}</span></td>
                 <td>
                   {player.teamId ? (
                     <Badge tone="neutral">{teamLabel(data.teams, player.teamId)}</Badge>

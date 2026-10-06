@@ -16,3 +16,11 @@ if (!supabaseUrl || !serviceRoleKey) {
 export const supabaseAdmin = createClient<Database>(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
+
+/** Password sign-in must never replace the server's service-role session.
+ * Each login receives an isolated client, including concurrent requests. */
+export function createLoginClient() {
+  return createClient<Database>(supabaseUrl!, serviceRoleKey!, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}

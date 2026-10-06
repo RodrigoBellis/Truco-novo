@@ -1,0 +1,10 @@
+.campaign-stats-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); margin:auto 0; padding:6px 0; }
+.campaign-stats-grid > div { display:flex; flex-direction:column; gap:8px; padding:6px 0 6px 18px; border-left:1px solid var(--color-border); min-width:0; }
+.campaign-stats-grid > div:first-child { padding-left:0; border-left:0; }
+.campaign-stats-grid dd { margin:0; font-size:clamp(1.7rem, 1.3rem + 1.2vw, 2.2rem); font-weight:850; line-height:1; letter-spacing:-.03em; color:var(--color-text); font-variant-numeric:tabular-nums; }
+.campaign-stats-grid dt { font-size:.74rem; font-weight:650; color:var(--color-text-muted); line-height:1.3; }
+.campaign-stats-points dd { color:var(--color-accent-500); }
+@media(max-width:380px) {
+  .campaign-stats-grid { grid-template-columns:repeat(2, minmax(0,1fr)); row-gap:18px; }
+  .campaign-stats-grid > div:nth-child(odd) { padding-left:0; border-left:0; }
+}

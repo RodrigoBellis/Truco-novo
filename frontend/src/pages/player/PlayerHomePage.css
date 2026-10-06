@@ -1,154 +1,46 @@
-.player-home-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: var(--space-4);
-  margin-bottom: var(--space-6);
-}
+.player-home { display:flex; flex-direction:column; gap:24px; padding-bottom:12px; }
+.player-home .page-header { margin-bottom:0; }
+.home-opening-link { display:inline-flex; align-items:center; gap:8px; color:var(--color-tech-500); font-size:.8rem; font-weight:700; min-height:40px; }
+.home-notice { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; padding:14px 18px; background:var(--color-orange-soft); border-radius:12px; color:var(--color-accent-600); }
+.home-grid { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:24px; }
+.home-grid > :only-child { grid-column:1 / -1; }
 
-.player-home-hero,
-.player-home-next,
-.player-home-status {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
+/* Próximo confronto */
+.home-versus { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:start; gap:12px; padding:22px 16px; background:var(--color-surface-alt); border:1px solid var(--color-border); border-radius:16px; }
+.home-versus-side { display:flex; flex-direction:column; align-items:center; gap:6px; min-width:0; text-align:center; }
+.home-versus-side > strong { margin-top:8px; font-size:1.05rem; font-weight:800; line-height:1.25; overflow-wrap:anywhere; text-wrap:balance; }
+.home-versus-side > span:not(.team-crest) { font-size:.75rem; color:var(--color-text-muted); }
+.home-versus-side .team-strength { justify-content:center; }
+.home-versus-x { align-self:center; padding:5px 10px; border-radius:999px; border:1px solid var(--color-border-strong); color:var(--color-text-muted); font-size:.7rem; font-weight:750; }
+.home-next-empty { padding:22px 20px; background:var(--color-surface-alt); border:1px dashed var(--color-border-strong); border-radius:16px; }
+.home-next-empty .home-opponent { font-size:1.05rem; font-weight:800; margin-bottom:6px; }
+.home-match-note { font-size:.82rem; line-height:1.5; color:var(--color-text-muted); }
+.home-primary-link { display:inline-flex; align-items:center; justify-content:center; align-self:flex-start; gap:12px; margin-top:auto; padding:12px 20px; min-height:46px; border-radius:12px; background:var(--color-action); color:var(--color-on-action); font-weight:800; font-size:.85rem; box-shadow:0 8px 18px -10px rgb(var(--rgb-accent) / .7), inset 0 1px 0 rgb(255 255 255 / .3); transition:transform var(--motion-micro), background-color var(--transition-fast); }
+.home-primary-link:hover { background:var(--color-action-hover); transform:translateY(-1px); }
+.home-primary-link:active { transform:scale(.97); }
 
-.player-home-hero {
-  position: relative;
-}
+/* Banner: azul da marca com brilho laranja — igual nos dois temas. */
+.home-banner { position:relative; display:flex; align-items:center; justify-content:space-between; gap:28px; padding:34px 38px; border-radius:22px; border:1px solid rgb(255 255 255 / .12); background:radial-gradient(55% 150% at 100% 50%, rgb(244 123 32 / .42), transparent 68%), linear-gradient(115deg, #061d44, #0a47a0 62%, #0d57bd); color:#fff; box-shadow:0 22px 44px -26px rgb(7 62 128 / .9), inset 0 1px 0 rgb(255 255 255 / .16); overflow:hidden; }
+.home-banner-copy { min-width:0; }
+.home-banner h2 { max-width:22ch; font-size:clamp(1.4rem, 1.1rem + 1.3vw, 1.9rem); font-weight:850; line-height:1.15; letter-spacing:-.02em; color:#fff; text-wrap:balance; }
+.home-banner p { max-width:52ch; margin:12px 0 22px; font-size:.9rem; line-height:1.6; color:#d3e2ff; }
+.home-banner a { display:inline-flex; align-items:center; gap:10px; min-height:44px; padding:10px 18px; border-radius:12px; background:#fff; color:#0a2c66; font-size:.82rem; font-weight:800; transition:transform var(--motion-micro), background-color var(--transition-fast); }
+.home-banner a:hover { background:#eaf1ff; transform:translateY(-1px); }
+.home-banner a:focus-visible { outline-color:#fff; }
+.home-banner-trophy { display:grid; place-items:center; flex:0 0 auto; width:112px; height:112px; border-radius:50%; border:1px solid rgb(255 214 170 / .45); background:rgb(255 255 255 / .08); color:#ffd09e; box-shadow:inset 0 1px 0 rgb(255 255 255 / .22), 0 18px 30px -18px rgb(4 6 11 / .8); animation:trophy-drop 720ms var(--ease-out) 380ms backwards; }
+.home-primary-link svg,.home-banner a svg,.home-opening-link svg { transition:transform var(--motion-micro); }
+.home-primary-link:hover svg,.home-banner a:hover svg,.home-opening-link:hover svg { transform:translateX(4px); }
 
-/* Naipes de baralho no canto do card — motivo temático, bem discreto */
-.player-home-hero-suits {
-  position: absolute;
-  top: var(--space-5);
-  right: var(--space-5);
-  font-size: 0.85rem;
-  letter-spacing: 0.35em;
-  color: rgb(var(--rgb-accent) / 0.22);
-  pointer-events: none;
-  user-select: none;
-}
-
-@media (max-width: 480px) {
-  .player-home-hero-suits {
-    display: none;
-  }
-}
-
-.player-home-team-name {
-  font-size: var(--text-lg);
-  overflow-wrap: break-word;
-}
-
-.player-home-hero-divider {
-  height: 1px;
-  margin: var(--space-1) 0;
-  background: linear-gradient(90deg, var(--color-border-strong), transparent 85%);
-}
-
-.player-home-hero-next {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-alt);
-  border: 1px solid var(--color-border);
-  transition: border-color var(--transition-base);
-}
-
-.player-home-hero-next:has(.badge-danger) {
-  border-color: rgb(var(--rgb-danger) / 0.35);
-}
-
-.player-home-hero-tags {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  margin-top: var(--space-1);
-}
-
-.player-home-next-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.player-home-next-match {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.player-home-next-match strong {
-  font-size: 1rem;
-}
-
-.player-home-actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: var(--space-3);
-}
-
-.player-home-shortcut {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text);
-  transition: transform var(--transition-fast), border-color var(--transition-fast), background-color var(--transition-fast);
-}
-
-.player-home-shortcut:hover {
-  transform: translateY(-2px);
-  border-color: var(--color-accent-600);
-  background: var(--color-surface-hover);
-}
-
-.player-home-shortcut:active {
-  transform: translateY(0);
-}
-
-.player-home-shortcut-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  background: rgb(var(--rgb-accent) / 0.12);
-  color: var(--color-accent-400);
-  flex-shrink: 0;
-}
-
-.player-home-shortcut-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  flex: 1;
-}
-
-.player-home-shortcut-text strong {
-  font-size: var(--text-base);
-}
-
-.player-home-shortcut-text span {
-  font-size: var(--text-sm);
-}
-
-.player-home-shortcut-chevron {
-  color: var(--color-text-faint);
-  font-size: 1.3rem;
-  line-height: 1;
-  transition: transform var(--transition-fast), color var(--transition-fast);
-}
-
-.player-home-shortcut:hover .player-home-shortcut-chevron {
-  color: var(--color-accent-400);
-  transform: translateX(3px);
+@media(max-width:900px) { .home-grid { grid-template-columns:1fr; } }
+@media(max-width:650px) {
+  .player-home { gap:18px; }
+  .home-grid { gap:18px; }
+  .home-opening-link { font-size:.75rem; }
+  .home-versus { padding:18px 10px; gap:8px; }
+  .home-primary-link { align-self:stretch; }
+  .home-banner { padding:26px 22px; }
+  .home-banner-trophy { position:absolute; top:20px; right:18px; width:60px; height:60px; }
+  .home-banner-trophy svg { width:28px; height:28px; }
+  .home-banner h2 { max-width:none; padding-right:72px; }
+  .home-banner a { width:100%; justify-content:center; }
 }

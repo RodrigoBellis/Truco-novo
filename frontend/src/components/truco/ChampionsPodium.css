@@ -11,7 +11,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  animation: podium-rise 700ms var(--ease-spring) both;
+  animation: none;
+}
+
+.podium-revealed .podium-slot {
+  animation: podium-rise 620ms var(--ease-out) both;
 }
 
 .podium-slot-empty {
@@ -19,13 +23,10 @@
 }
 
 @keyframes podium-rise {
-  from {
-    opacity: 0;
-    transform: translateY(34px) scale(0.92);
-  }
+  from { opacity: 0; transform: translateY(20px); }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
@@ -48,11 +49,6 @@
   transition: transform var(--motion-micro), box-shadow var(--motion-micro);
 }
 
-.podium-card:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--shadow-xl), var(--edge-light);
-}
-
 /* O campeão ganha halo pulsante e borda âmbar.
    O halo vem de .halo-pulse (global.css), que respira via opacity —
    ver comentário lá sobre por que não é box-shadow animado. */
@@ -60,26 +56,16 @@
   border-color: rgb(var(--rgb-accent) / 0.45);
 }
 
-.podium-slot-1 .podium-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  box-shadow: 0 0 28px 4px rgb(var(--rgb-accent) / 0.22);
-  opacity: 0;
-  animation: halo-breathe 3.6s ease-in-out 1.2s infinite;
-}
-
 .podium-crown {
   position: absolute;
   top: -24px;
   font-size: 1.7rem;
-  opacity: 0;
   filter: drop-shadow(0 4px 10px rgb(var(--rgb-accent) / 0.6));
-  animation:
-    crown-pop 420ms var(--ease-spring) 820ms both,
-    crown-bob 2.8s ease-in-out 1240ms infinite;
+  opacity: 1;
+}
+
+.podium-revealed .podium-crown {
+  animation: crown-pop 380ms var(--ease-out) 380ms both;
 }
 
 @keyframes crown-pop {
@@ -87,9 +73,13 @@
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-@keyframes crown-bob {
-  0%, 100% { transform: translateY(0) rotate(-5deg); }
-  50% { transform: translateY(-5px) rotate(5deg); }
+.podium-revealed .podium-slot-1 .champion-trophy {
+  animation: trophy-settle 440ms var(--ease-out) 240ms both;
+}
+
+@keyframes trophy-settle {
+  from { transform: translateY(7px) rotate(-4deg); }
+  to { transform: translateY(0) rotate(0); }
 }
 
 .podium-medal {
@@ -176,4 +166,12 @@
   .podium-base-1 { height: 80px; }
   .podium-base-2 { height: 56px; }
   .podium-base-3 { height: 40px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .podium-revealed .podium-slot,
+  .podium-revealed .podium-crown,
+  .podium-revealed .podium-slot-1 .champion-trophy {
+    animation: none;
+  }
 }

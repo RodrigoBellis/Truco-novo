@@ -1,17 +1,16 @@
 :root {
   /* ============================================================
-     TRUCO DO NOVO — paleta "Mesa Clara" (padrão)
-     Produto premium claro: base branca/quase branca, preto/cinza-escuro
-     como cor dominante de texto e superfícies, e os acentos de campeonato
-     (âmbar) + tecnológico (índigo) usados só em detalhes pontuais —
-     badge, ícone, borda fina, estado ativo. Nunca como fundo grande.
+     TRUCO DO NOVO — tokens do tema claro alternativo
+     Azul identifica navegação e campanha; laranja valoriza conquista
+     e chamada de abertura. Off-white mantém a leitura leve no celular.
+     Verde, amarelo e vermelho continuam exclusivos das zonas/regras.
      ============================================================ */
 
   /* --- Canais RGB: permitem compor alpha sem hardcode ---------
      Uso: rgb(var(--rgb-accent) / 0.12)                          */
-  --rgb-accent: 245 166 35;
-  --rgb-accent-hi: 255 197 92;
-  --rgb-tech: 99 140 255;
+  --rgb-accent: 237 106 21;
+  --rgb-accent-hi: 255 173 95;
+  --rgb-tech: 7 88 191;
   --rgb-success: 22 163 116;
   --rgb-danger: 220 38 38;
   --rgb-info: 14 116 190;
@@ -20,51 +19,58 @@
   --rgb-white: 15 18 28;
   --rgb-void: 4 6 11;
 
-  /* --- Superfícies (branco / cinza muito claro) --------------- */
-  --color-bg: #f7f7f5;
+  /* --- Superfícies do tema claro alternativo --- */
+  --color-bg: #f7f7f4;
   --color-bg-elevated: #ffffff;
   --color-surface: #ffffff;
-  --color-surface-hover: #f1f1ee;
-  --color-surface-alt: #eeeeea;
+  --color-surface-hover: #f5f6f8;
+  --color-surface-alt: #f8f9fb;
   --color-border: rgb(15 18 28 / 0.09);
   --color-border-strong: rgb(15 18 28 / 0.16);
 
-  /* --- Âmbar / dourado: acento de campeonato — só detalhes ---- */
-  --color-accent-300: #ffdb96;
-  --color-accent-400: #e8940f;
-  --color-accent-500: #c67a0a;
-  --color-accent-600: #a4630a;
-  --color-accent-700: #7a4a08;
-  --color-on-accent: #1a1204;
+  /* --- Laranja: conquista e convite para entrar na disputa --- */
+  --color-accent-300: #ffd4b2;
+  --color-accent-400: #a64509;
+  --color-accent-500: #c34f0b;
+  --color-accent-600: #9c3d06;
+  --color-accent-700: #763007;
+  --color-on-accent: #ffffff;
+  --color-brand-orange: #ed6a15;
+  --color-action: #f47b20;
+  --color-action-hover: #e96d12;
+  --color-on-action: #172b46;
+  --color-star: #cc720d;
+  --color-sidebar: #17314e;
+  --color-brand-blue: #0758bf;
+  --color-blue-soft: #f2f6fc;
+  --color-orange-soft: #fff4e8;
+  --color-on-brand: #ffffff;
 
-  /* --- Índigo: acento tecnológico — só detalhes --------------- */
-  --color-tech-400: #4a68d1;
-  --color-tech-500: #3b56c4;
-  --color-tech-600: #2f45a0;
+  /* --- Azul: navegação, campanha e destaque da própria dupla -- */
+  --color-tech-400: #0758bf;
+  --color-tech-500: #064da6;
+  --color-tech-600: #073e80;
 
   /* --- Texto: preto/cinza-escuro é a cor dominante ------------ */
-  --color-text: #0f1218;
-  --color-text-muted: #4b5165;
-  --color-text-faint: #7d8296;
+  --color-text: #10264b;
+  --color-text-muted: #4c607c;
+  --color-text-faint: #586b85;
 
   /* --- Estados ----------------------------------------------- */
   --color-danger: #dc2626;
   --color-danger-bg: rgb(var(--rgb-danger) / 0.1);
-  --color-success: #16a374;
+  --color-success: #147452;
   --color-success-bg: rgb(var(--rgb-success) / 0.1);
-  --color-warning: #c67a0a;
+  --color-warning: #9c3d06;
   --color-warning-bg: rgb(var(--rgb-accent) / 0.12);
-  --color-info: #0e74be;
+  --color-info: #0758a6;
   --color-info-bg: rgb(var(--rgb-info) / 0.1);
 
   /* --- Gradientes (discretos no claro) ------------------------ */
   --gradient-accent: linear-gradient(135deg, var(--color-accent-400), var(--color-accent-600));
   --gradient-surface: linear-gradient(160deg, rgb(15 18 28 / 0.035), rgb(15 18 28 / 0.005));
   --gradient-tech: linear-gradient(135deg, var(--color-tech-400), var(--color-tech-600));
-  /* Brilho ambiente do topo da página — bem sutil no claro */
-  --gradient-ambient:
-    radial-gradient(60% 42% at 18% -8%, rgb(var(--rgb-tech) / 0.07), transparent 70%),
-    radial-gradient(52% 38% at 88% -4%, rgb(var(--rgb-accent) / 0.08), transparent 72%);
+  --gradient-ambient: none;
 
   /* --- Glassmorphism discreto -------------------------------- */
   --glass-bg: rgb(255 255 255 / 0.78);
@@ -116,7 +122,7 @@
   /* --- Raio -------------------------------------------------- */
   --radius-sm: 8px;
   --radius-md: 12px;
-  --radius-lg: 18px;
+  --radius-lg: 16px;
   --radius-xl: 26px;
   --radius-full: 999px;
 
@@ -190,8 +196,8 @@
 }
 
 /* ================================================================
-   Tema escuro — disponível via ThemeToggle, não é mais o padrão.
-   "Mesa Noturna": grafite azulado, âmbar de campeonato, índigo frio.
+   Tema escuro restaurado como padrão a pedido do usuário.
+   Fundo preto/grafite da versão anterior, sem textura diagonal.
    ================================================================ */
 :root[data-theme="dark"] {
   --rgb-accent-hi: 255 197 92;
@@ -205,23 +211,27 @@
   --color-surface: #151925;
   --color-surface-hover: #1c2130;
   --color-surface-alt: #0b0e15;
+  --color-sidebar: #0f1219;
+  --color-blue-soft: #192336;
+  --color-orange-soft: #34261b;
+  --color-star: #ffc55c;
   --color-border: rgb(var(--rgb-white) / 0.07);
   --color-border-strong: rgb(var(--rgb-white) / 0.14);
 
-  --color-accent-300: #ffdb96;
-  --color-accent-400: #ffc55c;
-  --color-accent-500: #f5a623;
-  --color-accent-600: #d4881a;
-  --color-accent-700: #96600f;
-  --color-on-accent: #1a1204;
+  --color-accent-300: #ffe2c7;
+  --color-accent-400: #ffb978;
+  --color-accent-500: #ff9a4f;
+  --color-accent-600: #ffb978;
+  --color-accent-700: #a64509;
+  --color-on-accent: #142a46;
 
   --color-tech-400: #8fadff;
-  --color-tech-500: #638cff;
-  --color-tech-600: #4361d9;
+  --color-tech-500: #b4cdff;
+  --color-tech-600: #b4cdff;
 
   --color-text: #eef0f6;
-  --color-text-muted: #98a1b8;
-  --color-text-faint: #646d85;
+  --color-text-muted: #c1cede;
+  --color-text-faint: #b4c3d7;
 
   --color-danger: #fb5b5b;
   --color-danger-bg: rgb(var(--rgb-danger) / 0.12);
@@ -237,8 +247,8 @@
     radial-gradient(60% 42% at 18% -8%, rgb(var(--rgb-tech) / 0.16), transparent 70%),
     radial-gradient(52% 38% at 88% -4%, rgb(var(--rgb-accent) / 0.12), transparent 72%);
 
-  --glass-bg: rgb(21 25 37 / 0.72);
-  --glass-bg-strong: rgb(15 18 25 / 0.86);
+  --glass-bg: rgb(21 25 37 / 0.92);
+  --glass-bg-strong: rgb(15 18 25 / 0.97);
   --glass-border: rgb(var(--rgb-white) / 0.09);
 
   --shadow-sm: 0 1px 2px rgb(var(--rgb-void) / 0.5);
@@ -268,7 +278,7 @@
 
 /* Compatibilidade: caso algum seletor explícito :root[data-theme="light"]
    permaneça referenciado em algum lugar, ele aponta para o mesmo conjunto
-   de tokens do :root (claro é o padrão agora). */
+   de tokens do :root (escuro é o padrão via ThemeProvider). */
 :root[data-theme="light"] {
   --rgb-white: 15 18 28;
 }

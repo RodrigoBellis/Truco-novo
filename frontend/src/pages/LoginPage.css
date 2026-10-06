@@ -9,6 +9,13 @@
   overflow: hidden;
 }
 
+.login-theme-toggle {
+  position: absolute;
+  z-index: 2;
+  top: max(var(--space-4), env(safe-area-inset-top));
+  right: max(var(--space-4), env(safe-area-inset-right));
+}
+
 .login-decor {
   position: absolute;
   inset: 0;

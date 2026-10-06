@@ -1,0 +1,89 @@
+/* ============================================================
+   Sistema de movimento — vale para TODAS as telas.
+
+   Regras de custo, para não trocar animação por travamento:
+   - só `transform` e `opacity`: rodam no compositor, sem layout nem paint;
+   - zero JavaScript e zero dependência: tudo aqui é CSS;
+   - keyframes só com `from` e preenchimento `backwards`: ao terminar, o
+     elemento volta ao estilo próprio e NÃO fica com `transform` retido.
+     Um transform retido vira bloco de contenção de `position: fixed` e
+     desloca modais abertos de dentro da página.
+   ============================================================ */
+
+:root {
+  --motion-reveal: 520ms var(--ease-out);
+  --motion-step: 70ms;
+}
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(18px); }
+}
+
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.88); }
+}
+
+@keyframes trophy-drop {
+  0% { opacity: 0; transform: translateY(-30px) rotate(-14deg) scale(0.84); }
+  62% { opacity: 1; transform: translateY(5px) rotate(4deg) scale(1.04); }
+}
+
+/* ---------- Entrada em cascata da página ----------
+   Toda tela tem `.page-enter` na raiz; os blocos entram em sequência, do
+   topo para baixo. Vale na primeira pintura, na troca de rota e quando os
+   dados chegam e substituem o estado de carregamento. */
+.page-enter > * {
+  animation: rise-in var(--motion-reveal) backwards;
+}
+
+.page-enter > :nth-child(2) { animation-delay: calc(var(--motion-step) * 1); }
+.page-enter > :nth-child(3) { animation-delay: calc(var(--motion-step) * 2); }
+.page-enter > :nth-child(4) { animation-delay: calc(var(--motion-step) * 3); }
+.page-enter > :nth-child(5) { animation-delay: calc(var(--motion-step) * 4); }
+.page-enter > :nth-child(6) { animation-delay: calc(var(--motion-step) * 5); }
+.page-enter > :nth-child(n + 7) { animation-delay: calc(var(--motion-step) * 6); }
+
+/* Cascata de itens de lista: aplique .stagger no container. */
+.stagger > * {
+  animation: rise-in var(--motion-enter) backwards;
+}
+
+.stagger > :nth-child(1) { animation-delay: 40ms; }
+.stagger > :nth-child(2) { animation-delay: 90ms; }
+.stagger > :nth-child(3) { animation-delay: 140ms; }
+.stagger > :nth-child(4) { animation-delay: 190ms; }
+.stagger > :nth-child(5) { animation-delay: 240ms; }
+.stagger > :nth-child(6) { animation-delay: 290ms; }
+.stagger > :nth-child(7) { animation-delay: 340ms; }
+.stagger > :nth-child(n + 8) { animation-delay: 390ms; }
+
+.pop-in {
+  animation: pop-in var(--motion-move) backwards;
+}
+
+/* ---------- Revelar ao rolar ----------
+   Animação dirigida pela rolagem, nativa do navegador: sem
+   IntersectionObserver, sem listener de scroll, sem JavaScript. Onde não
+   houver suporte o conteúdo simplesmente já está visível.
+   O `1ms` de duração é exigido por navegadores que ignoram duração zero em
+   linha do tempo de rolagem; o progresso real vem de `animation-range`. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: rise-in 1ms linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 100%;
+    }
+  }
+}
+
+/* ---------- Microinterações compartilhadas ----------
+   Seta que avança no hover/foco: indica que o link leva a outro lugar. */
+.link-arrow > svg:last-child {
+  transition: transform var(--motion-micro);
+}
+
+.link-arrow:hover > svg:last-child,
+.link-arrow:focus-visible > svg:last-child {
+  transform: translateX(4px);
+}

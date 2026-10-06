@@ -71,3 +71,15 @@ export function buildHallOfFameStats(editions: HistoryEntry[], duplas: ChampionD
     totalFinalsParticipants: duplas.length,
   };
 }
+
+const SUITS = ["♠", "♥", "♣", "♦"] as const;
+
+/** Naipe gravado na taça de cada edição. */
+export function editionSuit(edition: number) {
+  return SUITS[(edition - 1) % SUITS.length];
+}
+
+/** Nome da dupla; edições antigas sem integrantes registrados não viram "— & —". */
+export function duoLabel(duo: [string, string]): string {
+  return duo.every((name) => name === "—") ? "Dupla não registrada" : duo.join(" & ");
+}

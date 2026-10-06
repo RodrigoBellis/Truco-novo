@@ -1,0 +1,6 @@
+.team-strength { display:inline-flex; align-items:center; flex-wrap:wrap; gap:8px; color:var(--color-accent-600); font-size:.8rem; font-weight:750; }
+.team-strength-stars { display:inline-flex; gap:2px; }
+.star-filled { color:var(--color-star); }
+.star-filled svg { fill:currentColor; }
+.star-empty { color:var(--color-text-faint); opacity:.45; }
+.team-strength-compact { gap:6px; font-size:.72rem; }

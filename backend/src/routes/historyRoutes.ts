@@ -2,8 +2,14 @@ import { Router } from "express";
 import type { HallOfFame } from "@truco/shared";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { store } from "../data/store.js";
+import { requireAuth } from "../middleware/requireAuth.js";
+import { getMajorChampions } from "../services/majorChampionsService.js";
 
 export const historyRoutes = Router();
+
+historyRoutes.get("/major-champions", requireAuth, asyncHandler(async (_req, res) => {
+  res.json(await getMajorChampions());
+}));
 
 historyRoutes.get(
   "/",

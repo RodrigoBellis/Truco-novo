@@ -15,13 +15,17 @@ import type {
 } from "@truco/shared";
 import { supabaseAdmin } from "./supabaseClient.js";
 import type { Database } from "../types/database.js";
+import { EditionSetupError } from "../services/editionSetupError.js";
 
 type TeamRow = Database["public"]["Tables"]["truco_teams"]["Row"];
 type MatchRow = Database["public"]["Tables"]["truco_matches"]["Row"];
 type BracketRow = Database["public"]["Tables"]["truco_bracket_matches"]["Row"];
 type GroupRow = Database["public"]["Tables"]["truco_groups"]["Row"];
 
-function fail(action: string, error: { message: string } | null): never {
+function fail(action: string, error: { message: string; code?: string } | null): never {
+  if ((error?.code === "PGRST205" || error?.code === "42P01") && error.message.includes("truco_team_memberships")) {
+    throw new EditionSetupError("A edição precisa receber a migration 202610050001_manual_edition_participation.sql no Supabase antes de carregar as duplas. Avise o administrador do campeonato.");
+  }
   throw new Error(`Falha ao ${action}: ${error?.message ?? "erro desconhecido"}`);
 }
 
@@ -118,7 +122,8 @@ class TrucoRepository {
     if (error) fail("listar jogadores", error);
 
     // Sem `email` no select: ele é identificador interno do Supabase Auth e não sai daqui.
-    const { data: profiles } = await supabaseAdmin.from("truco_profiles").select("truco_player_id, role");
+    const { data: profiles, error: profilesError } = await supabaseAdmin.from("truco_profiles").select("truco_player_id, role");
+    if (profilesError) fail("carregar perfis dos jogadores", profilesError);
     const currentChampionship = await this.getCurrentChampionship();
     const { data: members, error: membersError } = await supabaseAdmin.from("truco_team_memberships")
       .select("truco_player_1_id, truco_player_2_id, truco_team_id")

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { BracketMatch, Match, MatchResult, Team } from "@truco/shared";
+import type { BracketMatch, Match, MatchResult, Player, Team } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Loading } from "../../components/ui/Loading";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -13,6 +13,7 @@ import { useToast } from "../../hooks/useToast";
 import { getTeams } from "../../services/teamsService";
 import { getMatches, recordMatchResult } from "../../services/matchesService";
 import { getBracket } from "../../services/bracketService";
+import { getPlayers } from "../../services/playersService";
 import { teamLabel } from "../../utils/teamHelpers";
 import { ApiError } from "../../services/api";
 
@@ -20,12 +21,13 @@ interface Data {
   teams: Team[];
   matches: Match[];
   bracketMatches: BracketMatch[];
+  players: Player[];
 }
 
 export function AdminBracketPage() {
   const { data, isLoading, error, refetch } = useFetchData<Data>(async () => {
-    const [teams, matches, bracketMatches] = await Promise.all([getTeams(), getMatches({ stage: "mata-mata" }), getBracket()]);
-    return { teams, matches, bracketMatches };
+    const [teams, matches, bracketMatches, players] = await Promise.all([getTeams(), getMatches({ stage: "mata-mata" }), getBracket(), getPlayers()]);
+    return { teams, matches, bracketMatches, players };
   });
   const { showToast } = useToast();
 
@@ -51,7 +53,7 @@ export function AdminBracketPage() {
 
   if (data.bracketMatches.length === 0) {
     return (
-      <div>
+      <div className="page-enter">
         <PageHeader title="Mata-mata" subtitle="Chave eliminatória do campeonato" />
         <EmptyState
           icon="🏆"
@@ -76,6 +78,7 @@ export function AdminBracketPage() {
         <MatchGroupsList
           matches={pendingMatches}
           teams={data.teams}
+          players={data.players}
           liveMatchId={expandedId}
           renderActions={(match) => (
             <div>

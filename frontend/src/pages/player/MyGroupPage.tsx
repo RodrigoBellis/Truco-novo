@@ -42,7 +42,7 @@ export function MyGroupPage() {
 
   return (
     <div className="page-enter">
-      <PageHeader title="Meu Grupo" subtitle={`Grupo ${data.groupId} · Truco do Novo`} />
+      <PageHeader title="Meu Grupo" subtitle={`Grupo ${data.groupId} · 5ª Edição 2026`} />
       <StandingsTable rows={data.standings} teams={data.teams} highlightTeamId={user?.teamId} />
     </div>
   );

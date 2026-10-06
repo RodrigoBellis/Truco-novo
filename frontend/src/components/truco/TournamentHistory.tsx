@@ -1,114 +1,84 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRef } from "react";
+import { Link } from "react-router-dom";
 import type { HistoryEntry } from "@truco/shared";
+import { Icon } from "../ui/Icon";
+import { PlayerAvatar } from "../ui/PlayerAvatar";
 import { ChampionTrophy } from "./ChampionTrophy";
+import { buildChampionDuplas, duoLabel, editionSuit } from "../../utils/hallOfFame";
 import "./TournamentHistory.css";
 
-const SUITS = ["♠", "♥", "♣", "♦"] as const;
-const AUTOPLAY_MS = 4500;
-
-function prefersReducedMotion(): boolean {
-  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+interface TournamentHistoryProps {
+  /** Edições já ordenadas da mais recente para a mais antiga. */
+  editions: HistoryEntry[];
+  active: HistoryEntry;
+  onSelect: (id: string) => void;
+  /** Rota do ranking acumulado, quando o usuário tem acesso a ela. */
+  rankingHref?: string;
 }
 
-export function TournamentHistory({ editions }: { editions: HistoryEntry[] }) {
-  const sorted = useMemo(() => [...editions].sort((a, b) => b.edition - a.edition), [editions]);
+export function TournamentHistory({ editions, active, onSelect, rankingHref }: TournamentHistoryProps) {
+  const spotlightRef = useRef<HTMLElement>(null);
+  const hasChampions = active.champions.some((name) => name !== "—");
+  const titles = buildChampionDuplas(editions).find((duo) => duo.editions.includes(active.edition))?.titles ?? 0;
+  const summary = active.notes || (hasChampions ? `${active.champions.join(" e ")} conquistaram a ${active.edition}ª Edição em ${active.year}.` : `A ${active.edition}ª Edição foi disputada em ${active.year}.`);
 
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const reducedMotion = useMemo(prefersReducedMotion, []);
+  function openFromTimeline(id: string) {
+    onSelect(id);
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    spotlightRef.current?.scrollIntoView({ block: "center", behavior: reduced ? "auto" : "smooth" });
+  }
 
-  const goTo = useCallback(
-    (index: number) => {
-      if (sorted.length === 0) return;
-      setActiveIndex(((index % sorted.length) + sorted.length) % sorted.length);
-    },
-    [sorted.length],
-  );
+  return <section className="tournament-history" aria-labelledby="history-title">
+    <div className="history-head">
+      <h2 id="history-title">Histórico de Campeonatos</h2>
+      {editions.length > 1 && <p>Escolha uma edição para rever quem levantou o caneco.</p>}
+    </div>
 
-  useEffect(() => {
-    if (reducedMotion || isPaused || sorted.length < 2) return;
-    const timer = window.setInterval(() => {
-      setActiveIndex((current) => (current + 1) % sorted.length);
-    }, AUTOPLAY_MS);
-    return () => window.clearInterval(timer);
-  }, [reducedMotion, isPaused, sorted.length]);
+    <div className="history-editions" role="group" aria-label="Escolher edição">
+      {editions.map(entry => <button key={entry.id} type="button" aria-pressed={entry.id === active.id} onClick={() => onSelect(entry.id)}>
+        <span className="history-edition-number">{entry.edition}ª</span>
+        <span className="history-edition-text"><strong>Edição</strong><span>{entry.year}</span></span>
+      </button>)}
+    </div>
 
-  if (sorted.length === 0) return null;
-
-  return (
-    <section className="tournament-history">
-      <h2 className="hof-section-title">Histórico de Campeonatos</h2>
-
-      <div
-        className="th-stage"
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
-        onFocusCapture={() => setIsPaused(true)}
-        onBlurCapture={() => setIsPaused(false)}
-      >
-        <div className="th-track">
-          {sorted.map((entry, index) => {
-            const offset = index - activeIndex;
-            const distance = Math.abs(offset);
-            const isActive = offset === 0;
-            const style = {
-              transform: `translateX(${offset * 56}%) translateZ(${distance * -190}px) rotateY(${offset * -34}deg) scale(${
-                isActive ? 1 : 0.92
-              })`,
-              opacity: distance > 2 ? 0 : 1 - distance * 0.34,
-              zIndex: sorted.length - distance,
-              pointerEvents: distance > 2 ? ("none" as const) : ("auto" as const),
-            };
-
-            return (
-              <div key={entry.id} className="th-slot" style={style} aria-hidden={!isActive}>
-                <article className={`th-card${isActive ? " th-card-active" : ""}`}>
-                  <span className="th-card-edition">{entry.edition}ª Edição</span>
-
-                  <ChampionTrophy size={72} suit={SUITS[(entry.edition - 1) % SUITS.length]} />
-
-                  <h3 className="th-card-name">{entry.name}</h3>
-                  <span className="th-card-year">{entry.year}</span>
-
-                  <div className="th-card-result">
-                    <div className="th-card-side th-card-side-center">
-                      <span className="th-card-side-label">🏆 Campeão</span>
-                      <span className="th-card-side-value">{entry.champions.join(" & ")}</span>
-                    </div>
-                    <div className="th-card-score">{entry.finalResult ?? "—"}</div>
-                  </div>
-
-                  <p className="th-card-notes text-muted">
-                    <span aria-hidden="true">🃏 </span>
-                    {entry.notes}
-                  </p>
-                </article>
-              </div>
-            );
-          })}
-        </div>
-
-        <button type="button" className="th-arrow th-arrow-prev" onClick={() => goTo(activeIndex - 1)} aria-label="Edição anterior">
-          ‹
-        </button>
-        <button type="button" className="th-arrow th-arrow-next" onClick={() => goTo(activeIndex + 1)} aria-label="Próxima edição">
-          ›
-        </button>
+    <article key={active.id} ref={spotlightRef} className="history-spotlight" aria-label={`${active.edition}ª Edição · ${active.year}`}>
+      <div className="history-medal">
+        <span className="history-medal-ghost" aria-hidden="true">{active.edition}</span>
+        <ChampionTrophy size={136} suit={editionSuit(active.edition)} />
+        <strong>{active.year}</strong>
+        <span>{active.edition}ª Edição</span>
       </div>
-
-      <div className="th-dots" role="tablist" aria-label="Edições do campeonato">
-        {sorted.map((entry, index) => (
-          <button
-            key={entry.id}
-            type="button"
-            role="tab"
-            aria-selected={index === activeIndex}
-            aria-label={`${entry.edition}ª Edição`}
-            className={`th-dot${index === activeIndex ? " th-dot-active" : ""}`}
-            onClick={() => goTo(index)}
-          />
-        ))}
+      <div className="history-story">
+        <h3>{active.name}</h3>
+        <p className="history-notes">{summary}</p>
+        <dl className="history-final">
+          <div className="history-champion">
+            <dt>Campeões</dt>
+            <dd>{hasChampions ? <span className="history-duo">{active.champions.map(name => <span key={name} className="history-player"><PlayerAvatar name={name} size="sm" />{name}</span>)}</span> : duoLabel(active.champions)}</dd>
+          </div>
+          {active.runnersUp && <div className="history-runner-up"><dt>Vice-campeões</dt><dd>{duoLabel(active.runnersUp)}</dd></div>}
+          {active.finalResult && <div className="history-result"><dt>Placar da final</dt><dd>{active.finalResult}</dd></div>}
+        </dl>
+        {hasChampions && titles > 0 && <p className="history-legacy">
+          <Icon name="trophy" size={18} />
+          <span>{titles === 1 ? "Único título desta dupla" : `${titles} títulos desta dupla`} nas edições registradas.</span>
+          {rankingHref && <Link to={rankingHref} className="link-arrow">Ver ranking geral <Icon name="arrow" size={16} /></Link>}
+        </p>}
       </div>
-    </section>
-  );
+    </article>
+
+    {editions.length > 1 && <div className="history-archive">
+      <h3 id="history-archive-title">Linha do tempo</h3>
+      <ol className="history-timeline" aria-labelledby="history-archive-title">
+        {editions.map(entry => <li key={entry.id} className={entry.id === active.id ? "history-timeline-active" : undefined}>
+          <span className="history-timeline-year">{entry.year}</span>
+          <div className="history-timeline-body">
+            <strong>{duoLabel(entry.champions)}</strong>
+            <span>{entry.edition}ª edição{entry.finalResult ? ` · final ${entry.finalResult}` : ""}</span>
+          </div>
+          <button type="button" onClick={() => openFromTimeline(entry.id)} aria-label={`Ver detalhes da ${entry.edition}ª edição`} aria-current={entry.id === active.id ? "true" : undefined}>{entry.id === active.id ? "Em destaque" : <>Ver edição <Icon name="arrow" size={15} /></>}</button>
+        </li>)}
+      </ol>
+    </div>}
+  </section>;
 }

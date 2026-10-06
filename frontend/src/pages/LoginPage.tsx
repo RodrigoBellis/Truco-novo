@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { Logo } from "../components/ui/Logo";
 import { Button } from "../components/ui/Button";
 import { Icon } from "../components/ui/Icon";
+import { ThemeToggle } from "../components/ui/ThemeToggle";
 import { Loading } from "../components/ui/Loading";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
@@ -10,12 +11,14 @@ import { useFetchData } from "../hooks/useFetchData";
 import { getRoster, type RosterPlayer } from "../services/playersService";
 import type { LoginIdentifier } from "../services/authService";
 import { ApiError } from "../services/api";
-import { homePathForRole } from "../utils/roles";
+import { entryPathForUser } from "../utils/playerEntry";
+import { useTheme } from "../hooks/useTheme";
 // O PNG original (1536px, 2 MB) segue no repositório como fonte, mas não é
 // mais importado: o que vai para o bundle são estas duas versões em 1120px —
 // o dobro dos 560px em que a imagem é exibida, o suficiente para tela 2x.
 import heroImageAvif from "../assets/truco-5-edicao.avif";
 import heroImageWebp from "../assets/truco-5-edicao.webp";
+import lightHeroImage from "../assets/truco-5-edicao.png";
 import "./LoginPage.css";
 
 const ADMIN_IDENTITY: Identity = { name: "Administrador", credential: { email: "admin@trucodonovo.com" } };
@@ -30,6 +33,7 @@ interface Identity {
 
 export function LoginPage() {
   const { user, isLoading, login } = useAuth();
+  const { theme } = useTheme();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -43,7 +47,7 @@ export function LoginPage() {
   const { data: players, isLoading: playersLoading } = useFetchData<RosterPlayer[]>(getRoster, [step === "players"]);
 
   if (!isLoading && user) {
-    return <Navigate to={user.mustChangePassword ? "/criar-senha" : homePathForRole(user.role)} replace />;
+    return <Navigate to={user.mustChangePassword ? "/criar-senha" : entryPathForUser(user)} replace />;
   }
 
   function chooseAdmin() {
@@ -83,7 +87,7 @@ export function LoginPage() {
       if (loggedInUser.mustChangePassword) {
         navigate("/criar-senha", { replace: true });
       } else {
-        navigate(homePathForRole(loggedInUser.role), { replace: true });
+        navigate(entryPathForUser(loggedInUser), { replace: true });
       }
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "Não foi possível entrar. Tente novamente.";
@@ -95,6 +99,7 @@ export function LoginPage() {
 
   return (
     <div className="login-page page-enter">
+      <div className="login-theme-toggle"><ThemeToggle /></div>
       <div className="login-decor" aria-hidden="true">
         <span>♠</span>
         <span>♣</span>
@@ -106,7 +111,7 @@ export function LoginPage() {
         {step !== "role" && (
           <div className="login-brand">
             <Logo size={40} />
-            <span className="login-season">Temporada 2026</span>
+            <span className="login-season">5ª Edição · 2026</span>
           </div>
         )}
 
@@ -115,19 +120,14 @@ export function LoginPage() {
             <div className="login-hero-wrap">
               {/* AVIF primeiro, WebP para quem não o suporta. O navegador
                   escolhe uma só — nunca baixa as duas. */}
-              <picture>
-                <source srcSet={heroImageAvif} type="image/avif" />
-                <img
-                  src={heroImageWebp}
-                  alt="Truco do Novo — mais que um jogo, uma paixão!"
-                  className="login-hero-image"
-                  width={1120}
-                  height={747}
-                  // É a maior imagem da primeira tela: sobe na fila de download
-                  // em vez de esperar o resto dos recursos.
-                  fetchPriority="high"
-                />
-              </picture>
+              {theme === "light" ? (
+                <img src={lightHeroImage} alt="Truco do Novo — 5ª Edição" className="login-hero-image" width={1536} height={1024} fetchPriority="high" />
+              ) : (
+                <picture>
+                  <source srcSet={heroImageAvif} type="image/avif" />
+                  <img src={heroImageWebp} alt="Truco do Novo — 5ª Edição" className="login-hero-image" width={1120} height={747} fetchPriority="high" />
+                </picture>
+              )}
               <span className="login-edition-badge">5ª Edição</span>
             </div>
 

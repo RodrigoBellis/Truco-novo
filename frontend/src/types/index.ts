@@ -20,6 +20,7 @@ export type NavIconName =
   | "results"
   | "standings"
   | "ranking"
+  | "crown"
   | "profile"
   | "dashboard"
   | "players"

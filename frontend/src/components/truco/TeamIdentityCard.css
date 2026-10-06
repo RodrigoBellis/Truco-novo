@@ -1,0 +1,29 @@
+.team-identity { position:relative; padding:30px 34px; background:radial-gradient(90% 130% at 100% 0%, var(--team-soft), transparent 62%), var(--color-surface); border:1px solid var(--color-border-strong); border-radius:22px; box-shadow:var(--shadow-lg), var(--edge-light); overflow:hidden; }
+/* Fio de 1px na cor da dupla: assina o card sem virar faixa colorida. */
+.team-identity::before { content:""; position:absolute; inset:0 0 auto; height:1px; background:linear-gradient(90deg, transparent, var(--team-line) 30%, var(--team-color) 78%, transparent); pointer-events:none; }
+.team-identity-head { display:grid; grid-template-columns:auto minmax(0,1fr) auto; grid-template-areas:"crest name position" "crest details position"; column-gap:20px; row-gap:10px; align-items:center; }
+.team-identity-head > .team-crest { grid-area:crest; }
+.team-identity h2 { grid-area:name; align-self:end; font-size:clamp(1.6rem, 1.2rem + 1.4vw, 2.1rem); font-weight:850; letter-spacing:-.02em; line-height:1.1; overflow-wrap:anywhere; text-wrap:balance; }
+.team-identity-details { grid-area:details; align-self:start; display:flex; flex-wrap:wrap; gap:8px 18px; align-items:center; }
+.team-identity-details > span:not(.team-strength) { display:inline-flex; gap:6px; align-items:center; color:var(--color-text-muted); font-size:.8rem; font-weight:650; }
+.team-identity-position { grid-area:position; text-align:right; padding-left:8px; }
+.team-identity-position > strong { display:block; font-size:4.4rem; font-weight:850; line-height:.95; letter-spacing:-.04em; color:var(--team-ink); font-variant-numeric:tabular-nums; animation:pop-in var(--motion-move) 240ms backwards; }
+.team-identity-position small { font-size:.42em; font-weight:800; vertical-align:top; margin-left:2px; letter-spacing:0; }
+.team-identity-position > span { display:block; margin-top:6px; color:var(--color-text-muted); font-size:.78rem; font-weight:650; white-space:nowrap; }
+.team-identity-foot { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16px 24px; margin-top:26px; padding-top:20px; border-top:1px solid var(--color-border); }
+.team-identity-members { display:flex; flex-wrap:wrap; gap:14px 28px; }
+.team-identity-member { display:flex; align-items:center; gap:12px; min-width:0; }
+.team-identity-member .player-avatar { border-color:var(--team-line); box-shadow:0 0 0 3px var(--team-soft); color:var(--team-ink); }
+.team-identity-member strong,.team-identity-member span { display:block; }
+.team-identity-member strong { font-size:.9rem; overflow-wrap:anywhere; }
+.team-identity-member span { margin-top:3px; font-size:.75rem; color:var(--color-text-muted); }
+.team-identity-status { display:flex; flex-wrap:wrap; gap:8px; }
+@media(max-width:560px) {
+  .team-identity { padding:22px 20px; border-radius:20px; }
+  .team-identity-head { grid-template-areas:"crest name position" "details details details"; column-gap:14px; row-gap:16px; }
+  .team-identity-head > .team-crest { width:54px; height:54px; border-radius:16px; font-size:1.15rem; }
+  .team-identity h2 { align-self:center; }
+  .team-identity-position > strong { font-size:3.1rem; }
+  .team-identity-foot { margin-top:20px; padding-top:18px; }
+  .team-identity-members { flex-direction:column; gap:12px; width:100%; }
+}

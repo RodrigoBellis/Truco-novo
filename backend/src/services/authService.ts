@@ -1,5 +1,5 @@
 import type { AuthUser, LoginResponse, UserRole } from "@truco/shared";
-import { supabaseAdmin } from "../data/supabaseClient.js";
+import { createLoginClient, supabaseAdmin } from "../data/supabaseClient.js";
 
 export class AuthError extends Error {}
 
@@ -58,7 +58,7 @@ export async function login(identifier: { email?: string; playerId?: string }, p
     ? identifier.email.trim().toLowerCase()
     : await emailForPlayerId(String(identifier.playerId ?? ""));
 
-  const { data, error } = await supabaseAdmin.auth.signInWithPassword({ email, password });
+  const { data, error } = await createLoginClient().auth.signInWithPassword({ email, password });
   if (error || !data.session || !data.user) {
     throw new AuthError("Senha incorreta. Tente novamente.");
   }

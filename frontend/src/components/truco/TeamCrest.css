@@ -1,0 +1,5 @@
+.team-crest { display:inline-grid; place-items:center; flex:0 0 auto; background:var(--team-color); color:var(--team-on); font-weight:850; letter-spacing:-.01em; line-height:1; font-variant-numeric:tabular-nums; box-shadow:inset 0 1px 0 rgb(255 255 255 / .28), inset 0 -8px 14px -8px rgb(0 0 0 / .28), 0 6px 14px -8px var(--team-color); }
+.team-crest-lg { width:68px; height:68px; border-radius:20px; font-size:1.4rem; }
+.team-crest-md { width:48px; height:48px; border-radius:14px; font-size:1rem; }
+.team-crest-sm { width:32px; height:32px; border-radius:10px; font-size:.72rem; }
+.team-crest-dot { width:10px; height:10px; border-radius:50%; box-shadow:0 0 0 3px var(--team-soft); }

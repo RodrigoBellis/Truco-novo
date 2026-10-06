@@ -35,7 +35,7 @@ export function AdminSettingsPage() {
         <dl className="admin-settings-list">
           <div>
             <dt>Nome</dt>
-            <dd>Truco do Novo</dd>
+            <dd>Truco do Novo · 5ª Edição (2026)</dd>
           </div>
           <div>
             <dt>Formato</dt>

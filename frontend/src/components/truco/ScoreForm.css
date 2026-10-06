@@ -41,10 +41,16 @@
 }
 
 .score-preset-selected {
-  background: rgb(var(--rgb-accent) / 0.18);
-  border-color: rgb(var(--rgb-accent) / 0.6);
-  color: var(--color-accent-300);
-  box-shadow: var(--shadow-accent);
+  background: var(--color-action);
+  border-color: var(--color-action);
+  color: var(--color-on-action);
+  box-shadow: none;
+}
+
+.score-preset-selected:hover:not(:disabled) {
+  background:var(--color-action);
+  color:var(--color-on-action);
+  border-color:var(--color-action);
 }
 
 .score-form-actions {
@@ -81,8 +87,8 @@
   min-height: 44px;
   border-radius: var(--radius-md);
   border: none;
-  background: var(--gradient-accent);
-  color: var(--color-on-accent);
+  background: var(--color-action);
+  color: var(--color-on-action);
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 1px 0 rgb(var(--rgb-white) / 0.28) inset, 0 6px 18px -6px rgb(var(--rgb-accent) / 0.55);
