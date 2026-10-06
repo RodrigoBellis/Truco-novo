@@ -1,6 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
-  <rect width="48" height="48" rx="11" fill="#123724"/>
-  <path d="M24 11c-3.6 0-6.4 2.7-6.4 6.2 0 4 3.8 6.2 6.4 9.5 2.6-3.3 6.4-5.5 6.4-9.5C30.4 13.7 27.6 11 24 11Z" fill="#d4af37"/>
-  <rect x="21.4" y="27.5" width="5.2" height="8" rx="1.3" fill="#d4af37"/>
-  <rect x="16" y="35" width="16" height="4" rx="1.8" fill="#d4af37"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1c1c1f"/>
+      <stop offset="1" stop-color="#09090a"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffdc85"/>
+      <stop offset="0.55" stop-color="#f0a93c"/>
+      <stop offset="1" stop-color="#c47a1c"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffcf6b"/>
+      <stop offset="0.5" stop-color="#b9781f"/>
+      <stop offset="1" stop-color="#ffcf6b"/>
+    </linearGradient>
+    <g id="laurel">
+      <path d="M25 51C17 48.5 12.5 41.5 12.5 32" fill="none" stroke="url(#gold)" stroke-width="1.6" stroke-linecap="round"/>
+      <ellipse cx="11.2" cy="34" rx="2.9" ry="1.3" transform="rotate(-70 11.2 34)" fill="url(#gold)"/>
+      <ellipse cx="11.8" cy="39.4" rx="2.9" ry="1.3" transform="rotate(-50 11.8 39.4)" fill="url(#gold)"/>
+      <ellipse cx="14.6" cy="44.2" rx="2.9" ry="1.3" transform="rotate(-30 14.6 44.2)" fill="url(#gold)"/>
+      <ellipse cx="18.8" cy="48" rx="2.9" ry="1.3" transform="rotate(-12 18.8 48)" fill="url(#gold)"/>
+      <ellipse cx="16" cy="36.5" rx="2.6" ry="1.2" transform="rotate(-120 16 36.5)" fill="url(#gold)"/>
+      <ellipse cx="17.6" cy="41.6" rx="2.6" ry="1.2" transform="rotate(-140 17.6 41.6)" fill="url(#gold)"/>
+    </g>
+  </defs>
+  <rect x="1.5" y="1.5" width="61" height="61" rx="14" fill="url(#bg)" stroke="url(#rim)" stroke-width="2.2"/>
+  <use href="#laurel"/>
+  <use href="#laurel" transform="translate(64 0) scale(-1 1)"/>
+  <path d="M21 17.5H15.8C15.8 25.5 18.6 29.6 23 31.2M43 17.5H48.2C48.2 25.5 45.4 29.6 41 31.2" fill="none" stroke="url(#gold)" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M20.5 13.5H43.5V21.5C43.5 30.5 38.3 36 32 36S20.5 30.5 20.5 21.5Z" fill="url(#gold)"/>
+  <path d="M26.2 27.2L25.2 19.8L28.9 23L32 18.2L35.1 23L38.8 19.8L37.8 27.2Z" fill="#1a1206"/>
+  <path d="M29.6 36H34.4L33.6 42H30.4Z" fill="url(#gold)"/>
+  <rect x="26.5" y="42" width="11" height="3" rx="1" fill="url(#gold)"/>
+  <rect x="23.5" y="45" width="17" height="4.5" rx="1.5" fill="url(#gold)"/>
 </svg>
