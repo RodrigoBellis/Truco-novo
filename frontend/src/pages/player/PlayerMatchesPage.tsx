@@ -8,8 +8,7 @@ import { Icon } from "../../components/ui/Icon";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { MatchGroupsList } from "../../components/truco/MatchGroupsList";
 import { ScoreForm } from "../../components/truco/ScoreForm";
-import { NextOpponentCard } from "../../components/truco/NextOpponentCard";
-import { MyTeamGroupBanner } from "../../components/truco/MyTeamGroupBanner";
+import { MatchesHero } from "../../components/truco/MatchesHero";
 import { buildOpponentInsight } from "../../utils/opponentInsight";
 import { useAuth } from "../../hooks/useAuth";
 import { useFetchData } from "../../hooks/useFetchData";
@@ -110,9 +109,12 @@ export function PlayerMatchesPage() {
     ? (data?.matches ?? []).filter((m) => m.status === "pendente" && (m.teamAId === myTeamId || m.teamBId === myTeamId)).length
     : 0;
 
+  const isMineMatch = (match: Match) => myTeamId !== null && (match.teamAId === myTeamId || match.teamBId === myTeamId);
+  const queueOrder = (match: Match) => match.queuePosition ?? match.order + 1;
+
   const visibleMatches = (data?.matches ?? []).filter((match) => {
     const inSelectedGroup = groupFilter === "all" || (groupFilter === "mine"
-      ? myTeamId !== null && (match.teamAId === myTeamId || match.teamBId === myTeamId)
+      ? isMineMatch(match)
       : match.groupId === groupFilter);
     const inSelectedStatus = statusFilter === "all" || (statusFilter === "upcoming" ? match.status === "pendente" : match.status === "realizado");
     return inSelectedGroup && inSelectedStatus;
@@ -123,12 +125,26 @@ export function PlayerMatchesPage() {
       <PageHeader title="Jogos" subtitle="Acompanhe a ordem, os confrontos e os placares da edição" />
 
       {data && myTeam && (
-        <MyTeamGroupBanner
+        <MatchesHero
           teamName={myTeam.name}
           hue={teamHue(myTeam.id, data.teams)}
           groupId={data.groupId}
           standing={data.standings.find((row) => row.teamId === myTeam.id)}
           pendingCount={myPendingCount}
+          next={
+            nextMatch && opponentId && data.groupId
+              ? {
+                  opponentName: teamLabel(data.teams, opponentId),
+                  insight: buildOpponentInsight({
+                    matchId: nextMatch.id,
+                    groupId: data.groupId,
+                    myTeamId: myTeam.id,
+                    opponentTeamId: opponentId,
+                    standings: data.standings,
+                  }),
+                }
+              : null
+          }
         />
       )}
 
@@ -139,18 +155,6 @@ export function PlayerMatchesPage() {
         <label className="matches-status-filter">Situação <select aria-label="Filtrar por situação" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}><option value="all">Todos</option><option value="upcoming">Próximos</option><option value="finished">Finalizados</option></select></label>
       </div>
 
-      {groupFilter === "mine" && statusFilter !== "finished" && data && nextMatch && opponentId && myTeamId && data.groupId && (
-        <NextOpponentCard
-          opponentName={teamLabel(data.teams, opponentId)}
-          insight={buildOpponentInsight({
-            matchId: nextMatch.id,
-            groupId: data.groupId,
-            myTeamId,
-            opponentTeamId: opponentId,
-            standings: data.standings,
-          })}
-        />
-      )}
       {data && visibleMatches.length > 0 ? (
         <MatchGroupsList
           matches={visibleMatches}
@@ -158,11 +162,19 @@ export function PlayerMatchesPage() {
           players={data.players}
           highlightTeamId={user?.teamId}
           liveMatchId={expandedId}
+          sections={
+            // Em Meus Jogos o que importa é o que falta jogar e o que já foi jogado (mais recente primeiro).
+            groupFilter === "mine"
+              ? [
+                  { title: "Próximos confrontos", matches: visibleMatches.filter((m) => m.status === "pendente").sort((a, b) => queueOrder(a) - queueOrder(b)) },
+                  { title: "Já jogados", matches: visibleMatches.filter((m) => m.status === "realizado").sort((a, b) => queueOrder(b) - queueOrder(a)) },
+                ]
+              : undefined
+          }
           renderActions={(match) => {
             // Só a própria dupla lança/corrige o placar. Jogos realizados de outras duplas
             // podem aparecer na lista (classificação do grupo), mas sem ação disponível.
-            const isMine = myTeamId !== null && (match.teamAId === myTeamId || match.teamBId === myTeamId);
-            if (!isMine) return null;
+            if (!isMineMatch(match)) return null;
 
             return (
               <div>
@@ -176,7 +188,7 @@ export function PlayerMatchesPage() {
                     onSubmit={(result) => handleSubmit(match, result)}
                   />
                 ) : (
-                  <Button variant="ghost" size="sm" onClick={() => setExpandedId(match.id)}>
+                  <Button variant={match.status === "realizado" ? "ghost" : "primary"} size="sm" onClick={() => setExpandedId(match.id)}>
                     {match.status === "realizado" ? "Editar resultado" : "Lançar resultado"}
                   </Button>
                 )}

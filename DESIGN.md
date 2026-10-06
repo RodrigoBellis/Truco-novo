@@ -39,13 +39,17 @@ O experimento de fundo creme com diagonais da referência enviada em 05/10/2026 
 
 ### Cor de cada dupla
 
-A pedido do usuário (06/10/2026), cada dupla tem uma cor própria. O matiz vem de `frontend/src/utils/teamColor.ts` (ordem estável dos ids da edição, sem coluna no Supabase) e a classe `.team-tint` em `styles/global.css` ajusta luminosidade por tema. A cor identifica a dupla em escudo, anel do avatar e marca ao lado do nome; não substitui os badges de zona nem o laranja de “Sua dupla”.
+A pedido do usuário (06/10/2026), cada dupla tem uma cor própria. O matiz vem de `frontend/src/utils/teamColor.ts` (ordem estável dos ids da edição, sem coluna no Supabase) e a classe `.team-tint` em `styles/global.css` ajusta luminosidade por tema. A cor identifica a dupla em escudo, anel do avatar e marca ao lado do nome (nos cards de jogo, só no anel dos rostos); não substitui os badges de zona nem o laranja de “Sua dupla”.
 
-### Cor de cada grupo e jogos da dupla
+### Tela Jogos (redesenho de 06/10/2026)
 
-A pedido do usuário (06/10/2026), cada grupo tem uma cor própria: Grupo A em ciano e Grupo B em magenta (`frontend/src/utils/groupColor.ts` + `.group-tone` em `styles/global.css`, com luminosidade por tema). A cor aparece na bolinha das abas de Jogos, no título da seção, no fio superior e na etiqueta "Grupo X" de cada card. Os matizes ficam longe do laranja de “Sua dupla”, do azul dos links e do verde/vermelho de resultado.
+O usuário achou a tela anterior feia e confusa. Direção atual: placar esportivo limpo, cada informação aparece uma vez só.
 
-Jogos abre com a faixa “Sua dupla”: nome, “Está no Grupo X” na cor do grupo, posição real e pontos, vitórias, derrotas e jogos a disputar da classificação (travessão sem dados). Nos jogos da própria dupla, o card ganha faixa lateral e cabeçalho na cor do resultado, com selo textual: verde “Vitória”, vermelho “Derrota”, laranja “A jogar”. A linha da dupla tem fundo e contorno laranja suaves; o selo “Sua dupla” é laranja.
+- Topo em um painel único (`MatchesHero`): dupla, “Está no Grupo X” na cor do grupo, posição real, pontos/vitórias/derrotas/a jogar da classificação (travessão sem dados) e, ao lado, o próximo jogo com a leitura da tabela (`opponentInsight`).
+- Meus Jogos separa “Próximos confrontos” (ordem da fila) e “Já jogados” (mais recente primeiro); filtros de grupo continuam agrupando por rodada. Títulos de seção trazem a contagem.
+- `MatchCard`: cabeçalho só com “Jogo N” e selo de situação; uma dupla por linha com rostos no anel da cor da dupla, nome, força e sets grandes. Vencedor com sets em verde, perdedor apagado. Sem rodapé de placar repetido.
+- Jogo da própria dupla: faixa lateral fina na cor do resultado e selo textual (verde “Vitória”, vermelho “Derrota”, laranja “A jogar”); a linha da dupla tem fundo laranja suave e selo “Sua dupla”. Lançar resultado é botão laranja; editar é botão discreto.
+- Cor de cada grupo: Grupo A ciano e Grupo B magenta (`utils/groupColor.ts` + `.group-tone` em `styles/global.css`), só na bolinha das abas, no título da seção e na etiqueta do painel do topo.
 
 ### Início
 

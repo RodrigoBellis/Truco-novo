@@ -194,6 +194,8 @@ test("Jogos filtra pela dupla, grupo, situação e mostra placar na partida", as
   await expect(page.locator(".match-card-outcome-win")).toHaveCount(1);
   await expect(page.locator(".match-card-outcome-win")).toContainText("Vitória");
   await expect(page.locator(".match-card-outcome-pending")).toHaveCount(3);
+  await expect(page.locator(".match-group-title")).toHaveText(["Próximos confrontos3", "Já jogados1"]);
+  await expect(myTeamBanner).toContainText("Próximo jogo");
 
   await page.getByRole("tab", { name: "Grupo A" }).click();
   await expect(page.locator(".match-card")).toHaveCount(10);
@@ -208,7 +210,8 @@ test("Jogos filtra pela dupla, grupo, situação e mostra placar na partida", as
 
   await page.getByLabel("Filtrar por situação").selectOption("finished");
   await expect(page.locator(".match-card")).toHaveCount(1);
-  await expect(page.locator(".match-card-score")).toHaveText("2x0");
+  await expect(page.locator(".match-card-team-result > strong")).toHaveText(["2", "0"]);
+  await expect(page.locator(".match-card-team-winner")).toContainText("Dupla 1");
   await expect(page.locator(".match-card-points").first()).toHaveText("+3 pts");
   await expect(page.locator(".match-card-points").last()).toHaveText("+0 pts");
   await page.getByLabel("Filtrar por situação").selectOption("upcoming");
