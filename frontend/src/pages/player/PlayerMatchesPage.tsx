@@ -9,6 +9,7 @@ import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { MatchGroupsList } from "../../components/truco/MatchGroupsList";
 import { ScoreForm } from "../../components/truco/ScoreForm";
 import { NextOpponentCard } from "../../components/truco/NextOpponentCard";
+import { MyTeamGroupBanner } from "../../components/truco/MyTeamGroupBanner";
 import { buildOpponentInsight } from "../../utils/opponentInsight";
 import { useAuth } from "../../hooks/useAuth";
 import { useFetchData } from "../../hooks/useFetchData";
@@ -19,6 +20,8 @@ import { getMatches, recordMatchResult } from "../../services/matchesService";
 import { getPlayers } from "../../services/playersService";
 import { getStandings } from "../../services/groupsService";
 import { teamLabel } from "../../utils/teamHelpers";
+import { teamHue } from "../../utils/teamColor";
+import { groupToneClass } from "../../utils/groupColor";
 import { ApiError } from "../../services/api";
 import "./PlayerMatchesPage.css";
 
@@ -102,6 +105,11 @@ export function PlayerMatchesPage() {
       : nextMatch.teamAId
     : null;
 
+  const myTeam = myTeamId ? data?.teams.find((team) => team.id === myTeamId) : undefined;
+  const myPendingCount = myTeamId
+    ? (data?.matches ?? []).filter((m) => m.status === "pendente" && (m.teamAId === myTeamId || m.teamBId === myTeamId)).length
+    : 0;
+
   const visibleMatches = (data?.matches ?? []).filter((match) => {
     const inSelectedGroup = groupFilter === "all" || (groupFilter === "mine"
       ? myTeamId !== null && (match.teamAId === myTeamId || match.teamBId === myTeamId)
@@ -114,9 +122,19 @@ export function PlayerMatchesPage() {
     <div className="page-enter">
       <PageHeader title="Jogos" subtitle="Acompanhe a ordem, os confrontos e os placares da edição" />
 
+      {data && myTeam && (
+        <MyTeamGroupBanner
+          teamName={myTeam.name}
+          hue={teamHue(myTeam.id, data.teams)}
+          groupId={data.groupId}
+          standing={data.standings.find((row) => row.teamId === myTeam.id)}
+          pendingCount={myPendingCount}
+        />
+      )}
+
       <div className="matches-filter-section">
         <div className="matches-group-filters" role="tablist" aria-label="Filtrar jogos por grupo">
-          {([{ value: "mine", label: "Meus Jogos" }, { value: "A", label: "Grupo A" }, { value: "B", label: "Grupo B" }, { value: "all", label: "Todos" }] as const).map((filter) => <button key={filter.value} type="button" role="tab" aria-selected={groupFilter === filter.value} className={`matches-filter-chip${groupFilter === filter.value ? " matches-filter-chip-active" : ""}`} onClick={() => setGroupFilter(filter.value)}>{filter.label}</button>)}
+          {([{ value: "mine", label: "Meus Jogos" }, { value: "A", label: "Grupo A" }, { value: "B", label: "Grupo B" }, { value: "all", label: "Todos" }] as const).map((filter) => <button key={filter.value} type="button" role="tab" aria-selected={groupFilter === filter.value} className={`matches-filter-chip${groupFilter === filter.value ? " matches-filter-chip-active" : ""}`} onClick={() => setGroupFilter(filter.value)}>{(filter.value === "A" || filter.value === "B") && <span className={`matches-filter-dot ${groupToneClass(filter.value)}`} aria-hidden="true" />}{filter.label}</button>)}
         </div>
         <label className="matches-status-filter">Situação <select aria-label="Filtrar por situação" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}><option value="all">Todos</option><option value="upcoming">Próximos</option><option value="finished">Finalizados</option></select></label>
       </div>

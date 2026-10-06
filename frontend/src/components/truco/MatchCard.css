@@ -12,8 +12,8 @@
 .match-card-team:has(.match-card-faces:empty){grid-template-columns:minmax(0,1fr) auto}
 .match-card-team-identity{display:flex;flex-wrap:wrap;align-items:center;gap:5px 9px;min-width:0}
 .match-card-team-identity > strong{width:100%;font-size:var(--text-base);line-height:1.35;overflow-wrap:break-word;color:var(--color-text)}
-.match-card-team-mine .match-card-team-identity > strong{color:var(--color-tech-400)}
-.match-card-mine-label{font-size:10px;font-weight:700;padding:2px 6px;border-radius:5px;background:var(--color-blue-soft);color:var(--color-tech-400)}
+.match-card-team-mine .match-card-team-identity > strong{color:var(--color-text)}
+.match-card-mine-label{font-size:10px;font-weight:700;padding:2px 6px;border-radius:5px;background:var(--color-orange-soft);color:var(--color-accent-600);border:1px solid rgb(var(--rgb-accent) / .3)}
 .match-card-team-result{text-align:right;min-width:48px;display:flex;flex-direction:column;gap:3px;font-variant-numeric:tabular-nums}
 .match-card-team-result > strong{font-size:2rem;line-height:1;color:var(--color-text-muted)}
 .match-card-team-winner .match-card-team-result > strong{color:var(--color-success)}
@@ -26,3 +26,16 @@
 @media(max-width:420px){.match-card-team{gap:9px}.match-card-top,.match-card-actions{padding:12px 14px}.match-card-teams{padding:4px 14px}.match-card-summary{margin:0 14px}.match-card-team-identity > strong{font-size:14px}}
 .match-card-team-identity > strong{display:flex;align-items:center;gap:9px}
 .match-card-team-identity > strong .team-crest{margin-left:3px}
+/* Grupo: fio superior e etiqueta na cor do grupo (utils/groupColor). */
+.match-card.group-tone{border-top:3px solid var(--group-color)}
+.match-card-round{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+/* Jogo da própria dupla: faixa lateral e cabeçalho na cor do resultado, com selo textual. */
+.match-card-mine{--outcome-color:var(--color-action);--outcome-soft:rgb(var(--rgb-accent) / .13)}
+.match-card-outcome-win{--outcome-color:var(--color-success);--outcome-soft:var(--color-success-bg)}
+.match-card-outcome-loss{--outcome-color:var(--color-danger);--outcome-soft:var(--color-danger-bg)}
+.match-card-outcome-draw{--outcome-color:var(--color-text-muted);--outcome-soft:rgb(var(--rgb-white) / .05)}
+.match-card.match-card-mine::before{display:block;content:"";position:absolute;inset:0 auto 0 0;width:5px;background:var(--outcome-color);z-index:2;pointer-events:none}
+.match-card-mine .match-card-top{background:linear-gradient(90deg,var(--outcome-soft),transparent 75%),var(--color-blue-soft)}
+/* Linha da própria dupla: fundo laranja suave e fio lateral, sem preencher de azul (DESIGN.md). */
+.match-card-team.match-card-team-mine{margin:0 -10px;padding:16px 10px;border-radius:var(--radius-md);background:rgb(var(--rgb-accent) / .08);border:1px solid rgb(var(--rgb-accent) / .28)}
+.match-card-team-mine + .match-card-team{border-top-color:transparent}

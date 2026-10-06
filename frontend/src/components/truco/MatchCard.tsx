@@ -6,8 +6,27 @@ import { PlayerAvatar } from "../ui/PlayerAvatar";
 import { TeamCrest } from "./TeamCrest";
 import { TeamStrength } from "./TeamStrength";
 import { formatScore } from "../../utils/format";
+import { groupToneClass } from "../../utils/groupColor";
 import { useValueChangePulse } from "../../hooks/useValueChangePulse";
 import "./MatchCard.css";
+
+type MineOutcome = "win" | "loss" | "draw" | "pending";
+
+const OUTCOME_BADGE: Record<MineOutcome, { label: string; tone: "green" | "danger" | "neutral" | "gold" }> = {
+  win: { label: "Vitória", tone: "green" },
+  loss: { label: "Derrota", tone: "danger" },
+  draw: { label: "Empate", tone: "neutral" },
+  pending: { label: "A jogar", tone: "gold" },
+};
+
+/** Resultado do confronto do ponto de vista da dupla destacada; null quando ela não joga. */
+function mineOutcome(match: Match, teamId: string | null | undefined): MineOutcome | null {
+  if (!teamId || (match.teamAId !== teamId && match.teamBId !== teamId)) return null;
+  if (!match.result) return "pending";
+  const mine = match.teamAId === teamId ? match.result.setsA : match.result.setsB;
+  const other = match.teamAId === teamId ? match.result.setsB : match.result.setsA;
+  return mine > other ? "win" : mine < other ? "loss" : "draw";
+}
 
 interface MatchCardProps {
   match: Match;
@@ -33,11 +52,15 @@ export function MatchCard({ match, teamAName, teamBName, teamAStrength, teamBStr
     { id: match.teamAId, name: teamAName, strength: teamAStrength, hue: teamAHue, players: teamAPlayers, sets: match.result?.setsA, points: match.result ? pointsForResult(match.result, true) : null },
     { id: match.teamBId, name: teamBName, strength: teamBStrength, hue: teamBHue, players: teamBPlayers, sets: match.result?.setsB, points: match.result ? pointsForResult(match.result, false) : null },
   ];
-  return <Card className={`match-card${match.status === "realizado" ? " match-card-done" : ""}${live ? " match-card-editing" : ""}`}>
+  const outcome = mineOutcome(match, highlightTeamId);
+  const groupTone = groupToneClass(match.groupId);
+  return <Card className={`match-card${match.status === "realizado" ? " match-card-done" : ""}${live ? " match-card-editing" : ""}${outcome ? ` match-card-mine match-card-outcome-${outcome}` : ""}${groupTone ? ` ${groupTone}` : ""}`}>
     <div className="match-card-top">
       <strong className="match-card-order">Jogo {match.queuePosition ?? match.order + 1}</strong>
-      <span className="match-card-round">{match.groupId ? `Grupo ${match.groupId}` : match.round}{match.groupId && match.round !== `Grupo ${match.groupId}` ? ` · ${match.round}` : ""}</span>
-      <Badge tone={match.status === "realizado" ? "green" : "info"}>{match.status === "realizado" ? "Finalizado" : "Próximo"}</Badge>
+      <span className="match-card-round">{match.groupId ? <span className="group-pill">Grupo {match.groupId}</span> : match.round}{match.groupId && match.round !== `Grupo ${match.groupId}` ? ` · ${match.round}` : ""}</span>
+      {outcome
+        ? <Badge tone={OUTCOME_BADGE[outcome].tone}>{OUTCOME_BADGE[outcome].label}</Badge>
+        : <Badge tone={match.status === "realizado" ? "green" : "info"}>{match.status === "realizado" ? "Finalizado" : "Próximo"}</Badge>}
     </div>
     <div className="match-card-teams">
       {sides.map((side, index) => {

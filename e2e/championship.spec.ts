@@ -188,6 +188,12 @@ test("Jogos filtra pela dupla, grupo, situação e mostra placar na partida", as
   await expect(page.getByRole("tab", { name: "Meus Jogos" })).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(".match-card")).toHaveCount(4);
   await expect(page.locator(".match-group-title").filter({ hasText: "Grupo B" })).toHaveCount(0);
+  const myTeamBanner = page.getByRole("region", { name: "Sua dupla e seu grupo" });
+  await expect(myTeamBanner).toContainText("Dupla 1");
+  await expect(myTeamBanner).toContainText("Está no Grupo A");
+  await expect(page.locator(".match-card-outcome-win")).toHaveCount(1);
+  await expect(page.locator(".match-card-outcome-win")).toContainText("Vitória");
+  await expect(page.locator(".match-card-outcome-pending")).toHaveCount(3);
 
   await page.getByRole("tab", { name: "Grupo A" }).click();
   await expect(page.locator(".match-card")).toHaveCount(10);
@@ -195,6 +201,8 @@ test("Jogos filtra pela dupla, grupo, situação e mostra placar na partida", as
   await page.getByRole("tab", { name: "Grupo B" }).click();
   await expect(page.locator(".match-card")).toHaveCount(10);
   await expect(page.getByText("Dupla 6").first()).toBeVisible();
+  await expect(page.locator(".match-card-mine")).toHaveCount(0);
+  await expect(myTeamBanner).toContainText("Está no Grupo A");
   await page.getByRole("tab", { name: "Todos", exact: true }).click();
   await expect(page.locator(".match-card")).toHaveCount(20);
 

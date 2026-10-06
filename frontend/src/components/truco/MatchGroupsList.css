@@ -35,3 +35,21 @@
     gap: var(--space-3);
   }
 }
+
+/* Seção de um grupo: título, marca e régua na cor do grupo (styles/global.css). */
+.match-group.group-tone .match-group-title {
+  color: var(--group-ink);
+}
+
+.match-group.group-tone .match-group-title::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--group-color);
+  box-shadow: 0 0 0 4px var(--group-soft);
+}
+
+.match-group.group-tone .match-group-title::after {
+  background: linear-gradient(90deg, var(--group-line), transparent);
+}

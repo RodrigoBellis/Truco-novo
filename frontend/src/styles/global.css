@@ -136,6 +136,49 @@ input, select, textarea {
   --team-on: #0b0e15;
 }
 
+/* ---------- Cor do grupo ----------
+   Grupo A em ciano e Grupo B em magenta (utils/groupColor.ts): matizes longe do
+   laranja de "Sua dupla", do azul dos links e do verde/vermelho de resultado. */
+.group-tone {
+  --group-color: oklch(0.52 0.13 var(--group-hue, 215));
+  --group-ink: oklch(0.44 0.12 var(--group-hue, 215));
+  --group-soft: oklch(0.52 0.13 var(--group-hue, 215) / 0.1);
+  --group-line: oklch(0.52 0.13 var(--group-hue, 215) / 0.35);
+}
+
+.group-tone-a { --group-hue: 215; }
+.group-tone-b { --group-hue: 330; }
+
+:root[data-theme="dark"] .group-tone {
+  --group-color: oklch(0.8 0.12 var(--group-hue, 215));
+  --group-ink: oklch(0.86 0.09 var(--group-hue, 215));
+  --group-soft: oklch(0.8 0.12 var(--group-hue, 215) / 0.13);
+  --group-line: oklch(0.8 0.12 var(--group-hue, 215) / 0.4);
+}
+
+/* Etiqueta "Grupo X" na cor do grupo. */
+.group-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--group-line);
+  background: var(--group-soft);
+  color: var(--group-ink);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.group-pill::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--group-color);
+}
+
 /* ---------- Painel premium ----------
    Bloco de destaque das telas do jogador (Início, Minha Dupla): borda firme,
    sombra em camadas e cabeçalho próprio. Plano 2 — poucos por tela. */

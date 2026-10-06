@@ -41,6 +41,12 @@ O experimento de fundo creme com diagonais da referência enviada em 05/10/2026 
 
 A pedido do usuário (06/10/2026), cada dupla tem uma cor própria. O matiz vem de `frontend/src/utils/teamColor.ts` (ordem estável dos ids da edição, sem coluna no Supabase) e a classe `.team-tint` em `styles/global.css` ajusta luminosidade por tema. A cor identifica a dupla em escudo, anel do avatar e marca ao lado do nome; não substitui os badges de zona nem o laranja de “Sua dupla”.
 
+### Cor de cada grupo e jogos da dupla
+
+A pedido do usuário (06/10/2026), cada grupo tem uma cor própria: Grupo A em ciano e Grupo B em magenta (`frontend/src/utils/groupColor.ts` + `.group-tone` em `styles/global.css`, com luminosidade por tema). A cor aparece na bolinha das abas de Jogos, no título da seção, no fio superior e na etiqueta "Grupo X" de cada card. Os matizes ficam longe do laranja de “Sua dupla”, do azul dos links e do verde/vermelho de resultado.
+
+Jogos abre com a faixa “Sua dupla”: nome, “Está no Grupo X” na cor do grupo, posição real e pontos, vitórias, derrotas e jogos a disputar da classificação (travessão sem dados). Nos jogos da própria dupla, o card ganha faixa lateral e cabeçalho na cor do resultado, com selo textual: verde “Vitória”, vermelho “Derrota”, laranja “A jogar”. A linha da dupla tem fundo e contorno laranja suaves; o selo “Sua dupla” é laranja.
+
 ### Início
 
 Quatro blocos, nesta ordem: card da dupla, próximo confronto, resumo da campanha e banner azul/laranja de incentivo ao título. Sem atalhos repetindo o menu; “Rever abertura” fica no cabeçalho. Blocos de destaque usam `.premium-panel`.
