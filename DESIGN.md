@@ -63,6 +63,14 @@ Histórico por edição; o ranking acumulado continua só em Maiores Campeões, 
 
 Ranking acumulado; o histórico por edição continua no Hall da Fama, alcançado por link. Cabeçalho na faixa azul com três números reais (títulos, duplas campeãs, duplas no ranking). “Sua dupla na corrida” mostra posição, títulos e distância até o topo quando a dupla do jogador é encontrada no ranking pelos nomes dos integrantes; sem correspondência, o bloco não aparece. Em “Todas as duplas”, o mapa de títulos tem uma casa por edição (até 12), acesa em laranja nas conquistas.
 
+## Entrada com cartas (06/10/2026)
+
+`/login` abre em “Quem está entrando para jogar?”: as cartas de truco dos jogadores reais (lista pública `/players/roster`, só id e nome) penduradas num trilho em arco 3D sobre a mesa — adaptação do conceito de “vestiário interativo” enviado pelo usuário, sem copiar o visual. Arrastar/deslizar (com inércia e mola), setas, roda do mouse e teclado navegam; a carta do centro ganha aro laranja. Escolher a carta só identifica: ela vem para a frente girando, aparece “Entrar como Nome” e só então a senha é pedida — nunca há login automático. “Não é você? Entrar com outro usuário” volta à mesma carta; “Ver lista de nomes” e “Área administrativa” continuam disponíveis.
+
+- Carta (`components/login/TrucoPlayerCard`): moldura dourado-laranja, face azul-marinho, valor/naipe de truco, manilha (Zap, Sete Copas, Espadilha, Pica-fumo) e cor própria — tudo derivado do id (`playerCardIdentity`), sem coluna nova no banco. Naipes vermelhos em laranja, pretos em azul.
+- Tecnologia: CSS 3D + física própria (`deckMotion`) e luz ambiente em WebGL puro (`tableLight`), sem biblioteca. Three.js mínimo mediria 133 KB gzip (WebGPU 215 KB, React Three Fiber 248 KB) para desenhar retângulos com texto; o CSS mantém nomes nítidos e acessíveis.
+- Níveis: `full` (arco, balanço, reflexo que segue o mouse, luz WebGL só com GPU real e no tema escuro, desligada se derrubar o FPS), `lite` (aparelho fraco: sem luz WebGL, menos cartas) e `reduced` (prefers-reduced-motion: fila plana sem rotação nem mola). `?deck=` força um nível só no build de desenvolvimento.
+
 ## Navegação e entrada
 
 Menu: Início, Hall da Fama, Maiores Campeões, Minha Dupla, Grupos, Jogos, Perfil.

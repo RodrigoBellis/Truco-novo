@@ -1,0 +1,220 @@
+/* Carta de truco do jogador. Escala pela própria largura (container query):
+   a mesma carta serve no palco 3D, no celular e ao lado do formulário de senha. */
+.truco-card {
+  --card-ink: #f5ecdc;
+  --suit-color: #a9bfff;
+  --suit-glow: 116 152 255;
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 5 / 7;
+  /* cqw só vale para os filhos (o container é a própria carta): aqui, porcentagem.
+     Raio 7% da largura nos dois eixos (5% da altura = 7% da largura em 5:7). */
+  border-radius: 7% / 5%;
+  padding: 2.2%;
+  /* Moldura dourada-laranja: borda em gradiente sem imagem. */
+  background:
+    linear-gradient(145deg, #ffe0b0 0%, #f6a04d 22%, #c4560f 48%, #ffcf8f 72%, #8a3f0a 100%);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.35) inset,
+    0 18px 40px -14px rgb(0 0 0 / 0.75),
+    0 4px 10px rgb(0 0 0 / 0.35);
+  color: var(--card-ink);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.truco-card-red {
+  --suit-color: #ff8a4c;
+  --suit-glow: 255 138 76;
+}
+
+.truco-card-face {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 5.2cqw;
+  background:
+    radial-gradient(120% 70% at 50% 8%, oklch(0.42 0.12 var(--card-hue, 255) / 0.55), transparent 62%),
+    radial-gradient(90% 60% at 50% 100%, rgb(244 123 32 / 0.18), transparent 70%),
+    linear-gradient(168deg, #18284a 0%, #0e1830 52%, #080c17 100%);
+}
+
+/* Moldura interna fina, como a de uma carta impressa. */
+.truco-card-face::before {
+  content: "";
+  position: absolute;
+  inset: 5.5cqw;
+  border: 1px solid rgb(255 200 140 / 0.32);
+  border-radius: 3.6cqw;
+  pointer-events: none;
+}
+
+/* Trama em diagonal (guilloché simplificado) — textura de papel-moeda, sem imagem. */
+.truco-card-pattern {
+  position: absolute;
+  inset: 5.5cqw;
+  border-radius: 3.6cqw;
+  background:
+    repeating-linear-gradient(45deg, rgb(255 255 255 / 0.028) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(-45deg, rgb(255 255 255 / 0.02) 0 1px, transparent 1px 7px);
+  -webkit-mask-image: radial-gradient(80% 60% at 50% 45%, #000 30%, transparent 85%);
+  mask-image: radial-gradient(80% 60% at 50% 45%, #000 30%, transparent 85%);
+}
+
+.truco-card-watermark {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform: translate(-50%, -50%);
+  font-size: 92cqw;
+  line-height: 1;
+  color: var(--suit-color);
+  opacity: 0.06;
+}
+
+.truco-card-corner {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 0.95;
+  font-family: var(--font-display);
+}
+
+.truco-card-corner b {
+  font-size: 15cqw;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--card-ink);
+}
+
+.truco-card-corner i {
+  font-style: normal;
+  font-size: 11cqw;
+  color: var(--suit-color);
+  text-shadow: 0 0 6cqw rgb(var(--suit-glow) / 0.45);
+}
+
+.truco-card-corner-top { top: 8cqw; left: 9cqw; }
+.truco-card-corner-bottom { right: 9cqw; bottom: 8cqw; transform: rotate(180deg); }
+
+.truco-card-edition {
+  position: absolute;
+  top: 9.5cqw;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 4.1cqw;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: rgb(255 200 140 / 0.75);
+}
+
+.truco-card-manilha {
+  position: absolute;
+  top: 17cqw;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.8cqw 3.6cqw;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #f47b20, #ffb15c);
+  color: #1b1206;
+  font-size: 4.2cqw;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 0 5cqw rgb(244 123 32 / 0.55);
+}
+
+/* Medalhão central com as iniciais, na cor própria do jogador. */
+.truco-card-monogram {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 50cqw;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.5cqw;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 28%, oklch(0.62 0.13 var(--card-hue, 255) / 0.9), oklch(0.3 0.09 var(--card-hue, 255)) 72%);
+  box-shadow:
+    0 0 0 1.2cqw #0c1426,
+    0 0 0 2cqw #f6a04d,
+    0 0 9cqw rgb(244 123 32 / 0.35),
+    inset 0 2cqw 4cqw rgb(255 255 255 / 0.18);
+}
+
+.truco-card-monogram span {
+  font-family: var(--font-display);
+  font-size: 17cqw;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: #fff8ec;
+  text-shadow: 0 1cqw 3cqw rgb(0 0 0 / 0.45);
+}
+
+.truco-card-monogram i {
+  font-style: normal;
+  font-size: 7cqw;
+  line-height: 1;
+  color: var(--suit-color);
+}
+
+.truco-card-name {
+  position: absolute;
+  left: 10cqw;
+  right: 10cqw;
+  bottom: 21cqw;
+  padding-bottom: 2.4cqw;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 8.6cqw;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: var(--card-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-bottom: 0.8cqw solid;
+  border-image: linear-gradient(90deg, transparent, #f47b20 30%, #ffc27a 50%, #f47b20 70%, transparent) 1;
+}
+
+/* Reflexo: uma faixa de luz que o palco desloca conforme o ângulo (--glare de 0 a 1). */
+.truco-card-glare {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.truco-card-glare::before {
+  content: "";
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  left: -60%;
+  width: 70%;
+  background: linear-gradient(100deg, transparent 0%, rgb(255 255 255 / 0.16) 45%, rgb(255 236 210 / 0.3) 50%, rgb(255 255 255 / 0.12) 55%, transparent 100%);
+  transform: translateX(calc(var(--glare, 0.5) * 230%)) rotate(8deg);
+}
+
+/* Sombra de iluminação: cartas longe da luz central escurecem (--shade de 0 a 1). */
+.truco-card-shade {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: #03050b;
+  opacity: var(--shade, 0);
+  pointer-events: none;
+}

@@ -61,8 +61,10 @@ function testToken(expired = false, version = "initial") {
   return `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ sub: "auth-user", role: "authenticated", exp: Math.floor(Date.now() / 1000) + (expired ? -3600 : 3600), version })}.${encode("test-signature")}`;
 }
 
-async function installSession(page: Page, role: "admin" | "jogador", teamId: string | null = null, expired = false) {
-  const authUser = { id: "auth-user", aud: "authenticated", role: "authenticated", email: "test@example.invalid", app_metadata: {}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z" };
+const authUser = { id: "auth-user", aud: "authenticated", role: "authenticated", email: "test@example.invalid", app_metadata: {}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z" };
+
+/** Supabase Auth simulado: valida tokens de teste e renova a sessão. */
+async function routeSupabaseAuth(page: Page) {
   await page.route("**/auth/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     const payload = path.endsWith("/token")
@@ -70,6 +72,10 @@ async function installSession(page: Page, role: "admin" | "jogador", teamId: str
       : authUser;
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload) });
   });
+}
+
+async function installSession(page: Page, role: "admin" | "jogador", teamId: string | null = null, expired = false) {
+  await routeSupabaseAuth(page);
   await page.addInitScript(({ role: sessionRole, teamId: sessionTeamId, accessToken }) => {
     if (localStorage.getItem("truco-do-novo:session")) return;
     localStorage.setItem("truco-do-novo:session", JSON.stringify({
@@ -261,6 +267,129 @@ test("a tela de entrada usa a arte da edição correspondente ao tema escolhido"
   await expect(hero).toHaveAttribute("src", /truco-5-edicao\.png/);
   await page.getByRole("switch", { name: "Trocar para tema escuro" }).click();
   await expect(hero).toHaveAttribute("src", /truco-5-edicao\.webp/);
+});
+
+const rosterPlayers = players.slice(0, 6).map(({ id, name }) => ({ id, name }));
+
+/** Entrada sem sessão: lista pública de jogadores e /auth/login registrando cada tentativa. */
+async function mockLoginEntry(page: Page) {
+  const loginBodies: unknown[] = [];
+  await routeSupabaseAuth(page);
+  await page.route("**/api/**", async (route) => {
+    const url = new URL(route.request().url());
+    let payload: unknown = {};
+    if (url.pathname.endsWith("/players/roster")) payload = rosterPlayers;
+    else if (url.pathname.endsWith("/auth/login")) {
+      const body = route.request().postDataJSON() as { playerId?: string; email?: string };
+      loginBodies.push(body);
+      const player = rosterPlayers.find((candidate) => candidate.id === body.playerId);
+      payload = {
+        user: { id: "auth-user", playerId: player?.id ?? "", name: player?.name ?? "Administrador", email: "test@example.invalid", role: player ? "jogador" : "admin", teamId: player ? "team-2" : null, mustChangePassword: false, avatarUrl: null },
+        token: testToken(),
+        refreshToken: "test-refresh",
+      };
+    } else if (url.pathname.endsWith("/teams") || url.pathname.endsWith("/players") || url.pathname.endsWith("/matches")) payload = [];
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload) });
+  });
+  return loginBodies;
+}
+
+const activeCardName = (page: Page) => page.locator(".deck-info-name");
+
+test("entrada mostra as cartas dos jogadores reais e só autentica depois da senha", async ({ page }) => {
+  const loginBodies = await mockLoginEntry(page);
+  await page.goto("/login");
+  await expect(page.getByRole("heading", { name: "Quem está entrando para jogar?" })).toBeVisible();
+  const deck = page.getByRole("region", { name: "Cartas dos jogadores" });
+  await expect(deck.locator(".deck-card-button")).toHaveCount(rosterPlayers.length);
+  await expect(activeCardName(page)).toHaveText("Jogador 3");
+
+  await page.getByRole("button", { name: "Próxima carta" }).click();
+  await expect(activeCardName(page)).toHaveText("Jogador 4");
+  await deck.locator(".deck-slot-active .deck-card-button").click();
+  const confirm = page.getByRole("button", { name: "Entrar como Jogador 4" });
+  await expect(confirm).toBeVisible();
+  expect(loginBodies).toHaveLength(0);
+
+  await confirm.click();
+  await expect(page.getByRole("heading", { name: "Jogador 4" })).toBeVisible();
+  await expect(page.getByLabel("Senha")).toBeFocused();
+  expect(loginBodies).toHaveLength(0);
+
+  await page.getByLabel("Senha").fill("segredo");
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(page).toHaveURL(/\/abertura$/);
+  expect(loginBodies).toEqual([{ playerId: "player-4", password: "segredo" }]);
+});
+
+test("cartas navegam por arrasto e teclado e trocar de usuário volta à mesma carta", async ({ page }) => {
+  await mockLoginEntry(page);
+  await page.goto("/login");
+  const viewport = page.locator(".deck-viewport");
+  await expect(activeCardName(page)).toHaveText("Jogador 3");
+  const box = (await viewport.boundingBox())!;
+  const y = box.y + box.height * 0.9;
+  await page.mouse.move(box.x + box.width / 2 + 120, y);
+  await page.mouse.down();
+  for (let step = 1; step <= 10; step += 1) await page.mouse.move(box.x + box.width / 2 + 120 - step * 24, y);
+  await page.mouse.up();
+  await expect(activeCardName(page)).not.toHaveText("Jogador 3");
+  // Soltar o arrasto não escolhe carta: continua navegando.
+  await expect(page.getByRole("button", { name: /^Entrar como / })).toHaveCount(0);
+
+  await page.locator(".deck-slot-active .deck-card-button").focus();
+  await page.keyboard.press("Home");
+  await expect(activeCardName(page)).toHaveText("Jogador 1");
+  await page.keyboard.press("ArrowRight");
+  await expect(activeCardName(page)).toHaveText("Jogador 2");
+  await expect(page.locator(".deck-slot-active .deck-card-button")).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Entrar como Jogador 2" })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "Jogador 2" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Não é você? Entrar com outro usuário" }).click();
+  await expect(page.getByRole("heading", { name: "Quem está entrando para jogar?" })).toBeVisible();
+  await expect(activeCardName(page)).toHaveText("Jogador 2");
+});
+
+test("entrada mantém a área administrativa e a lista simples de nomes", async ({ page }) => {
+  const loginBodies = await mockLoginEntry(page);
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Ver lista de nomes" }).click();
+  await expect(page.getByRole("heading", { name: "Selecione seu perfil" })).toBeVisible();
+  await page.getByRole("button", { name: "Jogador 5" }).click();
+  await expect(page.getByRole("heading", { name: "Jogador 5" })).toBeVisible();
+  await page.getByRole("button", { name: "← Voltar" }).click();
+
+  await page.getByRole("button", { name: "Área administrativa" }).click();
+  await expect(page.getByRole("heading", { name: "Administrador" })).toBeVisible();
+  await page.getByLabel("Senha").fill("admin");
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect.poll(() => loginBodies).toEqual([{ email: "admin@trucodonovo.com", password: "admin" }]);
+});
+
+test("com movimento reduzido as cartas ficam numa fila plana e a escolha continua igual", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await mockLoginEntry(page);
+  await page.goto("/login");
+  await expect(page.locator(".deck")).toHaveAttribute("data-mode", "reduced");
+  await page.getByRole("button", { name: "Carta anterior" }).click();
+  await expect(activeCardName(page)).toHaveText("Jogador 2");
+  await page.getByRole("button", { name: "Esta é a minha carta" }).click();
+  await expect(page.getByRole("button", { name: "Entrar como Jogador 2" })).toBeVisible();
+  const transform = await page.locator(".deck-slot-active").evaluate((element) => (element as HTMLElement).style.transform);
+  expect(transform).not.toContain("rotateY");
+
+  // Salto longo pelo teclado: a carta que tinha o foco some da fila, e o foco precisa seguir a nova.
+  await page.getByRole("button", { name: "Escolher outra carta" }).click();
+  await page.locator(".deck-slot-active .deck-card-button").focus();
+  await page.keyboard.press("End");
+  await expect(activeCardName(page)).toHaveText("Jogador 6");
+  await expect(page.locator(".deck-slot-active .deck-card-button")).toBeFocused();
+  await page.keyboard.press("ArrowLeft");
+  await expect(activeCardName(page)).toHaveText("Jogador 5");
+  await expect(page.locator(".deck-slot-active .deck-card-button")).toBeFocused();
 });
 
 test("home explica quando falta aplicar a migration das duplas e oferece nova tentativa", async ({ page }) => {

@@ -1,0 +1,461 @@
+/* Palco de entrada (PlayerCardDeck.tsx): cartas penduradas num trilho em arco 3D
+   sobre a mesa. Posição, balanço e luz de cada carta são escritos pelo laço de
+   animação via transform, opacity, --shade e --glare — só propriedades de compositor. */
+.deck {
+  --card-w: clamp(160px, 50vw, 232px);
+  --card-h: calc(var(--card-w) * 1.4);
+  --deck-felt: #0d1f3a;
+  --deck-felt-edge: rgb(244 123 32 / 0.35);
+  --deck-rail-1: #ffe2b8;
+  --deck-rail-2: #c26a1f;
+  --deck-rail-3: #4d2507;
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+:root[data-theme="light"] .deck {
+  --deck-felt: #1b3358;
+  --deck-felt-edge: rgb(244 123 32 / 0.5);
+}
+
+.deck-scene {
+  position: relative;
+  width: 100%;
+  height: calc(var(--card-h) + 120px);
+}
+
+/* Luz WebGL: maior que a cena para o halo não ter borda. */
+.deck-light {
+  position: absolute;
+  left: -15%;
+  top: -18%;
+  width: 130%;
+  height: 136%;
+  pointer-events: none;
+}
+
+/* Mesa: feltro azul em perspectiva com o filete laranja da borda. */
+.deck-floor {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: min(1200px, 160vw);
+  height: 150px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background:
+    radial-gradient(closest-side, rgb(244 123 32 / 0.16), transparent 70%),
+    radial-gradient(closest-side, var(--deck-felt), transparent 100%);
+  box-shadow: 0 -1px 0 var(--deck-felt-edge);
+  -webkit-mask-image: linear-gradient(transparent, #000 30%);
+  mask-image: linear-gradient(transparent, #000 30%);
+  pointer-events: none;
+}
+
+.deck-viewport {
+  position: absolute;
+  inset: 0;
+  perspective: 1300px;
+  perspective-origin: 50% 30%;
+  touch-action: pan-y;
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.deck-viewport:active { cursor: grabbing; }
+.deck-focused .deck-viewport { cursor: default; }
+
+.deck-ring {
+  position: absolute;
+  left: 50%;
+  top: 46px;
+  width: var(--card-w);
+  height: var(--card-h);
+  margin-left: calc(var(--card-w) / -2);
+  transform-style: preserve-3d;
+}
+
+.deck-slot {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  will-change: transform, opacity;
+  /* Quem move a carta é o laço de animação. Sem esta linha, a regra global de
+     reduced-motion (só transition-duration) faria tudo transicionar — inclusive
+     visibility, que no 1º quadro ainda conta como oculta e recusa o foco do teclado. */
+  transition: none;
+}
+
+/* Segmento do trilho de cada carta: juntos, formam o arco (largura = corda entre vizinhas). */
+.deck-rail {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  width: calc(var(--chord, 200px) + 2px);
+  height: 6px;
+  transform: translateX(-50%);
+  border-radius: 3px;
+  background: linear-gradient(var(--deck-rail-1), var(--deck-rail-2) 55%, var(--deck-rail-3));
+  box-shadow: 0 3px 6px rgb(0 0 0 / 0.35);
+  transition: opacity 300ms ease;
+}
+
+.deck-clip {
+  position: absolute;
+  top: -38px;
+  left: 50%;
+  width: 18px;
+  height: 34px;
+  transform: translateX(-50%);
+  border-radius: 4px 4px 7px 7px;
+  background:
+    linear-gradient(90deg, transparent 44%, rgb(0 0 0 / 0.35) 44% 56%, transparent 56%),
+    linear-gradient(#f3f5f9, #9aa3b4 45%, #5c6577);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.4);
+  transition: opacity 300ms ease;
+}
+
+.deck-card-button {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  border-radius: calc(var(--card-w) * 0.07);
+  transform-style: preserve-3d;
+  -webkit-tap-highlight-color: transparent;
+  /* visibility é herdada: sem isto o botão também "transicionaria" de oculto para
+     visível com a regra global de reduced-motion e recusaria o foco no 1º quadro. */
+  transition: none;
+}
+
+.deck-card-button:focus-visible {
+  outline: 3px solid var(--color-action);
+  outline-offset: 6px;
+}
+
+.deck-card {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: none;
+  /* Balança a partir do prendedor, como peça pendurada. */
+  transform-origin: 50% -30px;
+}
+
+.deck-card-front,
+.deck-card-back {
+  position: absolute;
+  inset: 0;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* Verso: aparece nas cartas do fundo do arco e no giro de revelação. */
+.deck-card-back {
+  transform: rotateY(180deg);
+  border-radius: calc(var(--card-w) * 0.07);
+  padding: calc(var(--card-w) * 0.022);
+  background: linear-gradient(145deg, #ffe0b0 0%, #f6a04d 22%, #c4560f 48%, #ffcf8f 72%, #8a3f0a 100%);
+  box-shadow: 0 18px 40px -14px rgb(0 0 0 / 0.75);
+}
+
+.deck-card-back::before {
+  content: "";
+  position: absolute;
+  inset: calc(var(--card-w) * 0.022);
+  border-radius: calc(var(--card-w) * 0.052);
+  background:
+    repeating-linear-gradient(45deg, rgb(244 123 32 / 0.22) 0 2px, transparent 2px 14px),
+    repeating-linear-gradient(-45deg, rgb(120 160 255 / 0.18) 0 2px, transparent 2px 14px),
+    radial-gradient(circle at 50% 50%, #1d3260, #0a1224 75%);
+}
+
+.deck-card-back-emblem {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 62%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #13203d 55%, #0a1224);
+  box-shadow: 0 0 0 3px #f6a04d, 0 0 24px rgb(244 123 32 / 0.4);
+  color: #ffd29a;
+  text-align: center;
+}
+
+.deck-card-back-emblem b {
+  font-size: calc(var(--card-w) * 0.07);
+  letter-spacing: 0.2em;
+  color: #f6a04d;
+}
+
+.deck-card-back-emblem strong {
+  font-size: calc(var(--card-w) * 0.065);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+
+/* Sombra da carta na mesa: some conforme a carta se afasta da luz. */
+.deck-shadow {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: -64px;
+  height: 28px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(0 0 0 / 0.55), transparent);
+  opacity: calc(1 - var(--shade, 0) * 1.2);
+  pointer-events: none;
+}
+
+/* Carta do centro: aro laranja e brilho — o destaque da seleção. */
+.deck-slot-active .truco-card {
+  box-shadow:
+    0 0 0 2px rgb(255 190 120 / 0.9),
+    0 0 46px -6px rgb(244 123 32 / 0.6),
+    0 26px 50px -18px rgb(0 0 0 / 0.85);
+}
+
+/* ---------- Escolha ---------- */
+.deck-focused .deck-slot {
+  transition: transform 820ms var(--ease-out), opacity 420ms ease;
+}
+
+.deck-focused .deck-rail,
+.deck-focused .deck-clip {
+  opacity: 0;
+}
+
+.deck-focused .deck-slot-chosen .deck-card {
+  animation: deck-card-reveal 950ms var(--ease-out) backwards;
+}
+
+.deck-focused .deck-slot-chosen .truco-card {
+  box-shadow:
+    0 0 0 2px rgb(255 205 150 / 0.95),
+    0 0 70px -4px rgb(244 123 32 / 0.65),
+    0 40px 80px -24px rgb(0 0 0 / 0.9);
+}
+
+/* Giro completo: o verso passa pela frente e a carta revela o jogador. */
+@keyframes deck-card-reveal {
+  from { transform: rotateY(-360deg) scale(0.92); }
+}
+
+/* ---------- Painel abaixo do palco ---------- */
+.deck-panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  width: min(100%, 520px);
+  margin-top: var(--space-2);
+  text-align: center;
+}
+
+.deck-nav {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.deck-arrow {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform var(--motion-micro), border-color var(--motion-micro), background var(--motion-micro);
+}
+
+.deck-arrow:hover:not(:disabled) {
+  border-color: var(--color-action);
+  transform: translateY(-1px);
+}
+
+.deck-arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.deck-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.deck-info-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 900;
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-text);
+}
+
+.deck-info-meta {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-faint);
+}
+
+.deck-info-suit {
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgb(120 160 255 / 0.4);
+  color: var(--color-tech-400);
+  font-weight: 800;
+}
+
+.deck-info-suit-red {
+  border-color: rgb(var(--rgb-accent) / 0.45);
+  color: var(--color-accent-500);
+}
+
+.deck-info-manilha {
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-action);
+  color: var(--color-on-action);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.deck-pick {
+  min-width: 220px;
+}
+
+.deck-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+}
+
+.deck-hint-pointer { display: none; }
+
+@media (hover: hover) and (pointer: fine) {
+  .deck-hint-touch { display: none; }
+  .deck-hint-pointer { display: inline; }
+}
+
+.deck-panel-focus {
+  animation: rise-in 520ms var(--ease-out) 260ms backwards;
+}
+
+.deck-kicker {
+  font-size: var(--text-xs);
+  font-weight: 800;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-accent-500);
+}
+
+.deck-chosen-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 900;
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.deck-focus-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.deck-confirm {
+  width: min(100%, 340px);
+  min-height: 52px;
+  font-size: var(--text-md);
+}
+
+.deck-switch {
+  padding: 8px 12px;
+  border: 0;
+  background: none;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.deck-switch:hover { color: var(--color-text); }
+
+/* ---------- Versões ---------- */
+.deck-mode-lite .deck-card-back-emblem { box-shadow: 0 0 0 3px #f6a04d; }
+
+.deck-mode-reduced .deck-rail,
+.deck-mode-reduced .deck-clip { display: none; }
+
+.deck-mode-reduced.deck-focused .deck-slot {
+  transition: opacity 200ms linear;
+}
+
+.deck-mode-reduced .deck-slot-chosen .deck-card,
+.deck-mode-reduced .deck-panel-focus {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deck *,
+  .deck *::before,
+  .deck *::after {
+    animation: none !important;
+  }
+}
+
+/* Telas baixas (notebook pequeno, celular deitado): carta menor para caber tudo. */
+@media (max-height: 760px) {
+  .deck { --card-w: clamp(140px, 40vw, 196px); }
+}
+
+@media (max-width: 480px) {
+  .deck { --card-w: clamp(150px, 54vw, 210px); }
+  .deck-scene { height: calc(var(--card-h) + 104px); }
+  .deck-info-name { font-size: var(--text-lg); }
+  .deck-arrow { width: 44px; height: 44px; }
+  .deck-nav { grid-template-columns: 44px minmax(0, 1fr) 44px; }
+}

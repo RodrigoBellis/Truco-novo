@@ -13,6 +13,9 @@ import type { LoginIdentifier } from "../services/authService";
 import { ApiError } from "../services/api";
 import { entryPathForUser } from "../utils/playerEntry";
 import { useTheme } from "../hooks/useTheme";
+import { PlayerCardDeck } from "../components/login/PlayerCardDeck";
+import { TrucoPlayerCard } from "../components/login/TrucoPlayerCard";
+import { playerCardIdentity, type PlayerCardIdentity } from "../components/login/playerCardIdentity";
 // O PNG original (1536px, 2 MB) segue no repositório como fonte, mas não é
 // mais importado: o que vai para o bundle são estas duas versões em 1120px —
 // o dobro dos 560px em que a imagem é exibida, o suficiente para tela 2x.
@@ -23,12 +26,15 @@ import "./LoginPage.css";
 
 const ADMIN_IDENTITY: Identity = { name: "Administrador", credential: { email: "admin@trucodonovo.com" } };
 
-type Step = "role" | "players" | "password";
+/** deck: cartas dos jogadores (entrada); players: lista simples de nomes; password: autenticação. */
+type Step = "deck" | "players" | "password";
 
 interface Identity {
   name: string;
   /** Como o backend identifica quem está entrando: e-mail (admin) ou playerId (jogador). */
   credential: LoginIdentifier;
+  /** Carta do jogador escolhido — só visual; o admin entra sem carta. */
+  card?: PlayerCardIdentity;
 }
 
 export function LoginPage() {
@@ -37,14 +43,16 @@ export function LoginPage() {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  const [step, setStep] = useState<Step>("role");
+  const [step, setStep] = useState<Step>("deck");
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [playerQuery, setPlayerQuery] = useState("");
+  /** Última carta escolhida: ao voltar da senha, o baralho reabre nela. */
+  const [lastPlayerId, setLastPlayerId] = useState<string | null>(null);
 
-  const { data: players, isLoading: playersLoading } = useFetchData<RosterPlayer[]>(getRoster, [step === "players"]);
+  const { data: players, isLoading: playersLoading, error: playersError, refetch: refetchPlayers } = useFetchData<RosterPlayer[]>(getRoster, []);
 
   if (!isLoading && user) {
     return <Navigate to={user.mustChangePassword ? "/criar-senha" : entryPathForUser(user)} replace />;
@@ -55,21 +63,20 @@ export function LoginPage() {
     setStep("password");
   }
 
+  // Escolher a carta só identifica quem vai entrar: a senha é pedida em seguida, sempre.
   function choosePlayer(player: RosterPlayer) {
-    setIdentity({ name: player.name, credential: { playerId: player.id } });
+    setIdentity({ name: player.name, credential: { playerId: player.id }, card: playerCardIdentity(player) });
+    setLastPlayerId(player.id);
+    setError(null);
+    setPassword("");
     setStep("password");
   }
 
-  function goBack() {
+  function backToDeck() {
     setError(null);
     setPassword("");
-    if (step === "password") {
-      const isAdmin = identity !== null && "email" in identity.credential;
-      setStep(isAdmin ? "role" : "players");
-    } else {
-      setPlayerQuery("");
-      setStep("role");
-    }
+    setPlayerQuery("");
+    setStep("deck");
   }
 
   const visiblePlayers = players?.filter((player) =>
@@ -97,6 +104,60 @@ export function LoginPage() {
     }
   }
 
+  const isPlayerIdentity = identity !== null && "playerId" in identity.credential;
+
+  if (step === "deck") {
+    return (
+      <div className="login-page login-page-deck">
+        <div className="login-theme-toggle"><ThemeToggle /></div>
+        {/* Pôster da edição ao fundo do ambiente, na versão do tema escolhido. */}
+        <div className="login-backdrop">
+          {theme === "light" ? (
+            <img src={lightHeroImage} alt="Truco do Novo — 5ª Edição" className="login-backdrop-image" width={1536} height={1024} />
+          ) : (
+            <picture>
+              <source srcSet={heroImageAvif} type="image/avif" />
+              <img src={heroImageWebp} alt="Truco do Novo — 5ª Edição" className="login-backdrop-image" width={1120} height={747} />
+            </picture>
+          )}
+        </div>
+
+        <div className="login-deck-layout page-enter">
+          <header className="login-deck-header">
+            <div className="login-brand">
+              <Logo size={36} />
+            </div>
+            <h1>Quem está entrando para jogar?</h1>
+            <p>Escolha sua carta para entrar no campeonato.</p>
+          </header>
+
+          {playersLoading ? (
+            <Loading label="Embaralhando as cartas..." />
+          ) : playersError ? (
+            <div className="login-deck-message" role="alert">
+              <p>Não foi possível carregar os jogadores agora.</p>
+              <Button variant="secondary" onClick={refetchPlayers}>Tentar novamente</Button>
+            </div>
+          ) : players && players.length > 0 ? (
+            <PlayerCardDeck players={players} initialPlayerId={lastPlayerId} onConfirm={choosePlayer} />
+          ) : (
+            <p className="login-deck-message text-muted">Nenhum jogador cadastrado nesta edição ainda.</p>
+          )}
+
+          <nav className="login-deck-links" aria-label="Outras formas de entrar">
+            {players && players.length > 0 && (
+              <button type="button" onClick={() => setStep("players")}>Ver lista de nomes</button>
+            )}
+            <button type="button" onClick={chooseAdmin}>
+              <Icon name="settings" size={16} />
+              Área administrativa
+            </button>
+          </nav>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="login-page page-enter">
       <div className="login-theme-toggle"><ThemeToggle /></div>
@@ -107,56 +168,15 @@ export function LoginPage() {
         <span>♥</span>
       </div>
 
-      <div className={`login-content${step === "role" ? " login-content-hero" : ""}`}>
-        {step !== "role" && (
-          <div className="login-brand">
-            <Logo size={40} />
-            <span className="login-season">5ª Edição · 2026</span>
-          </div>
-        )}
-
-        {step === "role" && (
-          <div className="login-step login-step-hero">
-            <div className="login-hero-wrap">
-              {/* AVIF primeiro, WebP para quem não o suporta. O navegador
-                  escolhe uma só — nunca baixa as duas. */}
-              {theme === "light" ? (
-                <img src={lightHeroImage} alt="Truco do Novo — 5ª Edição" className="login-hero-image" width={1536} height={1024} fetchPriority="high" />
-              ) : (
-                <picture>
-                  <source srcSet={heroImageAvif} type="image/avif" />
-                  <img src={heroImageWebp} alt="Truco do Novo — 5ª Edição" className="login-hero-image" width={1120} height={747} fetchPriority="high" />
-                </picture>
-              )}
-              <span className="login-edition-badge">5ª Edição</span>
-            </div>
-
-            <p className="text-muted login-hero-subtitle">Escolha seu perfil para acessar o campeonato</p>
-
-            <div className="role-grid">
-              <button type="button" className="role-card" onClick={chooseAdmin}>
-                <span className="role-card-icon">
-                  <Icon name="settings" size={28} />
-                </span>
-                <strong>Área Administrativa</strong>
-                <span className="text-faint">Gestão do campeonato</span>
-              </button>
-
-              <button type="button" className="role-card" onClick={() => setStep("players")}>
-                <span className="role-card-icon">
-                  <Icon name="team" size={28} />
-                </span>
-                <strong>Entrar como Jogador</strong>
-                <span className="text-faint">Acompanhe sua dupla</span>
-              </button>
-            </div>
-          </div>
-        )}
+      <div className="login-content">
+        <div className="login-brand">
+          <Logo size={40} />
+        </div>
 
         {step === "players" && (
           <div className="login-step">
-            <button type="button" className="login-back" onClick={goBack}>
-              ← Voltar
+            <button type="button" className="login-back" onClick={backToDeck}>
+              ← Voltar às cartas
             </button>
             <h1>Selecione seu perfil</h1>
             <p className="text-muted">Toque no seu nome para continuar</p>
@@ -194,16 +214,27 @@ export function LoginPage() {
         )}
 
         {step === "password" && identity && (
-          <div className="login-step login-step-password">
-            <button type="button" className="login-back" onClick={goBack}>
+          <div className={`login-step login-step-password${identity.card ? " login-auth" : ""}`}>
+            <button type="button" className="login-back" onClick={backToDeck}>
               ← Voltar
             </button>
 
-            <div className="password-identity">
-              <span className="profile-avatar profile-avatar-lg">{identity.name.slice(0, 1).toUpperCase()}</span>
-              <h1>{identity.name}</h1>
-              <p className="text-muted">Digite sua senha para continuar</p>
-            </div>
+            {identity.card ? (
+              <div className="login-auth-identity">
+                <div className="login-auth-card">
+                  <TrucoPlayerCard name={identity.name} identity={identity.card} />
+                </div>
+                <span className="login-auth-kicker">Entrando como</span>
+                <h1>{identity.name}</h1>
+                <p className="text-muted">Digite sua senha para confirmar que é você.</p>
+              </div>
+            ) : (
+              <div className="password-identity">
+                <span className="profile-avatar profile-avatar-lg">{identity.name.slice(0, 1).toUpperCase()}</span>
+                <h1>{identity.name}</h1>
+                <p className="text-muted">Digite sua senha para continuar</p>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="login-form">
               <label className="login-field">
@@ -229,6 +260,12 @@ export function LoginPage() {
                 Entrar
               </Button>
             </form>
+
+            {isPlayerIdentity && (
+              <button type="button" className="login-switch-user" onClick={backToDeck}>
+                Não é você? Entrar com outro usuário
+              </button>
+            )}
           </div>
         )}
       </div>
