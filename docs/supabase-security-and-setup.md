@@ -2,7 +2,7 @@
 
 This repository uses a shared Supabase project for Truco and other applications. The configured Truco project reference is `sfllpogpuqukhjddwiel`; confirm the target project in Supabase before every remote change. Only `truco_*` objects and the `avatars` Storage bucket are in the scope of this application. Do not change CRM, messaging, or other application objects from a Truco task.
 
-Current teams, players, memberships, fixtures, and results in this project are **test data**. Preserve them during setup and schema work; do not treat them as production records or delete/reseed them without a separate explicit request. The current test fixture contains 10 teams, 10 edition-scoped memberships, and 2 groups.
+Current teams, players, memberships, fixtures, and results in this project are **test data**. Preserve them during setup and schema work; do not treat them as production records or delete/reseed them without a separate explicit request. The current test fixture contains 10 teams, 10 edition-scoped memberships, 2 groups, 20 group matches and 4 recorded results. The definitive format is 12 teams (6 per group); the two missing teams will be provided by the organizer — do not invent them.
 
 ## Local environment
 
@@ -20,6 +20,8 @@ The migration `202610050001_manual_edition_participation.sql` creates edition-sc
 The migration `202610050002_player_avatars.sql` documents the intended public bucket configuration (2 MiB; JPEG, PNG, WebP). The bucket was initially missing those limits. Its upsert was applied remotely as migration `configure_player_avatar_bucket` (remote version `20261005232217`). Public reads are intentional for player photos; uploads remain through the authenticated API.
 
 The Hall of Fame RPC `truco_rpc_champions_ranking()` was callable by `anon`; current Hall of Fame pages use public-read policies and the server computes the major-champions ranking, so its execute privilege was restricted to `service_role`. `truco_rpc_standings` is backend-only and is restricted to `service_role`. Direct EXECUTE grants were removed from the two trigger-only validation functions; table triggers continue invoking them. These changes were applied remotely in migration `harden_truco_rpc_grants` (remote version `20261005232535`). Functions supporting auth/RLS and the authenticated admin tie-resolution RPC retain their required grants. Security/performance advisors cover the entire shared project; do not remediate findings on non-Truco objects under this app's scope.
+
+The migration `202610070001_edition_six_teams_per_group.sql` is **written but not applied**. It raises the edition capacity to 12 approved teams / 6 per group (single SQL helper `truco_fn_teams_per_group()`), makes `truco_teams.truco_group_id` the only source of a team's group (the membership column becomes a trigger-maintained mirror, still read by the match RLS policy), blocks a group change once the team has group matches, and requires every group match to share its two teams' group. It creates, deletes, or rewrites no teams, players, matches, or scores; on 2026-10-07 the remote data had 0 group divergences. It was validated on a disposable local PostgreSQL 16 loaded with a copy of the remote rows (capacity 6+6 and the 13th/7th-team refusals, mirror sync, reset, group-change and cross-group-match guards, idempotent re-run, and the 20 original matches byte-identical to an unmigrated copy). Apply only with explicit approval, then verify the triggers and one standings read.
 
 ## Operation map
 
@@ -50,7 +52,7 @@ The previous implementation restored Auth asynchronously while rendering protect
 
 ## Edition rules currently encoded
 
-The current test championship has 10 teams arranged across two groups. Championship rules encoded by the app: position 1 goes directly to the semifinal, positions 2–5 enter the repechage, and position 6 is eliminated where the configured format has six teams per group. Do not infer tournament structure from test rows; check the active championship and the application rules before data changes.
+The current test championship has 10 teams arranged across two groups; the definitive format is 12 teams, six per group (`TEAMS_PER_GROUP` in `@truco/shared`, mirrored by `truco_fn_teams_per_group()` once the migration above is applied). Championship rules encoded by the app: position 1 goes directly to the semifinal, positions 2–5 enter the repechage, and position 6 is eliminated. When the two missing teams are registered, `POST /groups/complete-matches` creates only their missing fixtures (5 per group), re-orders only pending matches to spread each team's games, and rebuilds the queue of pending matches; recorded results are never touched. Still undecided by the organizer: the criterion for an exact tie (points, set balance and wins all equal — today resolved only by a manual override) and the repechage crossings (bracket generation stays blocked for edition 5). Do not infer tournament structure from test rows; check the active championship and the application rules before data changes.
 
 ## Playwright
 

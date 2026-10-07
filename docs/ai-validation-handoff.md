@@ -4,11 +4,12 @@ Este arquivo registra o escopo, as regras confirmadas e o estado de validação 
 
 ## Regras confirmadas
 
-- A 5ª edição de 2026 terá 10 duplas: cinco no Grupo A e cinco no Grupo B.
+- A 5ª edição de 2026 terá 12 duplas: seis no Grupo A e seis no Grupo B (regra definitiva de 07/10/2026; antes estava registrada como 10 duplas, cinco por grupo). Hoje o banco tem 10; as duas que faltam serão informadas pelo organizador.
 - O administrador forma as duplas manualmente, escolhe os jogadores, o grupo e a força da dupla (1 a 5 estrelas).
 - Uma pessoa não pode estar em duas duplas da mesma edição. Pode ter outro parceiro em uma edição futura.
-- 1º lugar de cada grupo avança diretamente à semifinal; 2º, 3º e 4º disputam a repescagem; 5º é eliminado.
-- A fase de grupos gera 20 partidas de todos contra todos (10 por grupo).
+- 1º lugar de cada grupo avança diretamente à semifinal; 2º a 5º disputam a repescagem; 6º é eliminado.
+- A fase de grupos tem 30 partidas de todos contra todos (15 por grupo, 5 por dupla). As 20 já geradas e os resultados lançados são mantidos; quando as duas duplas entrarem, só os 10 confrontos delas são criados.
+- Empate exato (pontos, saldo de sets e vitórias iguais) ainda não tem critério definido; hoje só o desempate manual do administrador resolve. Não inventar critério.
 - Resultado melhor de três: vitória 2x0 vale 3 pontos ao vencedor e 0 ao perdedor; vitória 2x1 vale 2 e 1.
 - Qualquer integrante pode registrar/corrigir o resultado da própria dupla. O resultado é da partida, com auditoria de usuário e horário.
 - Os cruzamentos da repescagem ainda precisam ser definidos pelo administrador. A aplicação não deve presumir essa regra.
@@ -39,7 +40,7 @@ Este arquivo registra o escopo, as regras confirmadas e o estado de validação 
 
 1. Revisar e aplicar `supabase/migrations/202610050001_manual_edition_participation.sql` e `supabase/migrations/202610050002_player_avatars.sql` em um projeto Supabase de homologação e conferir o backfill e a visibilidade pública das fotos antes de produção.
 2. Verificar permissões com contas de teste: jogador A não pode alterar partidas da dupla B nem acessar administração; utilizador não autenticado não pode registrar resultados.
-3. Conferir os dados reais da 5ª edição e selecionar exatamente cinco duplas aprovadas por grupo antes de gerar os jogos.
+3. Cadastrar as duas duplas que faltam (uma por grupo, informadas pelo organizador) depois de aplicar a migration `202610070001_edition_six_teams_per_group.sql`, e usar "Gerar jogos das duplas novas" na área Grupos.
 4. Validar com contas individuais reais que os dois integrantes veem os mesmos jogos e resultados após atualização.
 5. Definir os cruzamentos entre grupos na repescagem antes de liberar a geração do mata-mata.
 6. Confirmar configuração de Auth, tabelas, RLS, bucket de avatares e variáveis de ambiente no ambiente de homologação.

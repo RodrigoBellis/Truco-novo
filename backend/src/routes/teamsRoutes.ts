@@ -2,10 +2,14 @@ import { Router } from "express";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { store } from "../data/store.js";
 import { requireAuth, requireRole } from "../middleware/requireAuth.js";
-import { isValidTeamStrength, type GroupId } from "@truco/shared";
+import { EDITION_TEAM_COUNT, TEAMS_PER_GROUP, isValidTeamStrength, type GroupId } from "@truco/shared";
 import { validateTeamParticipation, validateTeamStatusChange } from "../services/teamParticipationService.js";
 
 export const teamsRoutes = Router();
+
+const CAPACITY_MESSAGE = `A edição aceita ${EDITION_TEAM_COUNT} duplas aprovadas, com ${TEAMS_PER_GROUP} em cada grupo.`;
+/** Limite da edição ou jogador já em outra dupla é conflito (409); o resto é dado inválido (400). */
+const conflictStatus = (message: string) => (/já tem \d+ duplas|comporta \d+ duplas|outra dupla/.test(message) ? 409 : 400);
 
 function parseParticipation(body: unknown): { name: string; player1Id: string; player2Id: string; groupId: GroupId; strength: number } | null {
   if (!body || typeof body !== "object") return null;
@@ -32,7 +36,7 @@ teamsRoutes.post(
     const players = await store.listPlayers();
     const validationError = validateTeamParticipation(input, teams, players);
     if (validationError) {
-      res.status(validationError.includes("já tem 5") || validationError.includes("10 duplas") || validationError.includes("outra dupla") ? 409 : 400).json({ message: validationError });
+      res.status(conflictStatus(validationError)).json({ message: validationError });
       return;
     }
     res.status(201).json(await store.createTeamParticipation({ championshipId: championship.truco_id, ...input }));
@@ -67,8 +71,8 @@ teamsRoutes.post(
       res.json(team);
       return;
     }
-    if (!group || active.length >= 10 || active.filter((row) => row.groupId === group).length >= 5) {
-      res.status(409).json({ message: "A edição aceita 10 duplas aprovadas, com 5 em cada grupo." });
+    if (!group || active.length >= EDITION_TEAM_COUNT || active.filter((row) => row.groupId === group).length >= TEAMS_PER_GROUP) {
+      res.status(409).json({ message: CAPACITY_MESSAGE });
       return;
     }
     res.json(await store.approveTeam(teamId));
@@ -152,19 +156,25 @@ teamsRoutes.patch(
     }
     const validationError = validateTeamParticipation(input, teams, players, teamId);
     if (validationError) {
-      res.status(validationError.includes("já tem 5") || validationError.includes("10 duplas") || validationError.includes("outra dupla") ? 409 : 400).json({ message: validationError });
+      res.status(conflictStatus(validationError)).json({ message: validationError });
       return;
     }
     if (currentTeam?.status !== "aprovada") {
       const active = teams.filter((row) => row.status === "aprovada");
-      if (active.length >= 10 || active.filter((row) => row.groupId === input.groupId).length >= 5) {
-        res.status(409).json({ message: "A edição aceita 10 duplas aprovadas, com 5 em cada grupo." });
+      if (active.length >= EDITION_TEAM_COUNT || active.filter((row) => row.groupId === input.groupId).length >= TEAMS_PER_GROUP) {
+        res.status(409).json({ message: CAPACITY_MESSAGE });
         return;
       }
     }
     const groupMatches = await store.listMatches(championship.truco_id, { stage: "grupos" });
     if (groupMatches.some((match) => (match.teamAId === teamId || match.teamBId === teamId) && match.status === "realizado")) {
       res.status(409).json({ message: "Não é possível alterar integrantes ou grupo depois de registrar resultados." });
+      return;
+    }
+    // Os jogos guardam o grupo em que foram gerados: trocar a dupla de grupo depois disso
+    // deixaria partida dizendo um grupo e dupla dizendo outro.
+    if (input.groupId !== currentTeam.groupId && groupMatches.some((match) => match.teamAId === teamId || match.teamBId === teamId)) {
+      res.status(409).json({ message: "Não é possível mudar o grupo de uma dupla que já tem jogos gerados na fase de grupos." });
       return;
     }
     res.json(await store.updateTeamParticipation(teamId, { championshipId: championship.truco_id, ...input }));

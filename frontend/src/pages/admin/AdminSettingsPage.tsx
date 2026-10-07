@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { EDITION_GROUP_IDS, EDITION_TEAM_COUNT, TEAMS_PER_GROUP } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
@@ -39,11 +40,11 @@ export function AdminSettingsPage() {
           </div>
           <div>
             <dt>Formato</dt>
-            <dd>12 duplas · 2 grupos de 6 · mata-mata eliminatório</dd>
+            <dd>{EDITION_TEAM_COUNT} duplas · {EDITION_GROUP_IDS.length} grupos de {TEAMS_PER_GROUP} · mata-mata eliminatório</dd>
           </div>
           <div>
             <dt>Ambiente</dt>
-            <dd>Dados simulados (em memória) — fase 1</dd>
+            <dd>Supabase · dados de teste da edição</dd>
           </div>
         </dl>
       </Card>

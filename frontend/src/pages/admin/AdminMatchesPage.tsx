@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Match, MatchResult, Player, Team } from "@truco/shared";
+import { TEAMS_PER_GROUP } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Loading } from "../../components/ui/Loading";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -74,7 +75,7 @@ export function AdminMatchesPage() {
     return (
       <div>
         <PageHeader title="Jogos" subtitle="Fase de grupos" />
-        <EmptyState icon="🎴" title="Jogos ainda não gerados" description="Depois de definir cinco duplas em cada grupo, gere os confrontos na área Grupos." />
+        <EmptyState icon="🎴" title="Jogos ainda não gerados" description={`Depois de definir ${TEAMS_PER_GROUP} duplas em cada grupo, gere os confrontos na área Grupos.`} />
         <section className="match-audit-panel" aria-label="Alterações de resultados">
           <Button variant="secondary" isLoading={isLoadingAudit} onClick={() => void toggleAudit()}>{audit ? "Ocultar alterações" : "Ver alterações"}</Button>
           {audit && <ol>{audit.map((entry) => <li key={entry.id}>{entry.actorName} · {entry.action} · {entry.createdAt}</li>)}</ol>}

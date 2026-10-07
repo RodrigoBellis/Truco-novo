@@ -1,6 +1,8 @@
 ﻿import { expect, test, type Page } from "@playwright/test";
+import { snapshotGroups, snapshotMatches, snapshotPlayers, snapshotStandings, snapshotTeams } from "./fixtures/edition5Snapshot";
 
-const players = Array.from({ length: 20 }, (_, index) => ({
+// Dados fictícios só para os testes, no formato definitivo da edição: 12 duplas, 6 por grupo.
+const players = Array.from({ length: 24 }, (_, index) => ({
   id: `player-${index + 1}`,
   name: `Jogador ${index + 1}`,
   role: "jogador",
@@ -8,7 +10,7 @@ const players = Array.from({ length: 20 }, (_, index) => ({
   avatarUrl: index < 2 ? `/avatars/player-${index + 1}.webp` : null,
 }));
 
-const teams = Array.from({ length: 10 }, (_, index) => ({
+const teams = Array.from({ length: 12 }, (_, index) => ({
   id: `team-${index + 1}`,
   name: `Dupla ${index + 1}`,
   player1Id: players[index * 2].id,
@@ -16,13 +18,13 @@ const teams = Array.from({ length: 10 }, (_, index) => ({
   status: "aprovada",
   seeded: false,
   isPlaceholder: false,
-  groupId: index < 5 ? "A" : "B",
+  groupId: index < 6 ? "A" : "B",
   strength: index % 5 + 1,
 }));
 
 const groups = [
-  { id: "A", name: "Grupo A", teamIds: teams.slice(0, 5).map((team) => team.id) },
-  { id: "B", name: "Grupo B", teamIds: teams.slice(5).map((team) => team.id) },
+  { id: "A", name: "Grupo A", teamIds: teams.slice(0, 6).map((team) => team.id) },
+  { id: "B", name: "Grupo B", teamIds: teams.slice(6).map((team) => team.id) },
 ];
 
 const standings = (teamList: typeof teams) => teamList.map((team, index) => ({
@@ -35,17 +37,17 @@ const standings = (teamList: typeof teams) => teamList.map((team, index) => ({
   saldoSets: 0,
 }));
 
-const groupPairs = Array.from({ length: 5 }, (_, first) => Array.from({ length: 5 - first - 1 }, (_, offset) => [first, first + offset + 1] as const)).flat();
-const matches = Array.from({ length: 20 }, (_, index) => {
-  const groupOffset = index < 10 ? 0 : 5;
-  const [first, second] = groupPairs[index % 10];
+const groupPairs = Array.from({ length: 6 }, (_, first) => Array.from({ length: 6 - first - 1 }, (_, offset) => [first, first + offset + 1] as const)).flat();
+const matches = Array.from({ length: 30 }, (_, index) => {
+  const groupOffset = index < 15 ? 0 : 6;
+  const [first, second] = groupPairs[index % 15];
   return ({
   id: `match-${index + 1}`,
   championshipId: "edition-5",
   stage: "grupos",
-  round: index < 10 ? "Grupo A" : "Grupo B",
-  order: index < 10 ? index : index - 10,
-  groupId: index < 10 ? "A" : "B",
+  round: index < 15 ? "Grupo A" : "Grupo B",
+  order: index < 15 ? index : index - 15,
+  groupId: index < 15 ? "A" : "B",
   teamAId: teams[groupOffset + first].id,
   teamBId: teams[groupOffset + second].id,
   result: null,
@@ -105,7 +107,7 @@ async function mockCoreApi(page: Page, role: "admin" | "jogador", resultSaved = 
     else if (url.pathname.endsWith("/teams")) payload = smallTeamList ? teams.slice(0, 8) : teams;
     else if (url.pathname.endsWith("/players")) payload = players;
     else if (url.pathname.endsWith("/groups")) payload = groups;
-    else if (url.pathname.includes("/standings")) payload = standings(url.pathname.endsWith("/A/standings") ? teams.slice(0, 5) : teams.slice(5));
+    else if (url.pathname.includes("/standings")) payload = standings(url.pathname.endsWith("/A/standings") ? teams.slice(0, 6) : teams.slice(6));
     else if (url.pathname.endsWith("/matches/audit")) payload = [];
     else if (url.pathname.endsWith("/matches")) payload = noMatches ? [] : matches.map((match, index) => index === 0 && resultSaved ? { ...match, result: { setsA: 2, setsB: 0 }, status: "realizado" } : match);
     else if (url.pathname.endsWith("/bracket")) payload = [];
@@ -119,7 +121,7 @@ async function mockCoreApi(page: Page, role: "admin" | "jogador", resultSaved = 
     else if (url.pathname.endsWith("/history")) payload = { editions: [{ id: "history-1", edition: 4, name: "4ª Edição", year: 2025, champions: ["Campeão 1", "Campeão 2"], runnersUp: null, finalResult: null, notes: "" }], currentEdition: 5, currentYear: 2026 };
     else if (url.pathname.endsWith("/players/roster")) payload = players.map(({ id, name }) => ({ id, name }));
     else if (url.pathname.endsWith("/admin/sorteio")) payload = { message: "Sorteio desativado" };
-    else if (url.pathname.endsWith("/groups/generate-matches")) payload = { matchesCreated: 20 };
+    else if (url.pathname.endsWith("/groups/generate-matches")) payload = { matchesCreated: 30 };
     else if (url.pathname.match(/\/matches\/[^/]+\/result$/)) payload = { ...matches[0], result: route.request().postDataJSON(), status: "realizado" };
     else if (url.pathname.endsWith("/matches") || url.pathname.endsWith("/teams") || url.pathname.endsWith("/players")) payload = [];
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload) });
@@ -145,14 +147,32 @@ test("admin cadastra pessoa e define dupla, grupo e estrelas", async ({ page }) 
   await expect(page.getByText("Participação atualizada.").or(page.getByText("Dupla criada para esta edição."))).toBeVisible();
 });
 
-test("admin confere as cinco posições e solicita os vinte jogos", async ({ page }) => {
+test("admin confere as seis posições e solicita os trinta jogos", async ({ page }) => {
   await mockCoreApi(page, "admin", false, false, true);
   await page.goto("/admin/grupos");
   await expect(page.getByText("Semifinal").filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText("Repescagem").filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText("Eliminado").filter({ visible: true }).first()).toBeVisible();
-  await page.getByRole("button", { name: "Gerar 20 jogos da fase de grupos" }).click();
-  await expect(page.getByText("20 jogos criados com os grupos definidos pelo administrador.")).toBeVisible();
+  await expect(page.getByText("6º", { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Gerar 30 jogos da fase de grupos" }).click();
+  await expect(page.getByText("30 jogos criados com os grupos definidos pelo administrador.")).toBeVisible();
+});
+
+test("admin gera só os jogos que faltam quando duas duplas entram depois", async ({ page }) => {
+  await mockCoreApi(page, "admin");
+  // Jogos já gerados com 5 duplas por grupo: faltam os das duplas 6 (Grupo A) e 12 (Grupo B).
+  const newcomers = ["team-6", "team-12"];
+  await page.route("**/api/matches**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(matches.filter((match) => !newcomers.includes(match.teamAId) && !newcomers.includes(match.teamBId))) }));
+  let completeCalls = 0;
+  await page.route("**/api/groups/complete-matches", (route) => {
+    completeCalls += 1;
+    return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ matchesCreated: 10 }) });
+  });
+  await page.goto("/admin/grupos");
+  await expect(page.getByRole("button", { name: /Gerar 30 jogos/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Gerar 10 jogos das duplas novas" }).click();
+  await expect(page.getByText("10 jogos criados para as duplas novas. Placar e ordem dos jogos já disputados não mudaram.")).toBeVisible();
+  expect(completeCalls).toBe(1);
 });
 
 test("jogador visualiza dupla e parceiro, lança e corrige resultado", async ({ page }) => {
@@ -181,7 +201,7 @@ test("Grupos abre no grupo da dupla e permite consultar o outro grupo", async ({
   await expect(page.getByText("Dupla 1").first()).toBeVisible();
   await expect(page.getByText("Sua dupla")).toBeVisible();
   await page.getByRole("tab", { name: "Grupo B", exact: true }).click();
-  await expect(page.getByText("Dupla 6").first()).toBeVisible();
+  await expect(page.getByText("Dupla 7").first()).toBeVisible();
   await expect(page.getByText("Grupo B", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("Sua dupla", { exact: true })).toHaveCount(0);
   await expect(page.locator(".standings-row-mine")).toHaveCount(0);
@@ -192,27 +212,27 @@ test("Jogos filtra pela dupla, grupo, situação e mostra placar na partida", as
   await mockCoreApi(page, "jogador", true);
   await page.goto("/jogos");
   await expect(page.getByRole("tab", { name: "Meus Jogos" })).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator(".match-card")).toHaveCount(4);
+  await expect(page.locator(".match-card")).toHaveCount(5);
   await expect(page.locator(".match-group-title").filter({ hasText: "Grupo B" })).toHaveCount(0);
   const myTeamBanner = page.getByRole("region", { name: "Sua dupla e seu grupo" });
   await expect(myTeamBanner).toContainText("Dupla 1");
   await expect(myTeamBanner).toContainText("Está no Grupo A");
   await expect(page.locator(".match-card-outcome-win")).toHaveCount(1);
   await expect(page.locator(".match-card-outcome-win")).toContainText("Vitória");
-  await expect(page.locator(".match-card-outcome-pending")).toHaveCount(3);
-  await expect(page.locator(".match-group-title")).toHaveText(["Próximos confrontos3", "Já jogados1"]);
+  await expect(page.locator(".match-card-outcome-pending")).toHaveCount(4);
+  await expect(page.locator(".match-group-title")).toHaveText(["Próximos confrontos4", "Já jogados1"]);
   await expect(myTeamBanner).toContainText("Próximo jogo");
 
   await page.getByRole("tab", { name: "Grupo A" }).click();
-  await expect(page.locator(".match-card")).toHaveCount(10);
+  await expect(page.locator(".match-card")).toHaveCount(15);
 
   await page.getByRole("tab", { name: "Grupo B" }).click();
-  await expect(page.locator(".match-card")).toHaveCount(10);
-  await expect(page.getByText("Dupla 6").first()).toBeVisible();
+  await expect(page.locator(".match-card")).toHaveCount(15);
+  await expect(page.getByText("Dupla 7").first()).toBeVisible();
   await expect(page.locator(".match-card-mine")).toHaveCount(0);
   await expect(myTeamBanner).toContainText("Está no Grupo A");
   await page.getByRole("tab", { name: "Todos", exact: true }).click();
-  await expect(page.locator(".match-card")).toHaveCount(20);
+  await expect(page.locator(".match-card")).toHaveCount(30);
 
   await page.getByLabel("Filtrar por situação").selectOption("finished");
   await expect(page.locator(".match-card")).toHaveCount(1);
@@ -221,7 +241,7 @@ test("Jogos filtra pela dupla, grupo, situação e mostra placar na partida", as
   await expect(page.locator(".match-card-points").first()).toHaveText("+3 pts");
   await expect(page.locator(".match-card-points").last()).toHaveText("+0 pts");
   await page.getByLabel("Filtrar por situação").selectOption("upcoming");
-  await expect(page.locator(".match-card")).toHaveCount(19);
+  await expect(page.locator(".match-card")).toHaveCount(29);
 });
 
 test("rotas antigas levam às telas consolidadas sem quebrar", async ({ page }) => {
@@ -392,6 +412,190 @@ test("com movimento reduzido as cartas ficam numa fila plana e a escolha continu
   await expect(page.locator(".deck-slot-active .deck-card-button")).toBeFocused();
 });
 
+// ---------- Troca de usuário: cada conta vê só a própria dupla ----------
+// Classificação como o backend (truco_rpc_standings) a devolveria, com valores diferentes
+// para cada dupla: se uma tela reaproveitar estado de outro usuário ou pegar a linha errada
+// (primeira do grupo, outra dupla), o número exibido não bate.
+type StandingFixture = { position: number; teamId: string; jogos: number; vitorias: number; derrotas: number; pontos: number; saldoSets: number };
+interface League {
+  players: Array<{ id: string; name: string }>;
+  teams: Array<{ id: string; name: string; player1Id: string; player2Id: string; groupId: string | null }>;
+  groups: unknown[];
+  standings: Record<"A" | "B", StandingFixture[]>;
+  matches: Array<{ teamAId: string; teamBId: string; status: string }>;
+}
+
+const leagueStandings: Record<"A" | "B", StandingFixture[]> = {
+  A: [
+    { position: 1, teamId: "team-3", jogos: 5, vitorias: 4, derrotas: 1, pontos: 10, saldoSets: 5 },
+    { position: 2, teamId: "team-1", jogos: 5, vitorias: 3, derrotas: 2, pontos: 8, saldoSets: 2 },
+    { position: 3, teamId: "team-2", jogos: 5, vitorias: 3, derrotas: 2, pontos: 7, saldoSets: 1 },
+    { position: 4, teamId: "team-6", jogos: 5, vitorias: 2, derrotas: 3, pontos: 5, saldoSets: -1 },
+    { position: 5, teamId: "team-5", jogos: 5, vitorias: 2, derrotas: 3, pontos: 4, saldoSets: -2 },
+    { position: 6, teamId: "team-4", jogos: 5, vitorias: 1, derrotas: 4, pontos: 2, saldoSets: -5 },
+  ],
+  B: [
+    { position: 1, teamId: "team-7", jogos: 4, vitorias: 3, derrotas: 1, pontos: 9, saldoSets: 4 },
+    { position: 2, teamId: "team-8", jogos: 4, vitorias: 2, derrotas: 2, pontos: 6, saldoSets: 1 },
+    { position: 3, teamId: "team-10", jogos: 4, vitorias: 2, derrotas: 2, pontos: 4, saldoSets: 0 },
+    { position: 4, teamId: "team-12", jogos: 4, vitorias: 1, derrotas: 3, pontos: 3, saldoSets: -1 },
+    { position: 5, teamId: "team-11", jogos: 4, vitorias: 1, derrotas: 3, pontos: 1, saldoSets: -2 },
+    { position: 6, teamId: "team-9", jogos: 4, vitorias: 0, derrotas: 4, pontos: 0, saldoSets: -2 },
+  ],
+};
+const fictionalLeague: League = { players, teams, groups, standings: leagueStandings, matches };
+const realSnapshotLeague: League = { players: snapshotPlayers, teams: snapshotTeams, groups: snapshotGroups, standings: snapshotStandings, matches: snapshotMatches };
+
+function tokenFor(sub: string) {
+  const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  return `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ sub, role: "authenticated", exp: Math.floor(Date.now() / 1000) + 3600 })}.${encode("test-signature")}`;
+}
+
+/** Backend e Supabase Auth simulados para várias contas: o usuário da sessão vem do JWT de cada requisição. */
+async function mockLeagueWithAccounts(page: Page, league: League) {
+  const subOf = (authorization: string | undefined) => {
+    try { return JSON.parse(Buffer.from((authorization ?? "").replace("Bearer ", "").split(".")[1], "base64url").toString()).sub as string; } catch { return null; }
+  };
+  const authUserFor = (sub: string) => ({ ...authUser, id: sub, email: `${sub}@example.invalid` });
+  await page.route("**/auth/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/logout")) return route.fulfill({ status: 204, body: "" });
+    if (path.endsWith("/token")) {
+      const sub = String(route.request().postDataJSON()?.refresh_token ?? "").replace("refresh:", "");
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ access_token: tokenFor(sub), refresh_token: `refresh:${sub}`, token_type: "bearer", expires_in: 3600, user: authUserFor(sub) }) });
+    }
+    const sub = subOf(route.request().headers().authorization);
+    return route.fulfill({ status: sub ? 200 : 401, contentType: "application/json", body: JSON.stringify(sub ? authUserFor(sub) : { message: "sem sessão" }) });
+  });
+  await page.route("**/rest/v1/**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
+  await page.route("**/api/**", async (route) => {
+    const url = new URL(route.request().url());
+    let payload: unknown = {};
+    if (url.pathname.endsWith("/auth/login")) {
+      const { playerId } = route.request().postDataJSON() as { playerId: string };
+      const player = league.players.find((candidate) => candidate.id === playerId)!;
+      const team = league.teams.find((candidate) => candidate.player1Id === playerId || candidate.player2Id === playerId)!;
+      const user = { id: `auth-${playerId}`, playerId, name: player.name, email: "test@example.invalid", role: "jogador", teamId: team.id, mustChangePassword: false, avatarUrl: null };
+      payload = { user, token: tokenFor(user.id), refreshToken: `refresh:${user.id}` };
+    } else if (url.pathname.endsWith("/players/roster")) payload = league.players.map(({ id, name }) => ({ id, name }));
+    else if (url.pathname.endsWith("/players")) payload = league.players;
+    else if (url.pathname.endsWith("/teams")) payload = league.teams;
+    else if (url.pathname.endsWith("/groups")) payload = league.groups;
+    else if (url.pathname.endsWith("/A/standings")) payload = league.standings.A;
+    else if (url.pathname.endsWith("/B/standings")) payload = league.standings.B;
+    else if (url.pathname.endsWith("/matches")) payload = league.matches;
+    else if (url.pathname.endsWith("/schedule/my-status")) payload = { status: "aguardando", opponentTeamId: null, matchesAhead: null };
+    else if (url.pathname.endsWith("/history/major-champions") || url.pathname.endsWith("/bracket")) payload = [];
+    else if (url.pathname.endsWith("/dashboard")) payload = { currentPhase: "Fase de Grupos", drawStatus: "realizado", pendingApprovals: 0, nextMatches: [], champion: null };
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload) });
+  });
+}
+
+/** Navega pelo menu real: no celular, alguns itens ficam dentro de "Mais". */
+async function openMenu(page: Page, label: "Início" | "Minha Dupla" | "Grupos" | "Jogos" | "Sair") {
+  const role = label === "Sair" ? "button" : "link";
+  // Depois de recarregar, o menu ainda pode estar montando: espera "Início" aparecer
+  // (fica visível no menu lateral e na barra do celular) antes de decidir se usa "Mais".
+  await expect(page.getByRole("link", { name: "Início", exact: true }).filter({ visible: true }).first()).toBeVisible();
+  const direct = page.getByRole(role, { name: label, exact: true }).filter({ visible: true });
+  if (await direct.count() === 0) await page.getByRole("button", { name: "Mais" }).click();
+  await page.getByRole(role, { name: label, exact: true }).filter({ visible: true }).first().click();
+}
+
+async function loginAs(page: Page, playerName: string) {
+  await page.getByRole("button", { name: "Ver lista de nomes" }).click();
+  await page.locator(".profile-card").filter({ has: page.locator(".profile-name", { hasText: new RegExp(`^${playerName}$`) }) }).click();
+  await page.getByLabel("Senha").fill("senha-de-teste");
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  // A abertura aparece uma vez por sessão do navegador e por conta.
+  await expect(page).toHaveURL(/\/(abertura|inicio)$/);
+  if (page.url().endsWith("/abertura")) await page.getByRole("button", { name: /Entrar na edição atual/ }).click();
+}
+
+async function logout(page: Page) {
+  await openMenu(page, "Sair");
+  await expect(page.getByRole("heading", { name: "Quem está entrando para jogar?" })).toBeVisible();
+}
+
+/** Início, Minha Dupla, Grupos e Jogos precisam mostrar a mesma linha: a da dupla do usuário logado. */
+async function expectOwnTeamEverywhere(page: Page, league: League, teamName: string) {
+  const team = league.teams.find((candidate) => candidate.name === teamName)!;
+  const groupId = team.groupId as "A" | "B";
+  const row = league.standings[groupId].find((candidate) => candidate.teamId === team.id)!;
+  const saldo = `${row.saldoSets > 0 ? "+" : ""}${row.saldoSets}`;
+  const pending = league.matches.filter((match) => match.status === "pendente" && [match.teamAId, match.teamBId].includes(team.id)).length;
+
+  await openMenu(page, "Início");
+  await expect(page.locator(".team-identity-head")).toContainText(teamName);
+  await expect(page.locator(".team-identity-position strong")).toHaveAttribute("aria-label", `${row.position}º lugar`);
+  await expect(page.locator(".campaign-stats-grid dd")).toHaveText([String(row.pontos), String(row.vitorias), String(row.derrotas), saldo]);
+
+  await openMenu(page, "Minha Dupla");
+  await expect(page.locator(".team-identity-head")).toContainText(teamName);
+  await expect(page.locator(".team-identity-position strong")).toHaveAttribute("aria-label", `${row.position}º lugar`);
+  await expect(page.locator(".campaign-stats-grid dd")).toHaveText([String(row.pontos), String(row.vitorias), String(row.derrotas), saldo]);
+
+  await openMenu(page, "Grupos");
+  await expect(page.locator(".standings-row-mine")).toHaveCount(1);
+  await expect(page.locator(".standings-row-mine .standings-team-name")).toHaveText(teamName);
+  await expect(page.locator(".standings-row-mine .standings-position")).toHaveText(`${row.position}º`);
+  await expect(page.locator(".standings-row-mine .standings-points")).toHaveText(String(row.pontos));
+
+  await openMenu(page, "Jogos");
+  await expect(page.locator(".matches-hero-name")).toHaveText(teamName);
+  await expect(page.locator(".matches-hero-group")).toContainText(`Grupo ${groupId}`);
+  await expect(page.locator(".matches-hero-group")).toContainText(`${row.position}º lugar`);
+  await expect(page.locator(".matches-hero-stat dd")).toHaveText([String(row.pontos), String(row.vitorias), String(row.derrotas), String(pending)]);
+}
+
+test("cada conta vê só a própria dupla ao trocar de usuário, sem vazar estado entre logins", async ({ page }) => {
+  test.setTimeout(90_000);
+  await mockLeagueWithAccounts(page, fictionalLeague);
+  await page.goto("/login");
+
+  const sequence: Array<[player: string, team: string]> = [
+    ["Jogador 1", "Dupla 1"],
+    ["Jogador 5", "Dupla 3"],
+    ["Jogador 13", "Dupla 7"],
+    ["Jogador 19", "Dupla 10"],
+  ];
+  for (const [player, team] of sequence) {
+    await loginAs(page, player);
+    await expectOwnTeamEverywhere(page, fictionalLeague, team);
+    await logout(page);
+  }
+
+  // Atualizar a página mantém a conta certa e recarrega os dados dela.
+  await loginAs(page, "Jogador 5");
+  await expectOwnTeamEverywhere(page, fictionalLeague, "Dupla 3");
+  await page.reload();
+  await expectOwnTeamEverywhere(page, fictionalLeague, "Dupla 3");
+});
+
+test("Bagriel & Diguinho e Vito & Luizão veem só os próprios números reais ao trocar de conta", async ({ page }) => {
+  test.setTimeout(90_000);
+  await mockLeagueWithAccounts(page, realSnapshotLeague);
+  await page.goto("/login");
+
+  await loginAs(page, "Bagriel");
+  await expectOwnTeamEverywhere(page, realSnapshotLeague, "Bagriel & Diguinho");
+  await openMenu(page, "Início");
+  await expect(page.locator(".campaign-stats-grid dd")).toHaveText(["8", "3", "1", "+3"]);
+  await logout(page);
+
+  await loginAs(page, "Vito");
+  await expectOwnTeamEverywhere(page, realSnapshotLeague, "Vito & Luizão");
+  await openMenu(page, "Início");
+  // Vito & Luizão: 1 ponto (derrota por 1x2 para Bagriel & Diguinho), nunca os 8 da outra dupla.
+  await expect(page.locator(".campaign-stats-grid dd")).toHaveText(["1", "0", "1", "-1"]);
+  await page.reload();
+  await expectOwnTeamEverywhere(page, realSnapshotLeague, "Vito & Luizão");
+  await logout(page);
+
+  await loginAs(page, "Diguinho");
+  await expectOwnTeamEverywhere(page, realSnapshotLeague, "Bagriel & Diguinho");
+});
+
 test("home explica quando falta aplicar a migration das duplas e oferece nova tentativa", async ({ page }) => {
   await mockCoreApi(page, "jogador");
   await page.route("**/api/teams", (route) => route.fulfill({
@@ -500,9 +704,9 @@ test("ranking preserva empates e jogos de outras duplas não oferecem edição",
   await expect(page.locator(".major-row")).toHaveCount(3);
   await page.goto("/jogos");
   await page.getByRole("tab", { name: "Grupo B" }).click();
-  await expect(page.locator(".match-card")).toHaveCount(10);
+  await expect(page.locator(".match-card")).toHaveCount(15);
   await expect(page.getByRole("button", { name: /Lançar resultado|Editar resultado/ })).toHaveCount(0);
-  await expect(page.locator(".match-card .team-strength")).toHaveCount(20);
+  await expect(page.locator(".match-card .team-strength")).toHaveCount(30);
 });
 
 test("abertura sem títulos não inventa campeões e não impede continuar", async ({ page }) => {
@@ -519,14 +723,14 @@ test("Grupos reconhece uma dupla do Grupo B e permite trocar pelo teclado", asyn
   await mockCoreApi(page, "jogador");
   await page.addInitScript(() => {
     const session = JSON.parse(localStorage.getItem("truco-do-novo:session")!);
-    session.user.teamId = "team-6";
-    session.user.playerId = "player-11";
+    session.user.teamId = "team-7";
+    session.user.playerId = "player-13";
     localStorage.setItem("truco-do-novo:session", JSON.stringify(session));
   });
   await page.goto("/grupos");
   const ownTab = page.getByRole("tab", { name: "Grupo B · Seu grupo" });
   await expect(ownTab).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator(".standings-row-mine")).toContainText("Dupla 6");
+  await expect(page.locator(".standings-row-mine")).toContainText("Dupla 7");
   await ownTab.focus();
   await page.keyboard.press("ArrowLeft");
   await expect(page.getByRole("tab", { name: "Grupo A", exact: true })).toHaveAttribute("aria-selected", "true");

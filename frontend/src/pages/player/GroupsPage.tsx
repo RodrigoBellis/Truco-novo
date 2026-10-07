@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { GroupId, Player, StandingRow, Team } from "@truco/shared";
+import { TEAMS_PER_GROUP } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Loading } from "../../components/ui/Loading";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -48,7 +49,7 @@ export function GroupsPage() {
       <PageHeader title="Grupos" subtitle="Acompanhe a classificação completa dos dois grupos" />
       <GroupTabs selected={activeGroup} myGroup={data.myGroupId} onSelect={setSelectedGroup} />
       <section key={activeGroup} className="groups-standings groups-standings-enter" aria-labelledby="groups-standings-title">
-        <div className="groups-standings-heading"><div><h2 id="groups-standings-title">Grupo {activeGroup}</h2><p>{data.standings[activeGroup].length} duplas na disputa · classificação atualizada pelos resultados</p></div>{activeGroup === data.myGroupId ? <span className="groups-own-badge">Seu grupo</span> : <span className="groups-other-note">{data.myGroupId ? `Sua dupla está no Grupo ${data.myGroupId}` : "Sua dupla ainda não tem grupo"}</span>}</div>
+        <div className="groups-standings-heading"><div><h2 id="groups-standings-title">Grupo {activeGroup}</h2><p>{data.standings[activeGroup].length} duplas na disputa{data.standings[activeGroup].length < TEAMS_PER_GROUP ? ` · ${TEAMS_PER_GROUP - data.standings[activeGroup].length === 1 ? "1 vaga aguardando dupla" : `${TEAMS_PER_GROUP - data.standings[activeGroup].length} vagas aguardando duplas`}` : ""} · classificação atualizada pelos resultados</p></div>{activeGroup === data.myGroupId ? <span className="groups-own-badge">Seu grupo</span> : <span className="groups-other-note">{data.myGroupId ? `Sua dupla está no Grupo ${data.myGroupId}` : "Sua dupla ainda não tem grupo"}</span>}</div>
         <StandingsTable rows={data.standings[activeGroup]} teams={data.teams} players={data.players} highlightTeamId={user?.teamId} />
       </section>
     </div>

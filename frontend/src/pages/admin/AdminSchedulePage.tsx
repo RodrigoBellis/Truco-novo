@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Match, Team } from "@truco/shared";
+import { TEAMS_PER_GROUP } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Loading } from "../../components/ui/Loading";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -72,7 +73,7 @@ export function AdminSchedulePage() {
       />
 
       {pending.length === 0 ? (
-        <EmptyState icon="🎴" title="Nenhum jogo pendente" description="Os jogos aparecem depois que o administrador definir cinco duplas em cada grupo e gerar os confrontos." />
+        <EmptyState icon="🎴" title="Nenhum jogo pendente" description={`Os jogos aparecem depois que o administrador definir ${TEAMS_PER_GROUP} duplas em cada grupo e gerar os confrontos.`} />
       ) : (
         <div className="data-table-wrap">
           <table className="data-table admin-schedule-table">

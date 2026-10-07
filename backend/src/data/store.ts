@@ -13,6 +13,7 @@ import type {
   DrawStatus,
   UserRole,
 } from "@truco/shared";
+import { MATCHES_PER_GROUP } from "@truco/shared";
 import { supabaseAdmin } from "./supabaseClient.js";
 import type { Database } from "../types/database.js";
 import { EditionSetupError } from "../services/editionSetupError.js";
@@ -196,16 +197,19 @@ class TrucoRepository {
     if (error) fail("listar duplas", error);
 
     const [{ data: memberships, error: membershipError }, groups] = await Promise.all([
-      supabaseAdmin.from("truco_team_memberships").select("truco_team_id, truco_player_1_id, truco_player_2_id, strength, truco_group_id").eq("truco_championship_id", championshipId),
+      supabaseAdmin.from("truco_team_memberships").select("truco_team_id, truco_player_1_id, truco_player_2_id, strength").eq("truco_championship_id", championshipId),
       this.groupLabelsById(),
     ]);
     if (membershipError) fail("carregar participações das duplas", membershipError);
     const groupById = new Map(groups);
 
+    // Grupo: sempre truco_teams.truco_group_id — a mesma coluna da classificação
+    // (truco_rpc_standings) e da lista de cada grupo. A cópia em truco_team_memberships
+    // é só espelho para as regras de acesso do banco e não é lida aqui.
     return (memberships ?? []).flatMap((membership) => {
       const row = (data ?? []).find((team) => team.truco_id === membership.truco_team_id);
       if (!row) return [];
-      const team = mapTeam(row, membership.truco_group_id ? (groupById.get(membership.truco_group_id) ?? null) : null,
+      const team = mapTeam(row, row.truco_group_id ? (groupById.get(row.truco_group_id) ?? null) : null,
         [membership.truco_player_1_id, membership.truco_player_2_id]);
       return [{ ...team, strength: membership.strength }];
     });
@@ -218,12 +222,12 @@ class TrucoRepository {
 
     const championship = await this.getCurrentChampionship();
     const { data: membership, error: membershipError } = await supabaseAdmin.from("truco_team_memberships")
-      .select("truco_player_1_id, truco_player_2_id, strength, truco_group_id")
+      .select("truco_player_1_id, truco_player_2_id, strength")
       .eq("truco_championship_id", championship.truco_id).eq("truco_team_id", teamId).maybeSingle();
     if (membershipError) fail("carregar participação da dupla", membershipError);
     if (!membership) return undefined;
     const groups = await this.groupLabelsById();
-    const team = mapTeam(data, membership.truco_group_id ? (groups.get(membership.truco_group_id) ?? null) : null,
+    const team = mapTeam(data, data.truco_group_id ? (groups.get(data.truco_group_id) ?? null) : null,
       [membership.truco_player_1_id, membership.truco_player_2_id]);
     return { ...team, strength: membership.strength };
   }
@@ -430,8 +434,17 @@ class TrucoRepository {
     if (error) fail("criar as partidas da fase de grupos", error);
   }
 
+  /** Muda só a ordem de jogos ainda pendentes; o filtro por status protege os já realizados. */
+  async setPendingMatchOrders(items: Array<{ matchId: string; order: number }>): Promise<void> {
+    for (const item of items) {
+      const { error } = await supabaseAdmin.from("truco_matches").update({ match_order: item.order })
+        .eq("truco_id", item.matchId).eq("status", "pendente");
+      if (error) fail("reordenar os jogos pendentes do grupo", error);
+    }
+  }
+
   async createAllGroupMatches(championshipId: string, fixtures: Record<GroupId, Array<{ teamAId: string; teamBId: string; order: number }>>): Promise<void> {
-    if (fixtures.A.length !== 10 || fixtures.B.length !== 10) throw new RangeError("A edição deve gerar 10 partidas por grupo.");
+    if (fixtures.A.length !== MATCHES_PER_GROUP || fixtures.B.length !== MATCHES_PER_GROUP) throw new RangeError(`A edição deve gerar ${MATCHES_PER_GROUP} partidas por grupo.`);
     await this.ensureGroups(championshipId);
     const groupIds = new Map<GroupId, string>([
       ["A", await this.getGroupRowId(championshipId, "A")],

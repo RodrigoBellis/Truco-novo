@@ -91,4 +91,4 @@ A pedido do usuário (06/10/2026), toda tela tem animação de entrada: a raiz d
 
 ## Limites desta rodada
 
-Sem alteração de esquema, dados ou autenticação do Supabase. Sem commit e sem deploy. O projeto usa dados de teste na edição atual; preservá-los. Regras de cinco duplas por grupo e suas zonas vigentes continuam no código compartilhado. Referências anteriores de layout não disponíveis no turno não devem ser consideradas imagens verificadas.
+Sem alteração de esquema, dados ou autenticação do Supabase. Sem commit e sem deploy. O projeto usa dados de teste na edição atual; preservá-los. O formato (seis duplas por grupo) e as zonas vigentes ficam no código compartilhado (`TEAMS_PER_GROUP`, `qualificationForPosition`); telas não repetem esses números. Referências anteriores de layout não disponíveis no turno não devem ser consideradas imagens verificadas.

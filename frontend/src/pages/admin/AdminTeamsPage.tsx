@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { GroupId, Player, Team } from "@truco/shared";
-import { isValidTeamStrength } from "@truco/shared";
+import { EDITION_TEAM_COUNT, TEAMS_PER_GROUP, isValidTeamStrength } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Loading } from "../../components/ui/Loading";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -81,7 +81,7 @@ export function AdminTeamsPage() {
 
   return (
     <div className="page-enter">
-      <PageHeader title="Duplas da 5ª edição" subtitle={`${data.teams.filter((team) => team.status === "aprovada").length} de 10 duplas · ${data.teams.filter((team) => team.status === "aprovada" && team.groupId === "A").length}/5 no Grupo A · ${data.teams.filter((team) => team.status === "aprovada" && team.groupId === "B").length}/5 no Grupo B`} />
+      <PageHeader title="Duplas da 5ª edição" subtitle={`${data.teams.filter((team) => team.status === "aprovada").length} de ${EDITION_TEAM_COUNT} duplas · ${data.teams.filter((team) => team.status === "aprovada" && team.groupId === "A").length}/${TEAMS_PER_GROUP} no Grupo A · ${data.teams.filter((team) => team.status === "aprovada" && team.groupId === "B").length}/${TEAMS_PER_GROUP} no Grupo B`} />
 
       <section id="team-editor" className="admin-teams-editor" aria-labelledby="team-editor-title">
         <div>
@@ -110,7 +110,7 @@ export function AdminTeamsPage() {
         </div>
         <div className="admin-teams-modal-actions">
           {editingTeam && <Button variant="ghost" onClick={clearForm} disabled={isSaving}>Cancelar edição</Button>}
-          <Button onClick={() => void save()} isLoading={isSaving} disabled={data.teams.filter((team) => team.status === "aprovada").length >= 10 && !editingTeam}>Salvar dupla</Button>
+          <Button onClick={() => void save()} isLoading={isSaving} disabled={data.teams.filter((team) => team.status === "aprovada").length >= EDITION_TEAM_COUNT && !editingTeam}>Salvar dupla</Button>
         </div>
       </section>
 

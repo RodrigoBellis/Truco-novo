@@ -16,6 +16,7 @@ import { getBracket } from "../../services/bracketService";
 import { getPlayers } from "../../services/playersService";
 import { teamLabel } from "../../utils/teamHelpers";
 import { ApiError } from "../../services/api";
+import { TEAMS_PER_GROUP } from "@truco/shared";
 
 interface Data {
   teams: Team[];
@@ -58,7 +59,7 @@ export function AdminBracketPage() {
         <EmptyState
           icon="🏆"
           title="Aguardando regra da repescagem"
-          description="O 1º de cada grupo vai direto à semifinal e as posições 2º a 4º disputam a repescagem. Os cruzamentos entre Grupo A e Grupo B ainda precisam ser definidos pelo administrador antes de gerar a chave."
+          description={`O 1º de cada grupo vai direto à semifinal e as posições 2º a ${TEAMS_PER_GROUP - 1}º disputam a repescagem. Os cruzamentos entre Grupo A e Grupo B ainda precisam ser definidos pelo administrador antes de gerar a chave.`}
         />
       </div>
     );
