@@ -1,5 +1,7 @@
 import { supabaseAdmin } from "../data/supabaseClient.js";
 import { store } from "../data/store.js";
+import { isRehearsalMode } from "../utils/rehearsalMode.js";
+import { isHomologationMode } from "../utils/homologationMode.js";
 
 export class AvatarError extends Error {}
 
@@ -22,6 +24,12 @@ export async function uploadPlayerAvatar(playerId: string, dataUrl: string): Pro
 
   const buffer = Buffer.from(base64, "base64");
   if (buffer.byteLength > MAX_BYTES) throw new AvatarError("A imagem deve ter até 2 MB.");
+
+  // Modos ensaio e homologação: sem Storage; a própria imagem validada é o que fica gravado.
+  if (isRehearsalMode() || isHomologationMode()) {
+    await store.setPlayerAvatar(playerId, dataUrl);
+    return dataUrl;
+  }
 
   const path = `${playerId}/avatar.${extension}`;
   const { error: uploadError } = await supabaseAdmin.storage.from("avatars").upload(path, buffer, {

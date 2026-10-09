@@ -1,105 +1,76 @@
-/* Maiores Campeões (MajorChampionsPage.tsx). O cabeçalho não é um card: usa a mesma luz da
-   abertura (feixe azul de cima à esquerda, calor laranja à direita) dissolvida no fundo.
+/* Maiores Campeões (MajorChampionsPage.tsx): galeria de troféus. Só aparece quem tem título.
+   Cabeçalho compacto, sem card e sem números; abaixo, um palco único (luz quente de cima,
+   vinheta e linha de chão) onde ficam as vitrines do pódio (MajorChampionsPodium).
    As medidas seguem a largura útil da página (container), não a da janela. */
-.major-champions-page{--major-beam-alpha:.12;--major-warm-alpha:.16;container-type:inline-size;display:flex;flex-direction:column;gap:32px;padding-bottom:32px}
-:root[data-theme="dark"] .major-champions-page{--major-beam-alpha:.24;--major-warm-alpha:.15}
+.major-champions-page{--major-beam-alpha:.1;--major-light-alpha:.26;--major-vignette-alpha:.05;--major-room-alpha:.03;container-type:inline-size;display:flex;flex-direction:column;gap:clamp(18px,2.4cqi,26px);padding-bottom:32px}
+:root[data-theme="dark"] .major-champions-page{--major-beam-alpha:.2;--major-light-alpha:.2;--major-vignette-alpha:.6;--major-room-alpha:.04}
 
 /* ---------- Cabeçalho ---------- */
-.major-hero{position:relative;isolation:isolate;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:28px 48px;padding:clamp(10px,2.2cqi,26px) 0 clamp(26px,3.4cqi,38px)}
-/* Filete laranja→azul que fecha o cabeçalho, como o que sai da mesa na abertura. */
-.major-hero::after{content:"";position:absolute;inset:auto 0 0;height:1px;background:linear-gradient(90deg,rgb(var(--rgb-accent) / .6),rgb(var(--rgb-tech) / .45) 55%,transparent)}
-.major-hero-backdrop{position:absolute;inset:-36px 0 0;z-index:-1;pointer-events:none;-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent),linear-gradient(180deg,transparent,#000 16%,#000 70%,transparent);-webkit-mask-composite:source-in;mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent),linear-gradient(180deg,transparent,#000 16%,#000 70%,transparent);mask-composite:intersect;animation:major-fade 700ms ease-out backwards}
-.major-hero-backdrop > span{position:absolute;inset:0}
-.major-hero-beam{background:conic-gradient(from 98deg at -4% -30%,transparent 0deg,rgb(var(--rgb-tech) / var(--major-beam-alpha)) 20deg,rgb(var(--rgb-tech) / calc(var(--major-beam-alpha) * .45)) 32deg,transparent 50deg,transparent 360deg)}
-.major-hero-warmth{background:radial-gradient(34% 80% at 84% 62%,rgb(var(--rgb-accent) / var(--major-warm-alpha)),transparent 100%)}
-.major-hero-copy{min-width:0}
-.major-hero-eyebrow{display:inline-flex;align-items:center;gap:8px;min-height:32px;padding:5px 14px 5px 11px;border-radius:var(--radius-full);border:1px solid rgb(var(--rgb-tech) / .4);background:rgb(var(--rgb-tech) / .1);font-size:.74rem;font-weight:750;letter-spacing:var(--tracking-wide);text-transform:uppercase;color:var(--color-tech-400)}
+.major-hero{position:relative;isolation:isolate;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"eyebrow eyebrow" "title link" "message message";align-items:center;column-gap:32px;padding:clamp(4px,1.2cqi,12px) 0 clamp(16px,2.2cqi,22px)}
+/* Filete de luz que fecha o cabeçalho: desenha-se da esquerda, com um ponto de brilho na origem. */
+.major-hero::after{content:"";position:absolute;inset:auto 0 0;height:1px;background:linear-gradient(90deg,rgb(var(--rgb-accent) / .8),rgb(var(--rgb-tech) / .5) 36%,rgb(var(--rgb-tech) / .14) 72%,transparent);transform-origin:0 50%;animation:major-line 900ms var(--ease-out) 180ms backwards}
+.major-hero::before{content:"";position:absolute;inset:auto auto -3px 0;width:min(200px,44%);height:7px;background:radial-gradient(50% 50% at 30% 50%,rgb(var(--rgb-accent-hi) / .5),transparent 100%);pointer-events:none;animation:major-fade 900ms ease-out 520ms backwards}
+/* Feixe azul de cima à esquerda, dissolvido no fundo: a mesma luz da abertura, bem mais baixa. */
+.major-hero-beam{position:absolute;inset:-32px 0 0;z-index:-1;pointer-events:none;background:conic-gradient(from 98deg at -4% -40%,transparent 0deg,rgb(var(--rgb-tech) / var(--major-beam-alpha)) 20deg,rgb(var(--rgb-tech) / calc(var(--major-beam-alpha) * .45)) 32deg,transparent 50deg,transparent 360deg);-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 70%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12%,#000 70%,transparent);animation:major-fade 700ms ease-out backwards}
+.major-hero-eyebrow{grid-area:eyebrow;justify-self:start;display:inline-flex;align-items:center;gap:8px;min-height:30px;padding:4px 13px 4px 10px;border-radius:var(--radius-full);border:1px solid rgb(var(--rgb-tech) / .4);background:rgb(var(--rgb-tech) / .1);font-size:.72rem;font-weight:750;letter-spacing:var(--tracking-wide);text-transform:uppercase;color:var(--color-tech-400)}
 .major-hero-eyebrow-mark{width:14px;height:14px;flex-shrink:0;color:var(--color-brand-orange)}
 .major-hero-eyebrow i{font-style:normal;opacity:.6}
-.major-hero h1{margin-top:clamp(14px,1.8cqi,20px);font-size:clamp(2.1rem,6.2cqi,3.9rem);font-weight:850;line-height:1.02;letter-spacing:-.04em;color:var(--color-text);text-wrap:balance}
-.major-hero-message{margin-top:clamp(12px,1.6cqi,18px);max-width:44ch;color:var(--color-text-muted);font-size:1.02rem;line-height:1.6;text-wrap:pretty}
-.major-hero-link{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:48px;margin-top:clamp(18px,2.4cqi,26px);padding:8px 18px;border-radius:var(--radius-md);border:1px solid rgb(var(--rgb-tech) / .55);color:var(--color-tech-400);font-size:.88rem;font-weight:700;line-height:1.25;transition:transform var(--transition-fast),background-color var(--transition-fast),border-color var(--transition-fast)}
+.major-hero h1{grid-area:title;min-width:0;margin-top:clamp(10px,1.4cqi,14px);font-size:clamp(1.9rem,4.8cqi,3rem);font-weight:850;line-height:1.04;letter-spacing:-.04em;color:var(--color-text);text-wrap:balance}
+.major-hero-message{grid-area:message;margin-top:8px;max-width:52ch;color:var(--color-text-muted);font-size:.98rem;line-height:1.55;text-wrap:pretty}
+.major-hero-link{grid-area:link;align-self:end;display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:44px;padding:8px 16px;border-radius:var(--radius-md);border:1px solid rgb(var(--rgb-tech) / .55);color:var(--color-tech-400);font-size:.86rem;font-weight:700;line-height:1.25;transition:transform var(--transition-fast),background-color var(--transition-fast),border-color var(--transition-fast)}
 .major-hero-link:hover,.major-hero-link:focus-visible{background:rgb(var(--rgb-tech) / .14);border-color:var(--color-tech-400)}
 .major-hero-link:focus-visible{outline:2px solid var(--color-tech-400);outline-offset:3px}
 .major-hero-link:active{transform:scale(.98)}
-.major-hero-link svg,.major-mine-link svg{flex-shrink:0;transition:transform 260ms var(--ease-out)}
-.major-hero-link:hover svg,.major-hero-link:focus-visible svg,.major-mine-link:hover svg{transform:translateX(4px)}
-/* Os três números reais, em linha e sem caixa. */
-.major-hero-stats{display:flex;margin:0}
-.major-hero-stats > div{display:flex;flex-direction:column;gap:8px;min-width:0;padding:2px 26px;animation:rise-in var(--motion-reveal) 300ms backwards}
-.major-hero-stats > div:first-child{padding-left:0}
-.major-hero-stats > div:last-child{padding-right:0}
-.major-hero-stats > div + div{border-left:1px solid var(--color-border-strong)}
-.major-hero-stats > div:nth-child(2){animation-delay:370ms}
-.major-hero-stats > div:nth-child(3){animation-delay:440ms}
-.major-hero-stats dd{margin:0;font-size:clamp(2rem,4.4cqi,2.9rem);font-weight:850;line-height:.95;letter-spacing:-.04em;color:var(--color-text);font-variant-numeric:tabular-nums}
-.major-hero-stats > div:first-child dd{color:var(--color-brand-orange)}
-.major-hero-stats dt{max-width:11ch;font-size:.74rem;font-weight:650;line-height:1.3;color:var(--color-text-muted)}
-.major-hero-copy > *{animation:rise-in var(--motion-reveal) backwards}
-.major-hero-copy > :nth-child(2){animation-delay:80ms}
-.major-hero-copy > :nth-child(3){animation-delay:160ms}
-.major-hero-copy > :nth-child(4){animation-delay:240ms}
+.major-hero-link svg{flex-shrink:0;transition:transform 260ms var(--ease-out)}
+.major-hero-link:hover svg,.major-hero-link:focus-visible svg{transform:translateX(4px)}
 
-/* Sua dupla na corrida */
-.major-mine{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:16px 26px;padding:26px 30px;border-radius:22px;border:1px solid var(--color-border-strong);background:radial-gradient(70% 160% at 0% 0%,var(--team-soft),transparent 60%),var(--color-surface);box-shadow:var(--shadow-lg),var(--edge-light);overflow:hidden}
-.major-mine::before{content:"";position:absolute;inset:0 0 auto;height:1px;background:linear-gradient(90deg,var(--team-color),var(--team-line) 40%,transparent);pointer-events:none}
-.major-mine h2{font-size:1.3rem;font-weight:850;letter-spacing:-.02em;line-height:1.2;overflow-wrap:anywhere}
-.major-mine p{margin-top:6px;max-width:58ch;color:var(--color-text-muted);font-size:.9rem;line-height:1.55}
-.major-mine-stats{display:flex;margin:0}
-.major-mine-stats > div{display:flex;flex-direction:column;gap:6px;padding:0 20px}
-.major-mine-stats > div + div{border-left:1px solid var(--color-border)}
-.major-mine-stats dd{margin:0;font-size:2rem;font-weight:850;line-height:1;letter-spacing:-.03em;color:var(--team-ink);font-variant-numeric:tabular-nums}
-.major-mine-stats dt{font-size:.74rem;font-weight:650;color:var(--color-text-muted)}
-.major-mine-link{display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:46px;padding:12px 20px;border-radius:12px;background:var(--color-action);color:var(--color-on-action);font-weight:800;font-size:.85rem;white-space:nowrap;box-shadow:0 8px 18px -10px rgb(var(--rgb-accent) / .7),inset 0 1px 0 rgb(255 255 255 / .3);transition:transform var(--motion-micro),background-color var(--transition-fast)}
-.major-mine-link:hover{background:var(--color-action-hover);transform:translateY(-1px)}
+/* ---------- Palco ----------
+   Um ambiente só atrás de todas as vitrines. Não é card: a sala clareia em cima e se dissolve
+   no fundo da página embaixo. A linha de chão é desenhada pelo próprio pódio. */
+.major-gallery{position:relative;isolation:isolate;padding:clamp(22px,3.6cqi,44px) clamp(14px,2.6cqi,32px) clamp(22px,3.6cqi,44px)}
+.major-stage{position:absolute;inset:0;z-index:-1;overflow:hidden;border-radius:var(--radius-xl) var(--radius-xl) 0 0;pointer-events:none;background:linear-gradient(180deg,rgb(var(--rgb-white) / var(--major-room-alpha)),transparent 82%);box-shadow:inset 0 1px 0 rgb(var(--rgb-white) / .1);-webkit-mask-image:linear-gradient(180deg,#000 58%,transparent);mask-image:linear-gradient(180deg,#000 58%,transparent);animation:major-fade 900ms ease-out backwards}
+.major-stage > span{position:absolute;inset:0}
+/* Luz quente vinda de cima: o palco "acende". */
+.major-stage-light{background:radial-gradient(56% 62% at 50% 0%,rgb(var(--rgb-accent-hi) / var(--major-light-alpha)),rgb(var(--rgb-accent-hi) / calc(var(--major-light-alpha) * .3)) 46%,transparent 76%);transform-origin:50% 0;animation:major-light-on 1100ms var(--ease-out) 120ms backwards}
+.major-stage-vignette{background:radial-gradient(120% 96% at 50% 26%,transparent 46%,rgb(var(--rgb-void) / var(--major-vignette-alpha)) 100%)}
 
-.major-section-heading{margin-bottom:18px}
-.major-section-heading h2{margin:0 0 6px;font-size:var(--text-xl);font-weight:850;letter-spacing:var(--tracking-tight)}
-.major-section-heading p{margin:0;max-width:72ch;color:var(--color-text-muted);font-size:.85rem;line-height:1.6}
-
-/* Demais duplas: lista compacta e neutra de quem está fora do pódio. */
-.major-ranking-list{margin:0;padding:4px 22px;list-style:none;background:var(--color-surface);border:1px solid var(--color-border-strong);border-radius:20px;box-shadow:var(--shadow-md),var(--edge-light)}
-.major-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto 68px;align-items:center;gap:8px 18px;padding:14px 0;animation:rise-in var(--motion-enter) 200ms backwards}
-.major-row:nth-child(2){animation-delay:250ms}
-.major-row:nth-child(3){animation-delay:300ms}
-.major-row:nth-child(4){animation-delay:350ms}
-.major-row:nth-child(n + 5){animation-delay:400ms}
-.major-row + .major-row{border-top:1px solid var(--color-border)}
-.major-row-rank{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;border:1px solid var(--color-border-strong);background:var(--color-surface-alt);font-size:1rem;font-weight:850;letter-spacing:-.02em;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
-.major-row-duo{display:flex;min-width:0;flex-direction:column;align-items:flex-start;gap:4px}
-.major-row-duo strong{font-size:.98rem;font-weight:750;line-height:1.35;overflow-wrap:anywhere}
-.major-row-duo span{color:var(--color-text-muted);font-size:.76rem;line-height:1.5}
+/* ---------- Também levantaram o caneco: campeãs abaixo do 3º lugar ---------- */
+.major-also{align-self:center;width:100%;max-width:860px}
+.major-also h2{display:flex;align-items:center;gap:14px;margin:0 0 12px;font-size:.76rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--color-text-muted)}
+.major-also h2::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--color-border-strong),transparent)}
+.major-also-list{margin:0;padding:2px 20px;list-style:none;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm),var(--edge-light)}
+.major-also-row{display:grid;grid-template-columns:40px minmax(0,1fr) fit-content(48%) auto;align-items:center;gap:8px 16px;padding:12px 0;animation:rise-in var(--motion-enter) 260ms backwards}
+.major-also-row:nth-child(2){animation-delay:310ms}
+.major-also-row:nth-child(3){animation-delay:360ms}
+.major-also-row:nth-child(n + 4){animation-delay:410ms}
+.major-also-row + .major-also-row{border-top:1px solid var(--color-border)}
+.major-also-rank{display:grid;place-items:center;width:40px;height:40px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);background:var(--color-surface-alt);font-size:.92rem;font-weight:850;letter-spacing:-.02em;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
+.major-also-duo{display:flex;min-width:0;flex-wrap:wrap;align-items:center;gap:4px 10px}
+.major-also-duo strong{min-width:0;font-size:.96rem;font-weight:750;line-height:1.35;overflow-wrap:anywhere}
 /* "Sua dupla": selo neutro, na cor do texto. */
-.major-row-mine .major-row-duo span{padding:1px 9px;border-radius:var(--radius-full);border:1px solid color-mix(in srgb,var(--color-text) 42%,transparent);color:var(--color-text);font-size:.7rem;font-weight:750}
-.major-row-editions{--plaque-delay:320ms;justify-content:flex-end}
-.major-row-titles{grid-column:4;display:flex;flex-direction:column;align-items:flex-end;gap:3px;color:var(--color-text-muted);font-size:.74rem;font-weight:650;white-space:nowrap}
-.major-row-titles b{font-size:1.5rem;font-weight:850;line-height:1;letter-spacing:-.03em;color:var(--color-text);font-variant-numeric:tabular-nums}
-.major-row-untitled .major-row-titles b{color:var(--color-text-faint)}
+.major-also-mine{padding:1px 9px;border-radius:var(--radius-full);border:1px solid color-mix(in srgb,var(--color-text) 42%,transparent);color:var(--color-text);font-size:.68rem;font-weight:750;line-height:1.5;white-space:nowrap}
+.major-also-editions{--plaque-delay:380ms;justify-content:flex-end}
+.major-also-titles{display:flex;align-items:baseline;justify-content:flex-end;gap:5px;min-width:74px;color:var(--color-text-muted);font-size:.74rem;font-weight:650;white-space:nowrap}
+.major-also-titles b{font-size:1.4rem;font-weight:850;line-height:1;letter-spacing:-.03em;color:var(--color-text);font-variant-numeric:tabular-nums}
 
 @keyframes major-fade{from{opacity:0}}
+@keyframes major-line{from{opacity:0;transform:scaleX(0)}}
+@keyframes major-light-on{from{opacity:0;transform:scale(.6)}}
 
-@container (max-width:860px){
-  .major-hero{grid-template-columns:minmax(0,1fr)}
-  .major-hero-warmth{background:radial-gradient(70% 46% at 60% 88%,rgb(var(--rgb-accent) / var(--major-warm-alpha)),transparent 100%)}
-  .major-mine{grid-template-columns:auto minmax(0,1fr)}
-  .major-mine-stats{grid-column:1 / -1}
-  .major-mine-stats > div:first-child{padding-left:0}
-  .major-mine-link{grid-column:1 / -1}
+/* Tablet e celular: o link desce para baixo da frase. */
+@container (max-width:720px){
+  .major-hero{grid-template-columns:minmax(0,1fr);grid-template-areas:"eyebrow" "title" "message" "link"}
+  .major-hero-link{justify-self:start;margin-top:14px}
 }
 @container (max-width:560px){
-  .major-hero-link{width:100%}
+  .major-hero-link{justify-self:stretch;min-height:48px}
   .major-hero-eyebrow{gap:6px;padding-inline:9px 11px;font-size:.64rem;letter-spacing:.05em;white-space:nowrap}
-  .major-hero-stats > div{flex:1;padding:2px 14px}
-  .major-mine{padding:22px 20px;gap:14px 16px}
-  .major-mine > .team-crest{width:54px;height:54px;border-radius:16px;font-size:1.15rem}
-  .major-ranking-list{padding:2px 16px}
-  .major-row{grid-template-columns:40px minmax(0,1fr) auto;gap:8px 12px}
-  .major-row-rank{width:40px;height:40px;border-radius:12px;font-size:.92rem}
-  .major-row-duo strong{font-size:.92rem}
-  .major-row-editions{grid-column:2 / -1;grid-row:2;justify-content:flex-start}
-  .major-row-titles{grid-column:3;grid-row:1}
-  .major-row-titles b{font-size:1.3rem}
-}
-@media(max-width:600px){
-  .major-champions-page{gap:26px}
+  /* No celular as vitrines usam a largura toda: do palco fica só a luz, sem sala nem vinheta. */
+  .major-gallery{padding:14px 0 18px}
+  .major-stage{inset:-10px 0 0;border-radius:0;background:none;box-shadow:none}
+  .major-stage-vignette{display:none}
+  .major-also-list{padding:2px 14px}
+  .major-also-row{grid-template-columns:40px minmax(0,1fr) auto;gap:8px 12px}
+  .major-also-editions{grid-column:2 / -1;grid-row:2;justify-content:flex-start}
+  .major-also-titles{grid-column:3;grid-row:1;min-width:0}
 }

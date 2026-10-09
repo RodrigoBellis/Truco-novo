@@ -9,7 +9,13 @@ import { supabase } from "../lib/supabaseClient";
  *
  * Debounce de 300ms: uma geração de escala pode disparar dezenas de eventos de uma vez
  * (uma linha por partida), e não faz sentido refetch uma vez por linha.
+ *
+ * Rede de segurança: o tempo real não entrega tudo (a RLS não notifica o jogador sobre jogos
+ * de mata-mata de outras duplas) e a conexão pode cair sem aviso. Por isso a tela também se
+ * atualiza sozinha a cada 20 s enquanto está visível e sempre que volta a ficar visível.
  */
+const FALLBACK_REFRESH_MS = 20_000;
+
 export function useRealtimeMatches(onChange: () => void) {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -25,8 +31,16 @@ export function useRealtimeMatches(onChange: () => void) {
       })
       .subscribe();
 
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") onChangeRef.current();
+    };
+    const fallbackTimer = window.setInterval(refreshIfVisible, FALLBACK_REFRESH_MS);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
     return () => {
       window.clearTimeout(debounceTimer);
+      window.clearInterval(fallbackTimer);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
       void supabase.removeChannel(channel);
     };
   }, []);

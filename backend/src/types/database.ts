@@ -1,5 +1,6 @@
 // Gerado via mcp_supabase.generate_typescript_types (projeto "CRM", sfllpogpuqukhjddwiel).
-// Não editar à mão — regenerar após qualquer migration truco_*.
+// RPCs/revisão locais adicionados para a migration transacional NÃO APLICADA.
+// Regenerar os tipos após validá-la em homologação.
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
@@ -77,6 +78,8 @@ export type Database = {
           name: string;
           /** Cadeado global de resultados (migration 202610070002). Ausente até a migração ser aplicada. */
           results_locked: boolean;
+          progression_revision?: number;
+          progression_pending?: boolean;
           status: Database["public"]["Enums"]["truco_championship_status"];
           truco_id: string;
           updated_at: string;
@@ -108,6 +111,7 @@ export type Database = {
       };
       truco_history: {
         Row: {
+          truco_championship_id?: string;
           champion_team_id: string | null;
           created_at: string;
           edition: number;
@@ -115,14 +119,12 @@ export type Database = {
           name: string;
           notes: string;
           runner_up_team_id: string | null;
-          truco_championship_id: string;
           truco_id: string;
           year: number;
         };
         Insert: Partial<Database["public"]["Tables"]["truco_history"]["Row"]> & {
           edition: number;
           name: string;
-          truco_championship_id: string;
           year: number;
         };
         Update: Partial<Database["public"]["Tables"]["truco_history"]["Row"]>;
@@ -272,6 +274,14 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      truco_rpc_record_match_result_v2: {
+        Args: { p_actor_id: string; p_championship_id: string; p_match_id: string; p_sets_a: number; p_sets_b: number; p_expected_revision: number };
+        Returns: undefined;
+      };
+      truco_rpc_apply_knockout_plan: {
+        Args: { p_championship_id: string; p_expected_revision: number; p_steps: Json };
+        Returns: undefined;
+      };
       truco_rpc_save_team_participation: {
         Args: { p_championship_id: string; p_group_id: string; p_player_1_id: string; p_player_2_id: string; p_strength: number; p_team_id: string | null; p_team_name: string };
         Returns: string;

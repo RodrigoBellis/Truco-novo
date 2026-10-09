@@ -1,7 +1,6 @@
 import type { MatchResult } from "@truco/shared";
 import { store } from "../../data/simulationStore.js";
-import { isGroupComplete } from "./standingsService.js";
-import { generateBracket, resolveBracketProgression, BracketError } from "./bracketService.js";
+import { resolveBracketProgression } from "./bracketService.js";
 
 export class MatchError extends Error {}
 
@@ -19,16 +18,8 @@ export function recordResult(matchId: string, result: MatchResult): void {
   match.result = result;
   match.status = "realizado";
 
-  if (match.stage === "grupos" && store.bracketMatches.length === 0) {
-    if (isGroupComplete("A") && isGroupComplete("B")) {
-      try {
-        generateBracket();
-      } catch (error) {
-        // Empate exato pendente: o chaveamento espera a decisão do administrador.
-        if (!(error instanceof BracketError)) throw error;
-      }
-    }
-  } else if (match.stage === "mata-mata") {
-    resolveBracketProgression();
-  }
+  // Mesma regra do campeonato real: o mata-mata nasce sozinho quando a fase de grupos fecha
+  // sem empate pendente (empate absoluto espera a decisão do administrador) e cada fase
+  // encerrada abre a seguinte.
+  resolveBracketProgression();
 }

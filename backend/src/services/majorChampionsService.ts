@@ -1,4 +1,6 @@
 import { supabaseAdmin } from "../data/supabaseClient.js";
+import { isRehearsalMode } from "../utils/rehearsalMode.js";
+import { rehearsalStore } from "../data/rehearsalStore.js";
 import { buildMajorChampions, resolveRankingPairs, type MajorChampionEntry, type TeamPairSource } from "@truco/shared";
 
 export type { MajorChampionEntry } from "@truco/shared";
@@ -35,8 +37,15 @@ function missingMembershipTable(error: { code?: string; message: string }): bool
   return (error.code === "PGRST205" || error.code === "42P01") && error.message.includes("truco_team_memberships");
 }
 
-/** Lê somente nomes, participações históricas e campeões; sem expor e-mails ou dados de conta. */
-export async function getMajorChampions(): Promise<MajorChampionEntry[]> {
+interface MajorChampionRows {
+  teams: TeamRow[];
+  members: MemberRow[];
+  memberships: MembershipRow[];
+  players: PlayerRow[];
+  history: HistoryRow[];
+}
+
+async function loadRows(): Promise<MajorChampionRows> {
   const [teamsResult, membersResult, membershipsResult, playersResult, historyResult] = await Promise.all([
     supabaseAdmin.from("truco_teams").select("truco_id, status, is_placeholder").returns<TeamRow[]>(),
     supabaseAdmin.from("truco_team_members").select("truco_team_id, truco_player_id, position").returns<MemberRow[]>(),
@@ -57,6 +66,24 @@ export async function getMajorChampions(): Promise<MajorChampionEntry[]> {
   if (membershipsResult.error && !missingMembershipTable(membershipsResult.error)) {
     throw new Error(`Não foi possível carregar as participações históricas: ${membershipsResult.error.message}`);
   }
+  return {
+    teams: teamsResult.data ?? [],
+    members: membersResult.data ?? [],
+    memberships: membershipsResult.data ?? [],
+    players: playersResult.data ?? [],
+    history: historyResult.data ?? [],
+  };
+}
+
+/** Lê somente nomes, participações históricas e campeões; sem expor e-mails ou dados de conta. */
+export async function getMajorChampions(): Promise<MajorChampionEntry[]> {
+  // Modo ensaio: as mesmas linhas, vindas da memória; o cálculo abaixo é o mesmo.
+  const rows = isRehearsalMode() ? rehearsalStore().majorChampionRows() : await loadRows();
+  const teamsResult = { data: rows.teams };
+  const membersResult = { data: rows.members };
+  const membershipsResult = { data: rows.memberships };
+  const playersResult = { data: rows.players };
+  const historyResult = { data: rows.history };
 
   const teams = teamsResult.data ?? [];
   const historicalTitles = (historyResult.data ?? []).map((row) => ({ teamId: row.champion_team_id, edition: row.edition }));

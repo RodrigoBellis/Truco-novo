@@ -491,3 +491,172 @@
 @keyframes podium-cup-in {
   from { opacity: 0; transform: translate3d(0, 16px, 0) scale(0.88); }
 }
+
+/* ---------- Galeria (página Maiores Campeões) ----------
+   Tudo daqui para baixo vale só para a versão grande (`.champions-podium-gallery`); a compacta
+   da abertura não leva esta classe e não muda. O ambiente (luz de cima e vinheta) é da página;
+   aqui ficam a linha de chão, as proporções e a entrada do ouro. */
+.champions-podium-gallery,
+.champions-podium-gallery .champions-podium-tier { gap: 20px; }
+
+.champions-podium-gallery .champions-podium-tier {
+  position: relative;
+  isolation: isolate;
+}
+
+/* Linha de chão: horizonte atrás das vitrines de ouro, com a luz que escorre no piso. Só com um
+   ouro sozinho: entre empatados a linha apareceria solta no vão das vitrines. */
+.champions-podium-gallery .champions-podium-tier-1:has(> :only-child)::before,
+.champions-podium-gallery .champions-podium-tier-1:has(> :only-child)::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  animation: podium-fade-in 900ms ease-out 240ms backwards;
+}
+
+.champions-podium-gallery .champions-podium-tier-1:has(> :only-child)::before {
+  inset: auto 0 15%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(var(--rgb-accent-hi) / 0.55) 9%, rgb(var(--rgb-accent-hi) / 0.55) 91%, transparent);
+}
+
+.champions-podium-gallery .champions-podium-tier-1:has(> :only-child)::after {
+  inset: 85% 0 0;
+  background: linear-gradient(180deg, rgb(var(--rgb-accent-hi) / 0.12), transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+}
+
+/* A vitrine ocupa a altura da fileira: duplas empatadas ficam com a mesma altura. */
+.champions-podium-gallery .champions-podium-place {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Vitrine sozinha na fileira não estica: fica centralizada, com largura limitada. */
+.champions-podium-gallery .champions-podium-place:only-child {
+  justify-self: center;
+  width: 100%;
+  max-width: 640px;
+}
+
+.champions-podium-gallery .champions-podium-place-1:only-child { max-width: 820px; }
+
+/* Prata e 3º lugar: posição presa em cima e plaquinhas presas embaixo; o nome ocupa o meio.
+   Assim, entre empatadas, posição, contagem e plaquinhas ficam na mesma linha mesmo quando
+   um nome quebra em mais linhas que o outro. */
+.champions-podium-gallery :is(.champions-podium-place-2, .champions-podium-place-3) .champions-podium-case {
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "stage head count"
+    "stage name name"
+    "stage plaques plaques";
+}
+
+/* A posição reserva a altura do selo "Sua dupla": fica na mesma linha entre empatadas com o
+   selo ao lado, embaixo ou ausente. */
+.champions-podium-gallery .champions-podium-rank { min-height: 24px; }
+
+/* Vitrine média: a contagem divide a linha com a posição e acompanha a primeira linha dela. */
+@container vitrine (min-width: 300px) and (max-width: 379px) {
+  .champions-podium-gallery :is(.champions-podium-place-2, .champions-podium-place-3) .champions-podium-titles { align-self: start; }
+}
+
+/* O nome encosta nas plaquinhas: o selo "Sua dupla" pode deixar a linha da posição mais alta
+   numa das empatadas, e centralizado o nome sairia de linha em relação à vizinha. */
+.champions-podium-gallery :is(.champions-podium-place-2, .champions-podium-place-3) h3 { align-self: end; }
+
+@container vitrine (max-width: 299px) {
+  .champions-podium-gallery :is(.champions-podium-place-2, .champions-podium-place-3) .champions-podium-case {
+    grid-template-rows: auto 1fr auto auto;
+    grid-template-areas:
+      "stage head head"
+      "stage name name"
+      "stage plaques plaques"
+      "stage count count";
+  }
+}
+
+@container vitrine (min-width: 380px) {
+  .champions-podium-gallery :is(.champions-podium-place-2, .champions-podium-place-3) .champions-podium-case {
+    grid-template-areas:
+      "stage head count"
+      "stage name count"
+      "stage plaques count";
+  }
+}
+
+/* Ouro: caneco maior. Empilhado (celular) o caneco fica em cima e o texto abaixo. */
+.champions-podium-gallery .champions-podium-place-1 .champions-podium-case {
+  --cup: clamp(128px, 42cqi, 168px);
+  --pad: 22px 18px;
+}
+
+@container vitrine (min-width: 480px) {
+  .champions-podium-gallery .champions-podium-place-1 .champions-podium-case {
+    --cup: clamp(132px, 22cqi, 184px);
+    --pad: 26px clamp(22px, 4.6cqi, 44px) 30px clamp(20px, 3.6cqi, 36px);
+  }
+
+  .champions-podium-gallery .champions-podium-place-1 h3 { font-size: clamp(1.6rem, 1.1rem + 2.4cqi, 2.5rem); }
+
+  /* Empate em 1º: mesmo alinhamento das pratas empatadas. */
+  .champions-podium-gallery .champions-podium-place-1:not(:only-child) .champions-podium-case {
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      "stage head count"
+      "stage name count"
+      "stage plaques count";
+  }
+
+  .champions-podium-gallery .champions-podium-place-1:not(:only-child) h3 { align-self: center; }
+}
+
+/* Facho de luz que desce sobre o caneco de ouro. */
+.champions-podium-gallery .champions-podium-place-1 .champions-podium-stage::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(var(--cup) * -0.9);
+  width: calc(var(--cup) * 2.6);
+  height: calc(var(--cup) * 2.2);
+  margin-left: calc(var(--cup) * -1.3);
+  background: conic-gradient(from 157deg at 50% 0%, transparent 0deg, rgb(var(--v-light) / 0.2) 23deg, transparent 46deg, transparent 360deg);
+  -webkit-mask-image: linear-gradient(180deg, #000 30%, transparent 92%);
+  mask-image: linear-gradient(180deg, #000 30%, transparent 92%);
+  transform-origin: 50% 0;
+  pointer-events: none;
+  animation: podium-light-in 900ms var(--ease-out) calc(var(--place-delay, 0ms) + 40ms) backwards;
+}
+
+/* O caneco de ouro sobe de mais longe e assenta com um leve repique (vem da curva, não de
+   um quadro intermediário). */
+.champions-podium-gallery .champions-podium-place-1 .champions-podium-cup {
+  --trophy-shine-delay: calc(var(--place-delay, 0ms) + 1050ms);
+  animation: podium-cup-rise 980ms cubic-bezier(0.22, 1.25, 0.36, 1) calc(var(--place-delay, 0ms) + 260ms) backwards;
+}
+
+/* Uma varredura de brilho cruza a vitrine de ouro na entrada; depois, só no hover. */
+.champions-podium-gallery .champions-podium-place-1::after {
+  animation: podium-sweep 1200ms cubic-bezier(0.4, 0, 0.2, 1) calc(var(--place-delay, 0ms) + 900ms) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .champions-podium-gallery .champions-podium-place:hover { transform: none; }
+  .champions-podium-gallery .champions-podium-place::after { display: none; }
+}
+
+@keyframes podium-fade-in {
+  from { opacity: 0; }
+}
+
+@keyframes podium-cup-rise {
+  from { opacity: 0; transform: translate3d(0, 40px, 0) scale(0.86); }
+}
+
+/* Como o brilho do caneco (`opening-shine`): vai e, ao terminar, volta ao repouso fora da vitrine. */
+@keyframes podium-sweep {
+  from { transform: translateX(-101%); }
+  to { transform: translateX(101%); }
+}

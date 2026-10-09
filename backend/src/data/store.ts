@@ -13,11 +13,16 @@ import type {
   DrawStatus,
   StandingOverride,
   UserRole,
+  KnockoutStep,
+  EditionChampionRecord,
 } from "@truco/shared";
 import { MATCHES_PER_GROUP } from "@truco/shared";
 import { supabaseAdmin } from "./supabaseClient.js";
 import type { Database } from "../types/database.js";
 import { EditionSetupError } from "../services/editionSetupError.js";
+import { StoreConflictError, StoreOperationError } from "./storeErrors.js";
+import { isRehearsalMode } from "../utils/rehearsalMode.js";
+import { createRehearsalStore } from "./rehearsalStore.js";
 
 type TeamRow = Database["public"]["Tables"]["truco_teams"]["Row"];
 type MatchRow = Database["public"]["Tables"]["truco_matches"]["Row"];
@@ -28,7 +33,10 @@ function fail(action: string, error: { message: string; code?: string } | null):
   if ((error?.code === "PGRST205" || error?.code === "42P01") && error.message.includes("truco_team_memberships")) {
     throw new EditionSetupError("A edição precisa receber a migration 202610050001_manual_edition_participation.sql no Supabase antes de carregar as duplas. Avise o administrador do campeonato.");
   }
-  throw new Error(`Falha ao ${action}: ${error?.message ?? "erro desconhecido"}`);
+  // Unicidade recusada pelo banco: outra requisição (ou outra instância) já gravou o mesmo.
+  if (error?.code === "23505") throw new StoreConflictError(`Conflito ao ${action}: ${error.message}`);
+  const code = error?.code ?? (/fetch|network|connection|timeout/i.test(error?.message ?? "") ? "08006" : "unknown");
+  throw new StoreOperationError(`Falha ao ${action}`, code, error?.message);
 }
 
 function mapMatch(row: MatchRow): Match {
@@ -94,7 +102,33 @@ function mapTeam(row: TeamRow, groupLabel: string | null, memberIds: [string, st
   };
 }
 
+export interface EditionChampionInput {
+  championshipId: string;
+  edition: number;
+  name: string;
+  year: number;
+  championTeamId: string;
+  runnerUpTeamId: string;
+  finalResult: string;
+  notes: string;
+}
+
 class TrucoRepository {
+  async applyKnockoutPlan(championshipId: string, revision: number | undefined, steps: KnockoutStep[]): Promise<boolean> {
+    if (revision === undefined) throw new StoreOperationError("Migração transacional do campeonato ausente.", "migration_required");
+    const { error } = await supabaseAdmin.rpc("truco_rpc_apply_knockout_plan", {
+      p_championship_id: championshipId, p_expected_revision: revision, p_steps: steps as unknown as Database["public"]["Functions"]["truco_rpc_apply_knockout_plan"]["Args"]["p_steps"],
+    });
+    if (error?.code === "40001") throw new StoreConflictError("O campeonato mudou; releia o estado.");
+    if (error) fail("avançar o mata-mata em transação", error);
+    return true;
+  }
+  async getResultActor(actorId: string): Promise<{ id: string; role: UserRole; playerId: string; mustChangePassword: boolean } | null> {
+    const { data, error } = await supabaseAdmin.from("truco_profiles")
+      .select("truco_id, role, truco_player_id, must_change_password").eq("truco_id", actorId).maybeSingle();
+    if (error) fail("validar o jogador", error);
+    return data ? { id: data.truco_id, role: data.role, playerId: data.truco_player_id, mustChangePassword: data.must_change_password } : null;
+  }
   newId(): string {
     return randomUUID();
   }
@@ -585,14 +619,18 @@ class TrucoRepository {
     }));
   }
 
-  async saveMatchResult(input: { championshipId: string; matchId: string; result: MatchResult; actorId: string }): Promise<void> {
-    const { error } = await supabaseAdmin.rpc("truco_rpc_record_match_result", {
+  async saveMatchResult(input: { championshipId: string; matchId: string; result: MatchResult; actorId: string; expectedRevision?: number }): Promise<void> {
+    if (input.expectedRevision === undefined) throw new StoreOperationError("Migração transacional do campeonato ausente.", "migration_required");
+    const { error } = await supabaseAdmin.rpc("truco_rpc_record_match_result_v2", {
       p_championship_id: input.championshipId,
       p_match_id: input.matchId,
       p_sets_a: input.result.setsA,
       p_sets_b: input.result.setsB,
       p_actor_id: input.actorId,
+      p_expected_revision: input.expectedRevision,
     });
+    if (error?.code === "40001") throw new StoreConflictError("O campeonato mudou; atualize os dados antes de salvar.");
+    if (error?.code === "42501") throw new StoreOperationError("Permissão para gravar o resultado mudou.", "42501");
     if (error) fail("salvar resultado e auditoria", error);
   }
 
@@ -702,6 +740,19 @@ class TrucoRepository {
     if (error) fail("vincular a partida ao mata-mata", error);
   }
 
+  /**
+   * Desfaz o mata-mata: apaga o chaveamento (ele aponta para os jogos, então vai primeiro) e
+   * os jogos de mata-mata ainda sem placar. Jogo com placar nunca é apagado aqui. Rodar de
+   * novo depois de uma falha no meio termina o serviço.
+   */
+  async clearKnockout(championshipId: string): Promise<void> {
+    const { error: bracketError } = await supabaseAdmin.from("truco_bracket_matches").delete().eq("truco_championship_id", championshipId);
+    if (bracketError) fail("desfazer o chaveamento", bracketError);
+    const { error: matchError } = await supabaseAdmin.from("truco_matches").delete()
+      .eq("truco_championship_id", championshipId).eq("stage", "mata-mata").eq("status", "pendente");
+    if (matchError) fail("remover os jogos pendentes do mata-mata", matchError);
+  }
+
   // ---------- Histórico ----------
 
   async listHistory(): Promise<HistoryEntry[]> {
@@ -758,6 +809,67 @@ class TrucoRepository {
     if (error) fail("registrar a edição no histórico", error);
   }
 
+  /** Campeão e vice gravados no histórico para esta edição (null enquanto não houver linha). */
+  async getEditionChampion(championshipId: string): Promise<EditionChampionRecord | null> {
+    const championship = await this.getCurrentChampionship();
+    if (championship.truco_id !== championshipId) throw new StoreOperationError("A edição em andamento mudou.", "edition_changed");
+    const { data, error } = await supabaseAdmin.from("truco_history")
+      .select("champion_team_id, runner_up_team_id, final_result")
+      .eq("edition", championship.edition).order("created_at", { ascending: true }).limit(1);
+    if (error) fail("consultar o campeão da edição", error);
+    const row = data?.[0];
+    return row ? { championTeamId: row.champion_team_id, runnerUpTeamId: row.runner_up_team_id, finalResult: row.final_result } : null;
+  }
+
+  /**
+   * Grava campeão e vice da edição: atualiza a linha da edição se ela existe, senão insere.
+   * Nunca fica mais de uma linha por edição — o banco tem UNIQUE (edition) em truco_history;
+   * se outra instância inserir no mesmo instante, a inserção daqui vira StoreConflictError e
+   * a rodada seguinte da sincronização cai no caminho de atualização.
+   *
+   * O Hall da Fama lê os nomes pelo par histórico da dupla (truco_team_members). Dupla criada
+   * só com participação por edição não tem esse par: ele é preenchido aqui, com o par da
+   * edição. Par histórico que já existe nunca é reescrito.
+   */
+  async saveEditionChampion(entry: EditionChampionInput): Promise<void> {
+    const championship = await this.getCurrentChampionship();
+    if (championship.truco_id !== entry.championshipId || championship.edition !== entry.edition) throw new StoreOperationError("A edição em andamento mudou.", "edition_changed");
+    // Complete os pares antes de publicar o campeão: falhas aqui permanecem recuperáveis.
+    for (const teamId of [entry.championTeamId, entry.runnerUpTeamId]) await this.ensureHistoricPair(entry.championshipId, teamId);
+    const outcome = { champion_team_id: entry.championTeamId, runner_up_team_id: entry.runnerUpTeamId, final_result: entry.finalResult, notes: entry.notes };
+    const { data: updated, error: updateError } = await supabaseAdmin.from("truco_history").update(outcome)
+      .eq("edition", entry.edition).select("truco_id");
+    if (updateError) fail("atualizar o campeão no histórico", updateError);
+    if ((updated ?? []).length === 0) {
+      const { error } = await supabaseAdmin.from("truco_history").insert({
+        edition: entry.edition, name: entry.name, year: entry.year, ...outcome,
+      });
+      if (error) fail("registrar o campeão no histórico", error);
+    }
+  }
+
+  private async ensureHistoricPair(championshipId: string, teamId: string): Promise<void> {
+    const { data: members, error } = await supabaseAdmin.from("truco_team_members").select("truco_player_id, position").eq("truco_team_id", teamId);
+    if (error) fail("consultar o par histórico da dupla", error);
+    const { data: membership, error: membershipError } = await supabaseAdmin.from("truco_team_memberships")
+      .select("truco_player_1_id, truco_player_2_id").eq("truco_championship_id", championshipId).eq("truco_team_id", teamId).maybeSingle();
+    if (membershipError) fail("consultar a participação da dupla", membershipError);
+    if (!membership) return;
+    if ((members ?? []).length > 0) {
+      const historic = new Set((members ?? []).map((member) => member.truco_player_id));
+      if (!historic.has(membership.truco_player_1_id) || !historic.has(membership.truco_player_2_id)) {
+        console.warn(`[histórico] A dupla ${teamId} tem par histórico diferente do par desta edição: o Hall da Fama vai mostrar o par histórico. Corrija os dados antes de divulgar.`);
+      }
+      return;
+    }
+    const { error: insertError } = await supabaseAdmin.from("truco_team_members").insert([
+      { truco_team_id: teamId, truco_player_id: membership.truco_player_1_id, position: 1 },
+      { truco_team_id: teamId, truco_player_id: membership.truco_player_2_id, position: 2 },
+    ]);
+    // 23505: outra requisição preencheu o mesmo par agora há pouco.
+    if (insertError && insertError.code !== "23505") fail("gravar o par histórico da dupla", insertError);
+  }
+
   async countHistoryEntries(): Promise<number> {
     const { count, error } = await supabaseAdmin.from("truco_history").select("truco_id", { count: "exact", head: true });
     if (error) fail("contar edições do histórico", error);
@@ -784,4 +896,8 @@ class TrucoRepository {
   }
 }
 
-export const store = new TrucoRepository();
+/** Contrato do armazenamento: o que rotas e serviços podem usar. O modo ensaio implementa o mesmo. */
+export type Store = Pick<TrucoRepository, keyof TrucoRepository>;
+
+/** Banco real (Supabase) ou, só com TRUCO_REHEARSAL=1 fora de produção, memória isolada. */
+export const store: Store = isRehearsalMode() ? createRehearsalStore() : new TrucoRepository();

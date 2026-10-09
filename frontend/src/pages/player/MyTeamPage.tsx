@@ -1,6 +1,5 @@
-import type { Player, StandingRow, Team } from "@truco/shared";
+import type { Match, Player, StandingRow, Team } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
-import { Card } from "../../components/ui/Card";
 import { Loading } from "../../components/ui/Loading";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { useAuth } from "../../hooks/useAuth";
@@ -10,11 +9,10 @@ import { Icon } from "../../components/ui/Icon";
 import { getTeams } from "../../services/teamsService";
 import { getPlayers } from "../../services/playersService";
 import { getStandings } from "../../services/groupsService";
-import { PlayerAvatar } from "../../components/ui/PlayerAvatar";
-import { TeamIdentityCard } from "../../components/truco/TeamIdentityCard";
-import { TeamCampaignStats } from "../../components/truco/TeamCampaignStats";
-import { TeamCrest } from "../../components/truco/TeamCrest";
-import { teamHue, teamTintStyle } from "../../utils/teamColor";
+import { getMatches } from "../../services/matchesService";
+import { TeamProfileHero } from "../../components/truco/TeamProfileHero";
+import { TeamPerformanceStrip } from "../../components/truco/TeamPerformanceStrip";
+import { TeamRecentResults } from "../../components/truco/TeamRecentResults";
 import "./MyTeamPage.css";
 
 interface TeamData {
@@ -22,6 +20,8 @@ interface TeamData {
   teams: Team[];
   players: Player[];
   standing: StandingRow | undefined;
+  /** `null` quando a busca de partidas falhou: só o histórico fica indisponível. */
+  matches: Match[] | null;
 }
 
 export function MyTeamPage() {
@@ -30,9 +30,15 @@ export function MyTeamPage() {
   const { data, isLoading, error, refetch } = useFetchData<TeamData>(async () => {
     const [teams, players] = await Promise.all([getTeams(), getPlayers()]);
     const team = teams.find((t) => t.id === user?.teamId);
-    const standings = team?.groupId ? await getStandings(team.groupId) : [];
-    const standing = standings.find((row) => row.teamId === team?.id);
-    return { team, teams, players, standing };
+    // A classificação é essencial (falha derruba a tela, como antes); as partidas não.
+    const [standingsResult, matchesResult] = await Promise.allSettled([
+      team?.groupId ? getStandings(team.groupId) : Promise.resolve<StandingRow[]>([]),
+      team ? getMatches({ teamId: team.id }) : Promise.resolve<Match[]>([]),
+    ]);
+    if (standingsResult.status === "rejected") throw standingsResult.reason;
+    const standing = standingsResult.value.find((row) => row.teamId === team?.id);
+    const matches = matchesResult.status === "fulfilled" ? matchesResult.value : null;
+    return { team, teams, players, standing, matches };
   }, [user?.teamId]);
   useRealtimeMatches(refetch);
 
@@ -40,7 +46,7 @@ export function MyTeamPage() {
   if (error) return <EmptyState icon={<Icon name="team" size={36} />} tone="danger" title="Não foi possível carregar sua dupla" description={error} />;
 
   const team = data?.team;
-  if (!team) {
+  if (!data || !team) {
     return (
       <div className="page-enter">
         <PageHeader title="Minha Dupla" />
@@ -49,29 +55,12 @@ export function MyTeamPage() {
     );
   }
 
-  const hue = teamHue(team.id, data?.teams);
-  const teammates = data?.players.filter((p) => p.id === team.player1Id || p.id === team.player2Id) ?? [];
-
   return (
-    <div className="page-enter">
-      <PageHeader title="Minha Dupla" subtitle={team.name} />
-
-      <TeamIdentityCard team={team} players={data?.players ?? []} teams={data?.teams} standing={data?.standing} playerId={user?.playerId} showMembers={false} />
-
-      <div className="my-team-players team-tint" style={teamTintStyle(hue)}>
-        {teammates.map((player) => (
-          <Card key={player.id} className="my-team-player-card">
-            <PlayerAvatar name={player.name} avatarUrl={player.avatarUrl} size="lg" />
-            <div className="my-team-player-text">
-              <strong>{player.name}</strong>
-              <p>{player.id === user?.playerId ? "Você" : "Parceiro de dupla"}</p>
-              <span className="my-team-player-team"><TeamCrest name={team.name} hue={hue} size="dot" />{team.name}{team.groupId ? ` · Grupo ${team.groupId}` : ""}</span>
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      <TeamCampaignStats standing={data?.standing} />
+    <div className="my-team page-enter">
+      <PageHeader title="Minha Dupla" subtitle="Truco do Novo · 5ª Edição" />
+      <TeamProfileHero team={team} players={data.players} teams={data.teams} standing={data.standing} playerId={user?.playerId} />
+      <TeamPerformanceStrip standing={data.standing} />
+      <TeamRecentResults teamId={team.id} teams={data.teams} matches={data.matches} />
     </div>
   );
 }

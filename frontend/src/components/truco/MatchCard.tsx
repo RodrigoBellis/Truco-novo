@@ -51,9 +51,11 @@ interface MatchCardProps {
  */
 export function MatchCard({ match, teamAName, teamBName, teamAStrength, teamBStrength, teamAHue, teamBHue, teamAPlayers = [], teamBPlayers = [], highlightTeamId, actions, live = false }: MatchCardProps) {
   const teamsRef = useValueChangePulse<HTMLDivElement>(formatScore(match.result));
+  // Pontos só existem na fase de grupos: no mata-mata o jogo vale a vaga, não a tabela.
+  const scored = match.stage !== "mata-mata" ? match.result : null;
   const sides = [
-    { id: match.teamAId, name: teamAName, strength: teamAStrength, hue: teamAHue, players: teamAPlayers, sets: match.result?.setsA, points: match.result ? pointsForResult(match.result, true) : null },
-    { id: match.teamBId, name: teamBName, strength: teamBStrength, hue: teamBHue, players: teamBPlayers, sets: match.result?.setsB, points: match.result ? pointsForResult(match.result, false) : null },
+    { id: match.teamAId, name: teamAName, strength: teamAStrength, hue: teamAHue, players: teamAPlayers, sets: match.result?.setsA, points: scored ? pointsForResult(scored, true) : null },
+    { id: match.teamBId, name: teamBName, strength: teamBStrength, hue: teamBHue, players: teamBPlayers, sets: match.result?.setsB, points: scored ? pointsForResult(scored, false) : null },
   ];
   const outcome = mineOutcome(match, highlightTeamId);
   const badge = outcome

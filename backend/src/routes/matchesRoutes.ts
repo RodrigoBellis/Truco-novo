@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { store } from "../data/store.js";
-import { recordResult } from "../services/matchService.js";
+import { EditionFinishedError, ResultConflictError, ResultPermissionError, recordResult } from "../services/matchService.js";
+import { ProgressionPendingError } from "../services/bracketService.js";
 import { requireAuth, requireRole } from "../middleware/requireAuth.js";
 import { RESULTS_LOCKED_MESSAGE } from "@truco/shared";
 import { canRecordEditionResult, resultsLockBlocks } from "../services/matchAuthorization.js";
@@ -75,7 +76,29 @@ matchesRoutes.post(
         return;
     }
 
-    await recordResult(championship.truco_id, matchId, { setsA: Number(setsA), setsB: Number(setsB) }, req.authUser!.id);
+    // Recusas: 403 = quem pede não pode (cadeado, não é da partida, edição encerrada);
+    // 409 = o estado do campeonato não permite essa alteração; 400 = placar inválido.
+    try {
+      await recordResult(championship.truco_id, matchId, { setsA: Number(setsA), setsB: Number(setsB) }, { id: req.authUser!.id, role: req.authUser!.role });
+    } catch (error) {
+      if (error instanceof ResultPermissionError) {
+        res.status(403).json({ message: error.message, code: error.code });
+        return;
+      }
+      if (error instanceof EditionFinishedError) {
+        res.status(403).json({ message: error.message, code: "edition_finished" });
+        return;
+      }
+      if (error instanceof ResultConflictError) {
+        res.status(409).json({ message: error.message, code: "result_conflict" });
+        return;
+      }
+      if (error instanceof ProgressionPendingError) {
+        res.status(503).json({ message: error.message, code: "progression_pending", resultSaved: true, retryable: error.retryable });
+        return;
+      }
+      throw error;
+    }
     res.json(await store.getMatch(matchId));
   }),
 );

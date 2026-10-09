@@ -6,7 +6,7 @@ export interface GroupMatchPair {
   order: number;
 }
 
-/** Gera os confrontos em turno único para um grupo completo (15 jogos com 6 duplas). */
+/** Gera os confrontos em turno único para um grupo completo (10 jogos com 5 duplas). */
 export function generateGroupMatches(teamIds: string[]): GroupMatchPair[] {
   if (teamIds.length !== TEAMS_PER_GROUP) {
     throw new RangeError(`A fase de grupos exige exatamente ${TEAMS_PER_GROUP} duplas por grupo.`);

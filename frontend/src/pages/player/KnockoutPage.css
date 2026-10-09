@@ -111,3 +111,133 @@
   border: 1px dashed var(--color-border-strong);
   background: var(--color-surface);
 }
+
+.knockout-rules p {
+  margin-top: 14px;
+  max-width: 78ch;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+}
+
+/* ---------- Sua dupla no mata-mata: avanço de fase, "Sua vez" e espera ----------
+   Tudo aqui vem do chaveamento (teamKnockoutStatus), então continua igual depois do refresh.
+   Laranja para quem avançou; neutro para quem se despediu. Verde e vermelho são das zonas. */
+.knockout-campaign {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 28px;
+  margin-bottom: 22px;
+  padding: 18px 20px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.knockout-campaign-running,
+.knockout-campaign-advanced,
+.knockout-campaign-champion {
+  border-color: rgb(var(--rgb-accent) / 0.6);
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgb(var(--rgb-accent) / 0.16), transparent 62%),
+    var(--color-surface);
+}
+
+.knockout-campaign-champion { box-shadow: 0 18px 34px -24px rgb(var(--rgb-accent) / 0.8); }
+
+.knockout-campaign-result {
+  flex: 1 1 280px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  animation: rise-in var(--motion-reveal) backwards;
+}
+
+.knockout-campaign-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgb(var(--rgb-accent) / 0.18);
+  color: var(--color-accent-500);
+  animation: pop-in 460ms var(--ease-out) 140ms backwards;
+}
+
+.knockout-campaign-eliminated .knockout-campaign-icon {
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+}
+
+.knockout-campaign-headline {
+  font-size: var(--text-lg);
+  font-weight: 850;
+  line-height: 1.2;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.knockout-campaign-eliminated .knockout-campaign-headline { font-weight: 750; color: var(--color-text-muted); }
+
+.knockout-campaign-detail {
+  margin-top: 4px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.knockout-campaign-turn {
+  flex: 1 1 260px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  max-width: 460px;
+}
+
+.knockout-campaign-label {
+  justify-self: start;
+  padding: 2px 9px;
+  border-radius: var(--radius-full);
+  background: var(--color-action);
+  color: var(--color-on-action);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.knockout-campaign-opponent {
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.knockout-campaign-opponent strong { color: var(--color-text); font-weight: 800; }
+
+.knockout-campaign-turn > .btn {
+  justify-self: start;
+  min-height: 44px;
+}
+
+.knockout-campaign-turn .score-preset { min-height: 44px; }
+.knockout-campaign-turn .score-form-actions { flex-wrap: wrap; }
+.knockout-campaign-turn .score-form-hint { overflow-wrap: anywhere; }
+
+.knockout-campaign-waiting {
+  flex: 1 1 260px;
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+@media (max-width: 640px) {
+  .knockout-campaign { padding: 16px; }
+  .knockout-campaign-turn { max-width: none; }
+  .knockout-campaign-turn > .btn { justify-self: stretch; }
+}

@@ -1,0 +1,22 @@
+-- Exclusivamente para um cluster PostgreSQL descartável criado pelo script local.
+create role anon; create role authenticated; create role service_role;
+create type public.truco_bracket_round as enum ('oitavas','quartas','semifinal','final');
+create type public.truco_bracket_slot_type as enum ('direct','winner','tbd');
+create table public.truco_championships(truco_id uuid primary key,edition integer unique,name text,year integer,status text,current_phase text,results_locked boolean default true,updated_at timestamptz default now());
+create table public.truco_profiles(truco_id uuid primary key,truco_player_id uuid,role text,must_change_password boolean default false);
+create table public.truco_teams(truco_id uuid primary key,truco_championship_id uuid,name text);
+create table public.truco_groups(truco_id uuid primary key,truco_championship_id uuid);
+create table public.truco_team_memberships(truco_championship_id uuid,truco_team_id uuid,truco_player_1_id uuid,truco_player_2_id uuid);
+create table public.truco_standings_overrides(truco_championship_id uuid);
+create table public.truco_team_members(truco_team_id uuid,truco_player_id uuid,position integer,unique(truco_team_id,position));
+create table public.truco_history(truco_id uuid primary key default gen_random_uuid(),edition integer unique,name text,year integer,champion_team_id uuid,runner_up_team_id uuid,final_result text,notes text);
+create table public.truco_matches(truco_id uuid primary key default gen_random_uuid(),truco_championship_id uuid,stage text,round text,match_order integer,truco_team_a_id uuid,truco_team_b_id uuid,status text,sets_a integer,sets_b integer,updated_at timestamptz default now());
+create table public.truco_bracket_matches(truco_id uuid primary key,truco_championship_id uuid,round public.truco_bracket_round,label text,match_order integer,slot_a_type public.truco_bracket_slot_type,slot_a_team_id uuid,slot_a_source_id uuid references public.truco_bracket_matches(truco_id),slot_b_type public.truco_bracket_slot_type,slot_b_team_id uuid,slot_b_source_id uuid references public.truco_bracket_matches(truco_id),truco_match_id uuid references public.truco_matches(truco_id) on delete set null);
+create table public.truco_audit_log(truco_championship_id uuid,entity text,entity_id uuid,action text,truco_actor_id uuid,metadata jsonb);
+grant usage on schema public to service_role;
+grant all on all tables in schema public to service_role;
+insert into public.truco_championships values('00000000-0000-4000-8000-000000000005',5,'Ensaio local',2026,'em_andamento','Fase de Grupos',false,now());
+insert into public.truco_profiles values('00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000011','jogador',false),('00000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000012','jogador',false);
+insert into public.truco_team_memberships values('00000000-0000-4000-8000-000000000005','00000000-0000-4000-8000-000000000021','00000000-0000-4000-8000-000000000011','00000000-0000-4000-8000-000000000013'),('00000000-0000-4000-8000-000000000005','00000000-0000-4000-8000-000000000022','00000000-0000-4000-8000-000000000014','00000000-0000-4000-8000-000000000015');
+insert into public.truco_matches values('00000000-0000-4000-8000-000000000031','00000000-0000-4000-8000-000000000005','grupos','Grupo A',0,'00000000-0000-4000-8000-000000000021','00000000-0000-4000-8000-000000000022','pendente',null,null,now());
+insert into public.truco_history(edition,name,year,notes) values(1,'Histórico preservado',2022,'Antes');

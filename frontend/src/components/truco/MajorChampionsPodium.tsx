@@ -10,10 +10,12 @@ import "./MajorChampionsPodium.css";
 const METAL_BY_RANK: Record<number, TrophyMetal | undefined> = { 1: "gold", 2: "silver" };
 /** Intervalo da cascata de entrada entre uma vitrine e a seguinte. */
 const PLACE_STEP_MS = 120;
+/** Na galeria (versão grande) o ouro assenta primeiro; prata e 3º lugar esperam este tanto. */
+const GALLERY_TIER_PAUSE_MS = 180;
 
 interface MajorChampionsPodiumProps {
   entries: MajorChampionEntry[];
-  /** Versão enxuta, usada em "Quem já fez história" na abertura. */
+  /** Versão enxuta, usada em "Quem já fez história" na abertura. Sem ela o pódio é a galeria de Maiores Campeões. */
   compact?: boolean;
   /** `key` da dupla do jogador, quando ela está no ranking: ganha o selo neutro "Sua dupla". */
   mineKey?: string;
@@ -30,13 +32,14 @@ export function MajorChampionsPodium({ entries, compact = false, mineKey }: Majo
   const tiers = [1, 2, 3].map(rank => ({ rank, places: leaders.filter(entry => entry.rank === rank) })).filter(tier => tier.places.length > 0);
 
   return (
-    <div className={`champions-podium-real${compact ? " champions-podium-compact" : ""}`}>
+    <div className={`champions-podium-real ${compact ? "champions-podium-compact" : "champions-podium-gallery"}`}>
       {tiers.map(({ rank, places }) => (
         <div key={rank} className={`champions-podium-tier champions-podium-tier-${rank}`}>
           {places.map(entry => {
             const metal = METAL_BY_RANK[entry.rank];
+            const delay = leaders.indexOf(entry) * PLACE_STEP_MS + (!compact && entry.rank > 1 ? GALLERY_TIER_PAUSE_MS : 0);
             return (
-              <article key={entry.key} className={`champions-podium-place champions-podium-place-${entry.rank}`} style={{ "--place-delay": `${leaders.indexOf(entry) * PLACE_STEP_MS}ms` } as CSSProperties}>
+              <article key={entry.key} className={`champions-podium-place champions-podium-place-${entry.rank}`} style={{ "--place-delay": `${delay}ms` } as CSSProperties}>
                 <div className="champions-podium-case">
                   {metal ? (
                     <div className="champions-podium-stage" aria-hidden="true">

@@ -18,14 +18,15 @@ Campeonato entre amigos. O jogador entra por sua conta individual, mas acompanha
 
 Fonte de cores e escalas: `frontend/src/styles/variables.css`.
 
-- `TeamIdentityCard`: escudo na cor da dupla, nome, integrantes (você/parceiro), força, grupo, posição, zona atual e aprovação. Os números da campanha ficam em `TeamCampaignStats`.
-- `TeamCampaignStats`: pontos, vitórias, derrotas e saldo de sets em um único painel; sem classificação mostra travessões.
+- `TeamProfileHero`: card protagonista de Minha Dupla — os dois jogadores (você/parceiro), nome da dupla, força em estrelas, grupo, posição em texto pequeno e o botão do grupo. Substituiu `TeamIdentityCard` em 09/10/2026.
+- `TeamPerformanceStrip`: pontos, vitórias, derrotas e saldo de quedas numa faixa só; sem classificação mostra travessões. Substituiu `TeamCampaignStats` em 09/10/2026.
+- `TeamRecentResults`: os três jogos encerrados mais recentes da dupla, com adversário, placar, Vitória/Derrota e pontos.
 - `TeamCrest`: escudo/marca de cor da dupla, usado no card da dupla, no próximo confronto, nos jogos e na classificação.
 - `TeamStrength`: escala real de uma a cinco estrelas, com texto e rótulo acessível.
 - `MatchCard`: uma dupla por linha, sets e pontos associados a cada lado, resumo do placar e ações permitidas.
 - `StandingsTable`: tabela completa no desktop; estatísticas secundárias e situação junto à dupla no celular.
-- `MajorChampionsPodium`: pódio do ranking calculado pelo serviço central, com todos os empates preservados. Cada posição é uma vitrine com o caneco da abertura (`OpeningTrophy`): ouro no 1º, prata em todo 2º, 3º neutro sem metal. `compact` é a versão de “Quem já fez história” na abertura; `mineKey` marca “Sua dupla” com selo neutro.
-- `EditionPlaques`: plaquinha gravada (“3ª EDIÇÃO”), o único jeito de mostrar edições conquistadas no pódio e na lista. Rótulo acessível “Edições conquistadas”.
+- `MajorChampionsPodium`: pódio do ranking calculado pelo serviço central, com todos os empates preservados. Cada posição é uma vitrine com o caneco da abertura (`OpeningTrophy`): ouro no 1º, prata em todo 2º, 3º neutro sem metal. `compact` é a versão de “Quem já fez história” na abertura; sem `compact` é a galeria de Maiores Campeões; `mineKey` marca “Sua dupla” com selo neutro.
+- `EditionPlaques`: plaquinha gravada (“3ª EDIÇÃO”), o único jeito de mostrar edições conquistadas no pódio e na lista “Também levantaram o caneco”. Rótulo acessível “Edições conquistadas”.
 - `EditionTimeline`: linha do tempo do Hall da Fama, só por edições. Cada capítulo (`<li>` de uma `<ol>`) tem o caneco da abertura em ouro com a plaquinha da edição, duas cartas em leque (a manilha do naipe da edição), o número da edição em destaque, o rótulo “Campeões” com nomes e avatares e o botão “Ver detalhes da Nª edição”. A edição em disputa fecha a lista com caneco só no contorno e cartas viradas. O movimento vem de `hooks/useTimelineScroll` (sem biblioteca).
 - `TournamentHistory`: junta a `EditionTimeline` e o detalhe da edição escolhida (nome, campeões, vice e placar quando registrados, nota ou frase montada com dados reais, sem ano e sem contagem de títulos). A edição escolhida é controlada pela página.
 
@@ -36,6 +37,24 @@ Fonte de cores e escalas: `frontend/src/styles/variables.css`.
 ### Mata-mata (`/mata-mata` e `/admin/mata-mata`)
 
 Fluxo: Fase de grupos → Repescagem → Quartas de final → Semifinal → Final. As quartas só são montadas quando as duas repescagens terminam: cada 2º colocado enfrenta, sempre que possível, um vencedor vindo do outro grupo (`decideQuarterfinalPairing`). Antes disso o lado em aberto aparece como “Vencedor da repescagem”. Quando os dois vencedores saem do mesmo grupo o reencontro é inevitável: o card ganha o selo “Reencontro do grupo” e a tela explica o motivo. `KnockoutBracket` desenha o chaveamento a partir de `buildKnockoutView` (`@truco/shared`): cinco colunas ligadas por conectores no desktop (cada jogo na mesma linha do que o alimenta, por isso as Quartas 2 ficam acima das Quartas 1) e uma trilha vertical no celular, sem rolagem lateral — a troca é por container query. Antes do fim dos grupos a tela mostra as posições (“3º do Grupo A”) e, com jogos em andamento, quem ocupa cada uma hoje, marcado como provisório. Vencedor com faixa e placar laranja, perdedor apagado, conector aceso quando o jogo termina; o card do campeão usa o caneco da abertura e só ganha cor quando a final acaba. Movimento: colunas em cascata, conectores que se desenham, pulso quando uma vaga ou placar muda; nada em laço.
+
+#### Resultado no chaveamento e fases automáticas (09/10/2026, a pedido do usuário)
+
+Não existe mais “Gerar mata-mata”. O administrador só abre o cadeado de resultados; com os jogos de grupo encerrados a repescagem nasce sozinha, cada resultado promove o vencedor, as quartas só existem com as duas repescagens encerradas e a final registra o campeão e encerra a edição. A única pendência do administrador é o empate absoluto (“a decidir”); o mata-mata nasce logo depois da decisão. Nenhuma tela chama `POST /bracket/generate` nem diz que o administrador confirma ou gera fases.
+
+- **Lançar no próprio confronto.** Cada card do `KnockoutBracket` mostra fase, duplas, placar e situação (“Aguardando”, “A jogar”, “Encerrado”) e, no rodapé (`renderActions`), “Lançar resultado” (laranja) ou “Editar resultado” (discreto). O botão só aparece para integrante de uma das duas duplas, com o jogo criado, a dupla aprovada, o cadeado aberto e a edição sem campeão; para os demais o card é só leitura. O id do jogo vem de `summarizeKnockout().matchIds` (cruza `bracket.matchId` com o plano oficial), sem mudar `@truco/shared`.
+- **Um fluxo só.** `hooks/useResultEntry` concentra salvar, confirmar correção (`ConfirmDialog`), toasts e a recusa da API; Jogos, Mata-mata e o mata-mata do administrador usam o mesmo hook e o mesmo `ScoreForm`. Os textos mudam com a fase do jogo: no mata-mata falam de vaga e chaveamento, nunca de “classificação do seu grupo”. A mensagem da API aparece sempre como veio; num 403 o formulário fecha e o cadeado é relido.
+- **Cadeado fechado:** nenhum botão e o aviso `RESULTS_LOCKED_MESSAGE` no topo, como em Jogos.
+- **Painel “Sua dupla no mata-mata”** (topo da tela, só para quem tem dupla e com o chaveamento criado). É lido do chaveamento (`teamKnockoutStatus`), por isso sobrevive ao refresh e vale para os dois integrantes:
+  - avanço, com texto por fase: “Classificados para as quartas de final!”, “Classificados para a semifinal!”, “Vocês estão na final!”, “Campeões da 5ª edição!”, e o placar que decidiu;
+  - despedida sóbria: “Fim da campanha nesta edição” (também para quem ficou fora das vagas no grupo);
+  - “Sua vez”: o confronto pronto e sem placar, com o nome do adversário e o botão de lançar (o formulário abre no próprio painel);
+  - espera: “Vocês aguardam o vencedor das Quartas 2, na Semifinal 1.”
+  Avanço em laranja, despedida neutra; verde e vermelho continuam exclusivos das zonas. O toast do lançamento repete o texto do painel.
+- **Formulário de placar no card:** em coluna estreita do chaveamento largo os quatro placares viram 2×2 e os botões empilham (container query do rodapé); alvos de 44 px; cabe em 320 px.
+- **Movimento, tudo com fim:** o painel entra subindo e refaz a entrada quando a dupla passa de fase; nome da vaga, placar e situação pulsam quando mudam (`useValueChangePulse`). A tela não desmonta ao recarregar os dados, para o pulso acontecer. Nada em laço.
+- **Jogos:** filtro “Mata-mata” sempre presente (uma seção por fase; vazio explica que os jogos aparecem sozinhos). Jogo de mata-mata não mostra “+N pts”, e o “Próximo jogo” do topo troca a leitura da tabela do grupo pela fase do confronto.
+- **Admin (`/admin/mata-mata`):** sem botão de gerar. Explica que as fases nascem sozinhas, mostra o chaveamento, lista os jogos para “Registrar resultado” / “Corrigir resultado” (com confirmação) e, havendo empate pendente, aponta para Grupos (“Decidir o empate em Grupos”).
 
 ### Maiores Campeões e pódio histórico (redesenho de 09/10/2026)
 
@@ -48,6 +67,11 @@ Substitui o registro de 07/10/2026 (placa dourada chapada, medalhas e casas de e
 - Hierarquia do card: posição → nome → plaquinhas de edição; a contagem de títulos é o número de destaque (coluna à direita; na vitrine empilhada do celular fecha o card). A altura sai do conteúdo; nomes quebram, nunca são cortados.
 - Layout por container query da própria vitrine (`@container vitrine`): empilhada abaixo de 480 px no 1º lugar, caneco à esquerda nas demais.
 - Movimento, tudo com fim: vitrines em cascata, caneco sobe e assenta, uma varredura de brilho, contagem animada e plaquinhas em sequência. Hover (só ponteiro): leve elevação e um brilho que cruza a vitrine. Nada em laço.
+- Duas versões, a pedido do usuário (09/10/2026): `compact` (abertura, intocada) e a galeria de Maiores Campeões (`.champions-podium-gallery`, a versão sem `compact`). Tudo que é só da galeria fica sob essa classe, para não vazar para a abertura:
+  - caneco de ouro maior, com um facho de luz descendo sobre ele; sobe de mais longe e assenta com leve repique; uma varredura de brilho cruza a vitrine de ouro na entrada; prata e 3º lugar entram depois do ouro;
+  - vitrine sozinha na fileira não estica: ouro até 820 px, prata/3º até 640 px, centralizadas;
+  - empatadas têm a mesma altura, com posição em cima, plaquinhas embaixo e o nome no meio, para contagem e plaquinhas ficarem na mesma linha mesmo quando um nome quebra;
+  - linha de chão (horizonte) atrás da fileira do ouro.
 
 ## Semântica das cores
 
@@ -77,14 +101,14 @@ O usuário achou a tela anterior feia e confusa. Direção atual: placar esporti
 
 Remodelado em 09/10/2026 a pedido do usuário: Home enxuta, com cara de campeonato e não de dashboard. O jogador identifica na hora a dupla, a força, o grupo e o início do campeonato. Dois blocos, nesta ordem, abaixo do cabeçalho “Olá, {nome}!” (que mantém “Rever abertura”). A altura de cada bloco sai do conteúdo; medidas por container query de `.player-home`, porque a barra lateral reduz a largura útil.
 
-**1. Card da dupla (`HomeTeamHero`, só da Home; `TeamIdentityCard` continua em Minha Dupla, intacto).** É o elemento dominante.
+**1. Card da dupla (`HomeTeamHero`, só da Home; Minha Dupla tem o próprio card, `TeamProfileHero`).** É o elemento dominante.
 
 - Nome da dupla em destaque; os dois integrantes lado a lado com avatares grandes, anel na cor da dupla (`.team-tint`) e a marcação “Você” (selo neutro) / “Seu parceiro”, a partir de `user.playerId`.
 - Força em cinco estrelas grandes laranja/douradas com o texto “Força N de 5”; força ausente ou inválida mostra “Força a definir”, sem estrela.
 - Grupo como marca única na cor do grupo (`.group-tone`): “GRUPO” + letra em disco. Sem grupo: “Grupo a definir”.
 - Botão laranja “Ver meu grupo” → `/grupos` (que abre no grupo da dupla); sem grupo vira “Ver grupos”.
 - Luz no tratamento da abertura: feixe azul de cima à esquerda, calor laranja no canto oposto e um halo na cor da dupla atrás dos rostos; fio de 1 px na cor da dupla no topo. Intensidade por tema (`--hero-*-alpha`).
-- Não mostra posição, zona, aprovação, “cabeça de chave” nem pontos/vitórias/derrotas/saldo: isso mora em Minha Dupla e Grupos.
+- Não mostra posição, zona, aprovação, “cabeça de chave” nem pontos/vitórias/derrotas/saldo: posição e números moram em Minha Dupla e Grupos; a zona, só em Grupos.
 - Empilhado e centralizado abaixo de 620 px de container; duas colunas (texto e ação à esquerda, dupla à direita) acima disso. Nomes longos quebram.
 
 **2. Faixa “Rumo ao campeonato” (`EditionCountdown`).** Secundária, mais baixa que o card, uma composição só.
@@ -99,6 +123,19 @@ Remodelado em 09/10/2026 a pedido do usuário: Home enxuta, com cara de campeona
 Movimento, tudo com fim: cascata do `.page-enter`, luz do card revelando, integrantes subindo, estrelas acendendo uma a uma, seta do botão avançando no hover e botão afundando no clique. A contagem só troca o texto dos números (um tique por segundo, sem timer depois do horário), sem animação nem transição.
 
 Saíram da Home (09/10/2026): “Próximo confronto”, “Resumo da campanha”, o banner azul “O próximo caneco pode ter o nome de vocês” e as buscas de jogos, classificação e fila que só eles usavam. Jogador sem dupla vê “Sua dupla está a caminho” e a faixa. Sem atalhos repetindo o menu.
+
+### Minha Dupla (perfil da dupla, 09/10/2026)
+
+Remodelada a pedido do usuário para parecer o perfil oficial de uma dupla de campeonato. Substitui a composição anterior (card de identidade com escudo e posição gigante, um card por jogador e o painel “Resumo da campanha”). Prioridade de leitura: jogadores → força → grupo → desempenho → histórico. Quatro blocos, nesta ordem, medidos por container query de `.my-team` e limitados a 1080 px de largura.
+
+1. **Cabeçalho discreto.** `h1` “Minha Dupla” e o subtítulo “Truco do Novo · 5ª Edição” (texto fixo, como nas outras telas). Sem card; o subtítulo não repete o nome da dupla, que aparece uma única vez na página.
+2. **Card da dupla (`TeamProfileHero`), um card só.** Dois avatares grandes lado a lado, com anel na cor da dupla (`.team-tint`) e halo da mesma cor atrás; o nome de cada jogador sob o avatar, com “Você” (selo neutro) / “Seu parceiro” a partir de `user.playerId`. Nome da dupla em `h2` e cinco estrelas com “Força N de 5”; força ausente ou inválida mostra “Força a definir”, sem estrela. Grupo como marca na cor do grupo (`.group-tone`) e, ao lado, a posição em texto pequeno (“2º lugar”) só quando há classificação; sem grupo, “Grupo a definir”. Botão laranja “Ver meu grupo” → `/grupos` (“Ver grupos” sem grupo). Mesma luz do card do Início. Selos: só “Aprovação pendente”, e só quando a dupla não está aprovada; “Zona de…”, “Dupla aprovada” e “Cabeça de chave” saíram (a zona continua em Grupos).
+3. **Faixa de desempenho (`TeamPerformanceStrip`).** Pontos | Vitórias | Derrotas | Saldo de quedas numa faixa compacta, Pontos um pouco maior e em laranja. Os valores são os da linha da dupla em `getStandings`, sem recálculo; saldo com sinal; sem classificação, travessões. Não repete grupo, jogadores nem estrelas.
+4. **Histórico da dupla (`TeamRecentResults`).** Os três jogos encerrados mais recentes (`getMatches({ teamId })`, com placar lançado; mais recente = maior posição na fila, ordem original como desempate, mata-mata à frente dos grupos). Cada linha: adversário, placar em quedas do ponto de vista da dupla (“2 × 1”), selo Vitória/Derrota nas cores da tela Jogos e os pontos de `pointsForResult` (“+3 pts”). Botão “Ver todos os jogos” → `/jogos`. Sem jogo encerrado: “A campanha ainda não começou”. Se a busca de jogos falhar, só o histórico fica indisponível; o resto da página continua.
+
+Layout: no container largo (≥ 700 px) a identidade fica à esquerda e grupo + botão numa coluna à direita, separada por um fio; o nome desce para baixo dos rostos quando não cabe ao lado. No celular tudo centraliza, o botão ocupa a largura toda, a faixa vira grade 2×2 e cada jogo usa duas linhas. Nomes quebram, nunca são cortados.
+
+Movimento, tudo com fim: cascata do `.page-enter`, luz do card revelando, avatares em sequência, estrelas acendendo uma a uma, números contando até o valor (`AnimatedCounter`) e linhas do histórico em cascata. Hover só para ponteiro.
 
 ### Hall da Fama (linha do tempo por edições, 09/10/2026)
 
@@ -118,7 +155,16 @@ Remodelado a pedido do usuário: cada edição é um capítulo da história do T
 
 ### Maiores Campeões
 
-Ranking acumulado; o histórico por edição continua no Hall da Fama, alcançado por link. Cabeçalho sem card, com a luz da abertura (feixe azul e calor laranja dissolvidos no fundo): selo “Ranking histórico · Truco do Novo”, `h1`, frase curta, botão fantasma para o histórico e os três números reais (títulos, duplas campeãs, duplas no ranking) em linha, sem caixa. “Sua dupla na corrida” mostra posição, títulos e distância até o topo quando a dupla do jogador é encontrada no ranking pelos nomes dos integrantes; sem correspondência, o bloco não aparece. Quem está no pódio não reaparece embaixo: “Demais duplas” lista só quem ficou fora dele (posição, nome, legenda, plaquinhas quando houver título e contagem), compacta e neutra, e some quando todas as duplas estão no pódio. “Sua dupla” é selo neutro, na lista ou no card do pódio.
+Redesenhada em 09/10/2026 a pedido do usuário: uma galeria de troféus, não um dashboard de estatísticas. A página mostra exclusivamente duplas com título; o histórico por edição continua no Hall da Fama, alcançado por link. Substitui o registro anterior (três contadores no cabeçalho, card “Sua dupla na corrida” e lista “Demais duplas”), que saiu da tela.
+
+- Só campeãs: o ranking completo continua vindo da API e do cálculo central; a página apenas filtra `titles > 0`. Dupla sem título não aparece em lugar nenhum, nem a do próprio jogador. As posições são as de `entry.rank`, sem recálculo nem desempate no frontend.
+- Cabeçalho compacto, sem card e sem números: selo “Ranking histórico · Truco do Novo” com a espadilha, `h1` “Maiores Campeões”, uma frase curta e o botão fantasma “Ver o histórico por edição” (`/hall-da-fama`) na linha do título no desktop e abaixo da frase no celular (48 px de altura, largura total). Fecha com um filete de luz laranja→azul que se desenha da esquerda; feixe azul discreto atrás.
+- Palco (`.major-gallery` / `.major-stage`): um ambiente único atrás de todas as vitrines — luz quente de cima, vinheta nas bordas e a linha de chão do pódio. Não é card: clareia em cima e se dissolve no fundo embaixo. Intensidades por tema (`--major-*-alpha`). No celular as vitrines usam a largura toda e do palco fica só a luz.
+- Pódio: `MajorChampionsPodium` na versão galeria (ver “Maiores Campeões e pódio histórico”): ouro protagonista e centralizado, pratas idênticas lado a lado (empilhadas no celular), 3º lugar neutro.
+- “Também levantaram o caneco”: campeãs com `rank` acima de 3. Lista discreta com posição, nome, plaquinhas de edição e contagem; só existe quando há alguma, e não repete ninguém do pódio. Nenhuma campeã some da página.
+- “Sua dupla”: selo pequeno e neutro na vitrine ou na fileira, só quando a dupla do jogador é campeã (encontrada pelos nomes dos integrantes; falha na busca de duplas/jogadores não derruba a página). O card “na corrida” não volta.
+- Sem nenhuma dupla com título (ou ranking vazio): cabeçalho e o estado vazio “O ranking está começando”, sem palco.
+- Movimento, tudo com fim: o palco acende, o filete se desenha, o caneco de ouro sobe e assenta, pratas em cascata, uma varredura de brilho, contagem animada e plaquinhas em sequência. Hover só para ponteiro. Com movimento reduzido tudo aparece no estado final.
 
 ## Entrada com cartas (06/10/2026)
 

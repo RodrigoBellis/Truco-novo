@@ -6,6 +6,8 @@ import { computeStandings } from "../services/standingsService.js";
 import { requireAuth, requireRole } from "../middleware/requireAuth.js";
 import { generateGroupMatches, planGroupCompletion, type GroupCompletionPlan } from "../services/groupMatchesService.js";
 import { generateSchedule } from "../services/schedulerService.js";
+import { ProgressionPendingError, syncKnockoutAfterWrite } from "../services/bracketService.js";
+import { withChampionshipLock } from "../utils/championshipLock.js";
 
 export const groupsRoutes = Router();
 
@@ -89,7 +91,8 @@ groupsRoutes.post(
 /**
  * Decisão do administrador para um empate que sobreviveu aos cinco critérios da classificação:
  * recebe as duplas empatadas na ordem final e grava a posição de cada uma. Só vale com o
- * grupo encerrado e antes de o mata-mata ser gerado.
+ * grupo encerrado e com empate pendente (e, com empate pendente, o mata-mata não existe).
+ * Decidido o último empate, o mata-mata é gerado na mesma chamada.
  */
 groupsRoutes.post(
   "/:id/tiebreak",
@@ -103,24 +106,36 @@ groupsRoutes.post(
       return;
     }
     const championship = await store.getCurrentChampionship();
-    if ((await store.listBracketMatches(championship.truco_id)).length > 0) {
-      res.status(409).json({ message: "O mata-mata já foi gerado; a classificação não pode mais mudar." });
-      return;
-    }
-    const rows = await computeStandings(championship.truco_id, groupId);
-    const chosen = new Set(orderedTeamIds as string[]);
-    const cluster = pendingTieClusters(rows).find((item) => item.length === chosen.size && item.every((row) => chosen.has(row.teamId)));
-    if (!cluster || chosen.size !== orderedTeamIds.length) {
-      res.status(409).json({ message: "Essas duplas não formam um empate pendente neste grupo. Atualize a página e confira a classificação." });
-      return;
-    }
-    const positions = cluster.map((row) => row.position).sort((a, b) => a - b);
-    await store.saveStandingOverrides({
-      championshipId: championship.truco_id,
-      groupRowId: await store.getGroupRowId(championship.truco_id, groupId),
-      actorId: req.authUser!.id,
-      decisions: (orderedTeamIds as string[]).map((teamId, index) => ({ teamId, position: positions[index] })),
+    // Na mesma fila dos placares: a decisão e a geração do mata-mata não se intercalam com um lançamento.
+    const outcome = await withChampionshipLock(championship.truco_id, async (): Promise<{ status: number; message: string } | null> => {
+      if ((await store.listBracketMatches(championship.truco_id)).length > 0) {
+        return { status: 409, message: "O mata-mata já foi gerado; a classificação não pode mais mudar." };
+      }
+      const rows = await computeStandings(championship.truco_id, groupId);
+      const chosen = new Set(orderedTeamIds as string[]);
+      const cluster = pendingTieClusters(rows).find((item) => item.length === chosen.size && item.every((row) => chosen.has(row.teamId)));
+      if (!cluster || chosen.size !== orderedTeamIds.length) {
+        return { status: 409, message: "Essas duplas não formam um empate pendente neste grupo. Atualize a página e confira a classificação." };
+      }
+      const positions = cluster.map((row) => row.position).sort((a, b) => a - b);
+      await store.saveStandingOverrides({
+        championshipId: championship.truco_id,
+        groupRowId: await store.getGroupRowId(championship.truco_id, groupId),
+        actorId: req.authUser!.id,
+        decisions: (orderedTeamIds as string[]).map((teamId, index) => ({ teamId, position: positions[index] })),
+      });
+      try {
+        await syncKnockoutAfterWrite(championship.truco_id);
+      } catch (error) {
+        if (!(error instanceof ProgressionPendingError)) throw error;
+        return { status: 503, message: "A decisão foi gravada. A geração automática do mata-mata ainda não terminou e será concluída pelo servidor em instantes; não é preciso decidir de novo." };
+      }
+      return null;
     });
+    if (outcome) {
+      res.status(outcome.status).json({ message: outcome.message });
+      return;
+    }
     res.status(201).json(await computeStandings(championship.truco_id, groupId));
   }),
 );

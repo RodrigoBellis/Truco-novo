@@ -1,5 +1,6 @@
-import { useState } from "react";
-import type { MatchResult, Player } from "@truco/shared";
+import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import type { Player } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Loading } from "../../components/ui/Loading";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -9,13 +10,10 @@ import { KnockoutBracket } from "../../components/truco/KnockoutBracket";
 import { MatchGroupsList } from "../../components/truco/MatchGroupsList";
 import { ScoreForm } from "../../components/truco/ScoreForm";
 import { useFetchData } from "../../hooks/useFetchData";
-import { useToast } from "../../hooks/useToast";
-import { recordMatchResult } from "../../services/matchesService";
-import { generateBracket } from "../../services/bracketService";
+import { useResultEntry } from "../../hooks/useResultEntry";
 import { getPlayers } from "../../services/playersService";
 import { loadKnockoutData, quarterfinalRematchNote, summarizeKnockout, type KnockoutData } from "../../utils/knockout";
 import { teamLabel } from "../../utils/teamHelpers";
-import { ApiError } from "../../services/api";
 import "./AdminBracketPage.css";
 
 interface Data extends KnockoutData {
@@ -29,40 +27,19 @@ export function AdminBracketPage() {
     const [knockout, players] = await Promise.all([loadKnockoutData(), getPlayers()]);
     return { ...knockout, players };
   });
-  const { showToast } = useToast();
+  useEffect(() => {
+    if (!data?.status?.syncPending) return;
+    const timer = setInterval(refetch, 3_000);
+    return () => clearInterval(timer);
+  }, [data?.status?.syncPending, refetch]);
+  // Mesmo fluxo de lançar/corrigir das telas do jogador; aqui o toast é o do administrador.
+  const entry = useResultEntry({
+    onSaved: refetch,
+    onForbidden: refetch,
+    successMessage: (_target, _result, isEdit) => (isEdit ? "Resultado corrigido com sucesso." : "Resultado registrado com sucesso."),
+  });
 
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  async function handleSubmit(matchId: string, result: MatchResult) {
-    setIsSubmitting(true);
-    try {
-      await recordMatchResult(matchId, result);
-      showToast("success", "Resultado registrado com sucesso.");
-      setExpandedId(null);
-      refetch();
-    } catch (err) {
-      showToast("error", err instanceof ApiError ? err.message : "Não foi possível registrar o resultado.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  async function handleGenerate() {
-    setIsGenerating(true);
-    try {
-      await generateBracket();
-      showToast("success", "Mata-mata gerado a partir da classificação final.");
-      refetch();
-    } catch (err) {
-      showToast("error", err instanceof ApiError ? err.message : "Não foi possível gerar o mata-mata.");
-    } finally {
-      setIsGenerating(false);
-    }
-  }
-
-  if (isLoading) return <Loading fullHeight label="Carregando mata-mata..." />;
+  if (isLoading && !data) return <Loading fullHeight label="Carregando mata-mata..." />;
   if (error || !data) {
     return (
       <div className="page-enter">
@@ -75,57 +52,73 @@ export function AdminBracketPage() {
   const summary = summarizeKnockout(data);
   const generated = data.bracket.length > 0;
   const groupsComplete = summary.groupsComplete;
-  const pendingMatches = data.matches.filter((match) => match.status === "pendente");
   const rematchNote = quarterfinalRematchNote(summary.view);
 
-  const note = generated
+  const note = data.status?.syncPending
+    ? "Placar salvo. O avanço ou o registro do título está pendente; o servidor tentará concluir automaticamente. Se persistir, revise a configuração antes de corrigir resultados."
+    : generated
     ? summary.phase === "encerrado"
-      ? "Todos os confrontos do mata-mata já foram disputados."
-      : rematchNote ?? "Lance os resultados abaixo: cada fase encerrada abre a seguinte. As quartas são montadas quando as duas repescagens terminarem."
+      ? "Todos os confrontos do mata-mata já foram disputados. O campeão está registrado e a edição foi encerrada."
+      : rematchNote ?? "As fases nascem sozinhas: cada resultado promove o vencedor, as quartas são montadas quando as duas repescagens terminam e a final registra o campeão. As duplas lançam os próprios resultados; aqui você pode registrar ou corrigir um placar."
     : summary.tiePending
-      ? "Há empate que sobreviveu a todos os critérios (pontos, vitórias, vitórias por 2x0, confronto direto e saldo de quedas). Decida as posições na tela Grupos antes de gerar o mata-mata."
+      ? "Há empate que sobreviveu a todos os critérios (pontos, vitórias, vitórias por 2x0, confronto direto e saldo de quedas). A repescagem nasce sozinha logo depois que você decidir as posições."
       : groupsComplete
-        ? "Fase de grupos encerrada. Confira a classificação e gere o mata-mata para criar os jogos da repescagem. Depois disso os placares da fase de grupos não podem mais ser corrigidos."
-        : "Chaveamento provisório, pela classificação de hoje. O mata-mata é gerado quando os dois grupos terminarem.";
+        ? "Fase de grupos encerrada. A repescagem nasce sozinha a partir da classificação final: não é preciso gerar nada. Os confrontos abaixo já seguem essa ordem."
+        : "Chaveamento provisório, pela classificação de hoje. A repescagem nasce sozinha quando todos os jogos de grupo terminarem; o administrador só precisa manter o cadeado de resultados aberto.";
 
   return (
     <div className="page-enter">
-      <PageHeader
-        title="Mata-mata"
-        subtitle={SUBTITLE}
-        actions={!generated && groupsComplete && !summary.tiePending ? <Button onClick={handleGenerate} isLoading={isGenerating}>Gerar mata-mata</Button> : undefined}
-      />
+      <PageHeader title="Mata-mata" subtitle={SUBTITLE} />
 
       <p className="admin-bracket-note" role="status">{note}</p>
 
+      {(data.status?.anomalies?.length ?? 0) > 0 && (
+        <div className="admin-bracket-note admin-bracket-anomaly" role="alert">
+          <strong>O avanço automático parou: o estado do mata-mata não corresponde às regras e nada foi alterado.</strong>
+          <ul>{(data.status?.anomalies ?? []).map((anomaly) => <li key={anomaly}>{anomaly}</li>)}</ul>
+          Confira os placares citados antes de corrigir qualquer resultado.
+        </div>
+      )}
+
+      {!generated && summary.tiePending && (
+        <p className="admin-bracket-tie">
+          <strong>Empate a decidir.</strong> O mata-mata espera a sua decisão.
+          <Link className="admin-bracket-tie-link" to="/admin/grupos">Decidir o empate em Grupos</Link>
+        </p>
+      )}
+
       <section className="admin-bracket-view" aria-label="Chaveamento">
-        <KnockoutBracket view={summary.view} provisionalLabel={groupsComplete && !summary.tiePending ? "aguardando confirmação" : undefined} />
+        <KnockoutBracket view={summary.view} championConfirmed={data.status?.editionFinished === true} provisionalLabel={groupsComplete && !summary.tiePending ? "classificação final" : undefined} />
       </section>
 
-      {generated && pendingMatches.length > 0 && (
+      {generated && data.matches.length > 0 && (
         <MatchGroupsList
-          matches={pendingMatches}
+          matches={data.matches}
           teams={data.teams}
           players={data.players}
-          liveMatchId={expandedId}
-          renderActions={(match) => (
+          liveMatchId={entry.openKey}
+          renderActions={(match) => data.status?.syncPending ? null : (
             <div>
-              {expandedId === match.id ? (
+              {entry.openKey === match.id ? (
                 <ScoreForm
                   teamAName={teamLabel(data.teams, match.teamAId)}
                   teamBName={teamLabel(data.teams, match.teamBId)}
-                  isSubmitting={isSubmitting}
-                  onSubmit={(result) => handleSubmit(match.id, result)}
+                  isSubmitting={entry.isSubmitting}
+                  currentResult={match.result}
+                  onCancel={entry.close}
+                  onSubmit={(result) => entry.submit({ matchId: match.id, stage: "mata-mata", hasResult: match.status === "realizado" }, result)}
                 />
               ) : (
-                <Button variant="ghost" size="sm" onClick={() => setExpandedId(match.id)}>
-                  Registrar resultado
+                <Button variant="ghost" size="sm" onClick={() => entry.open(match.id)}>
+                  {match.status === "realizado" ? "Corrigir resultado" : "Registrar resultado"}
                 </Button>
               )}
             </div>
           )}
         />
       )}
+
+      {entry.dialog}
     </div>
   );
 }

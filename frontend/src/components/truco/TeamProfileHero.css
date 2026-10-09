@@ -1,0 +1,371 @@
+/* Card protagonista de Minha Dupla (TeamProfileHero.tsx). Mesma luz do card do Início: feixe azul
+   de cima à esquerda, calor laranja no canto oposto e a cor da dupla atrás dos rostos.
+   Medidas em cqi do container `.my-team`: com a barra lateral sobra menos que 100vw.
+   A altura sai sempre do conteúdo. */
+.team-profile {
+  --profile-avatar: clamp(72px, 25cqi, 96px);
+  --profile-star: clamp(24px, 8cqi, 28px);
+  --profile-beam-alpha: 0.1;
+  --profile-warm-alpha: 0.1;
+  --profile-team-mix: 20%;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+  padding: clamp(22px, 6cqi, 28px) clamp(16px, 5cqi, 26px);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg), var(--edge-light);
+}
+
+:root[data-theme="dark"] .team-profile {
+  --profile-beam-alpha: 0.2;
+  --profile-warm-alpha: 0.12;
+  --profile-team-mix: 26%;
+}
+
+/* Fio de 1px na cor da dupla: assina o card sem virar faixa colorida. */
+.team-profile::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--team-line) 25%, var(--team-color) 70%, transparent);
+  pointer-events: none;
+}
+
+/* Feixe azul e calor laranja, revelados uma vez na entrada. */
+.team-profile-light {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(55% 80% at 100% 100%, rgb(var(--rgb-accent) / var(--profile-warm-alpha)), transparent 70%),
+    conic-gradient(from 96deg at -6% -22%, transparent 0deg, rgb(var(--rgb-tech) / var(--profile-beam-alpha)) 22deg, rgb(var(--rgb-tech) / calc(var(--profile-beam-alpha) * 0.5)) 34deg, transparent 52deg, transparent 360deg);
+  animation: team-profile-fade 800ms ease-out 140ms backwards;
+}
+
+.team-profile-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+  text-align: center;
+}
+
+/* ---------- Jogadores ---------- */
+.team-profile-duo {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(10px, 4cqi, 22px);
+  width: 100%;
+  max-width: 380px;
+}
+
+/* Luz na cor da dupla atrás dos rostos. */
+.team-profile-duo::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(var(--profile-avatar) / 2 + 4px);
+  width: min(150%, 520px);
+  aspect-ratio: 1.7;
+  z-index: -1;
+  translate: -50% -50%;
+  background: radial-gradient(closest-side, color-mix(in oklch, var(--team-color) var(--profile-team-mix), transparent), transparent);
+  pointer-events: none;
+  animation: team-profile-glow 900ms var(--ease-out) 200ms backwards;
+}
+
+/* Um depois do outro, uma vez. */
+.team-profile-member {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  text-align: center;
+  animation: rise-in var(--motion-reveal) 200ms backwards;
+}
+
+.team-profile-member:nth-child(2) { animation-delay: 320ms; }
+
+/* Anel na cor da dupla com um respiro da superfície entre o anel e a foto. */
+.team-profile-face {
+  display: grid;
+  place-items: center;
+  margin-bottom: 7px;
+  padding: 3px;
+  border-radius: 50%;
+  background: linear-gradient(150deg, var(--team-color), var(--team-line));
+  box-shadow: 0 0 0 5px var(--team-soft), 0 16px 26px -16px rgb(var(--rgb-void) / 0.75);
+}
+
+.team-profile-face .player-avatar {
+  width: var(--profile-avatar);
+  height: var(--profile-avatar);
+  border: 3px solid var(--color-surface);
+  background: var(--color-surface-hover);
+  color: var(--team-ink);
+  font-size: calc(var(--profile-avatar) * 0.32);
+}
+
+.team-profile-member strong {
+  max-width: 100%;
+  font-size: clamp(0.92rem, 4.4cqi, 1.05rem);
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.team-profile-role {
+  font-size: 0.74rem;
+  font-weight: 650;
+  color: var(--color-text-muted);
+}
+
+/* "Você": destaque neutro, na cor do texto. */
+.team-profile-role-me {
+  padding: 2px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  font-weight: 750;
+  color: var(--color-text);
+}
+
+/* ---------- Nome e força ---------- */
+.team-profile-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.team-profile-name {
+  max-width: 100%;
+  font-size: clamp(1.6rem, 8cqi, 2.5rem);
+  font-weight: 850;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.team-profile-strength {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 12px;
+}
+
+.team-profile-stars { display: inline-flex; gap: 4px; }
+
+.team-profile-star {
+  position: relative;
+  display: grid;
+  width: var(--profile-star);
+  height: var(--profile-star);
+  color: var(--color-text-faint);
+}
+
+.team-profile-star > svg { opacity: 0.4; }
+
+.team-profile-star svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Estrela acesa: entra por cima do contorno, uma depois da outra, uma vez. */
+.team-profile-star-lit {
+  position: absolute;
+  inset: 0;
+  color: var(--color-star);
+  animation: team-profile-star-on 460ms var(--ease-spring) calc(520ms + var(--star-index, 0) * 110ms) backwards;
+}
+
+.team-profile-star-lit svg { fill: currentColor; }
+
+.team-profile-strength-label {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--color-accent-600);
+  font-variant-numeric: tabular-nums;
+}
+
+.team-profile-strength-label.is-pending,
+.team-profile-group-mark.is-pending {
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--color-text-muted);
+}
+
+/* ---------- Grupo, posição e ação ---------- */
+.team-profile-aside {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+  min-width: 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border);
+}
+
+.team-profile-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 12px;
+}
+
+/* Grupo: marca única, na cor do grupo. */
+.team-profile-group-mark.group-tone {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 6px 5px 14px;
+  border: 1px solid var(--group-line);
+  border-radius: var(--radius-full);
+  background: var(--group-soft);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--group-ink);
+}
+
+.team-profile-group-mark strong {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--group-color);
+  font-size: 1rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  color: var(--color-surface);
+}
+
+/* Posição: texto pequeno ao lado do grupo, sem número gigante. */
+.team-profile-position {
+  font-size: 0.85rem;
+  font-weight: 750;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.team-profile-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  background: var(--color-action);
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--color-on-action);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-on-brand) 38%, transparent),
+    0 12px 24px -12px rgb(var(--rgb-accent) / 0.75);
+  transition: transform var(--motion-micro), background-color var(--transition-fast);
+}
+
+.team-profile-cta svg {
+  flex-shrink: 0;
+  transition: transform 260ms var(--ease-out);
+}
+
+.team-profile-cta:focus-visible svg { transform: translateX(4px); }
+.team-profile-cta:active { transform: translateY(1px) scale(0.97); }
+
+.team-profile-cta:focus-visible {
+  outline: 2px solid var(--color-tech-400);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) {
+  .team-profile-cta:hover {
+    background: var(--color-action-hover);
+    transform: translateY(-2px);
+  }
+
+  .team-profile-cta:hover svg { transform: translateX(4px); }
+  .team-profile-cta:hover:active { transform: translateY(1px) scale(0.97); }
+}
+
+@keyframes team-profile-fade {
+  from { opacity: 0; }
+}
+
+@keyframes team-profile-glow {
+  from { opacity: 0; transform: scale(0.7); }
+}
+
+@keyframes team-profile-star-on {
+  from { opacity: 0; transform: scale(0.3) rotate(-30deg); }
+}
+
+/* Container largo: identidade à esquerda, grupo e ação numa coluna à direita. O nome desce
+   para baixo dos rostos sozinho quando a coluna da esquerda não comporta os dois lado a lado. */
+@container (min-width: 700px) {
+  .team-profile {
+    --profile-avatar: clamp(92px, 10cqi, 108px);
+    --profile-star: 28px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: clamp(24px, 3.4cqi, 40px);
+    padding: clamp(26px, 3.2cqi, 36px) clamp(26px, 3.6cqi, 40px);
+  }
+
+  .team-profile-main {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 20px clamp(24px, 3.4cqi, 40px);
+    text-align: left;
+  }
+
+  .team-profile-duo {
+    grid-auto-columns: calc(var(--profile-avatar) + 36px);
+    gap: 14px;
+    width: auto;
+    max-width: none;
+  }
+
+  .team-profile-identity {
+    flex: 1 1 260px;
+    align-items: flex-start;
+  }
+
+  .team-profile-name { font-size: clamp(1.7rem, 3.2cqi, 2.2rem); }
+  .team-profile-strength { justify-content: flex-start; }
+
+  .team-profile-aside {
+    align-self: stretch;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 18px;
+    padding: 0 0 0 clamp(24px, 3.4cqi, 40px);
+    border-top: 0;
+    border-left: 1px solid var(--color-border);
+  }
+
+  .team-profile-group { justify-content: flex-start; }
+  .team-profile-cta { width: auto; min-width: 200px; white-space: nowrap; }
+}

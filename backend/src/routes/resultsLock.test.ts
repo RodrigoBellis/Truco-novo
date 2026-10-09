@@ -69,25 +69,32 @@ test("API: resultado só entra com o cadeado aberto, e o estado vale para criar,
         db.lockUpdates.push(body.results_locked);
         return new Response(null, { status: 204 });
       }
-      const row: Record<string, unknown> = { truco_id: ids.championship, edition: 5, name: "5ª Edição", year: 2026, status: "em_andamento", current_phase: "Fase de Grupos", draw_status: "realizado" };
+      const row: Record<string, unknown> = { truco_id: ids.championship, edition: 5, name: "5ª Edição", year: 2026, status: "em_andamento", current_phase: "Fase de Grupos", draw_status: "realizado", progression_revision: 0 };
       if (db.lockColumnExists) row.results_locked = db.resultsLocked;
       return json(row);
     }
     if (path.endsWith("/truco_matches")) {
+      // Depois de gravar um placar a API sincroniza o mata-mata: lista os jogos por fase.
+      if (!url.searchParams.has("truco_id")) return json([]);
       return json({
         truco_id: ids.match, truco_championship_id: ids.championship, stage: "grupos", round: "Grupo A", match_order: 0, truco_group_id: null,
         truco_team_a_id: ids.teamA, truco_team_b_id: ids.teamB, sets_a: db.sets?.a ?? null, sets_b: db.sets?.b ?? null,
         status: db.sets ? "realizado" : "pendente", table_number: null, block_number: null, queue_position: null,
       });
     }
-    if (path.endsWith("/truco_groups") || path.endsWith("/truco_bracket_matches")) return json([]);
+    if (path.endsWith("/truco_groups")) {
+      const label = (url.searchParams.get("label") ?? "").replace("eq.", "");
+      return json([{ truco_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", label: "A", name: "Grupo A" }, { truco_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", label: "B", name: "Grupo B" }].filter((group) => !label || group.label === label));
+    }
+    // Leituras da sincronização automática: sem duplas nos grupos, não há mata-mata a gerar.
+    if (["/truco_bracket_matches", "/truco_teams", "/truco_standings_overrides", "/truco_history"].some((table) => path.endsWith(table))) return json([]);
     if (path.endsWith("/truco_team_memberships")) {
       return json([
         { truco_team_id: ids.teamA, truco_player_1_id: ids.player, truco_player_2_id: "88888888-8888-4888-8888-888888888888" },
         { truco_team_id: ids.teamB, truco_player_1_id: "99999999-9999-4999-8999-999999999991", truco_player_2_id: "99999999-9999-4999-8999-999999999992" },
       ]);
     }
-    if (path.endsWith("/rpc/truco_rpc_record_match_result")) {
+    if (path.endsWith("/rpc/truco_rpc_record_match_result_v2")) {
       db.sets = { a: body.p_sets_a, b: body.p_sets_b };
       db.resultWrites.push({ a: body.p_sets_a, b: body.p_sets_b, actor: body.p_actor_id });
       return new Response(null, { status: 204 });

@@ -1,10 +1,10 @@
-import type { BracketMatch } from "@truco/shared";
+import type { BracketMatch, KnockoutStatus } from "@truco/shared";
 import { apiRequest } from "./api";
 
 export function getBracket(): Promise<BracketMatch[]> {
   return apiRequest<BracketMatch[]>("/bracket");
 }
 
-export function generateBracket(): Promise<BracketMatch[]> {
-  return apiRequest<BracketMatch[]>("/bracket/generate", { method: "POST" });
+export function getKnockoutStatus(): Promise<KnockoutStatus> {
+  return apiRequest<KnockoutStatus>("/bracket/status");
 }

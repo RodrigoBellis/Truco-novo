@@ -1,0 +1,66 @@
+/* Faixa de desempenho de Minha Dupla (TeamPerformanceStrip.tsx): quatro números numa linha só,
+   2×2 quando o container `.my-team` é estreito. */
+.team-performance {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--gradient-surface), var(--color-surface);
+  box-shadow: var(--shadow-md), var(--edge-light);
+  overflow: hidden;
+}
+
+.team-performance-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+/* O número vem antes do rótulo na tela; no HTML o rótulo (dt) continua primeiro. */
+.team-performance-stat {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px 8px;
+  text-align: center;
+}
+
+.team-performance-stat:nth-child(even) { border-left: 1px solid var(--color-border); }
+.team-performance-stat:nth-child(n + 3) { border-top: 1px solid var(--color-border); }
+
+.team-performance-stat dt {
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.team-performance-stat dd {
+  margin: 0;
+  font-size: 1.55rem;
+  font-weight: 850;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Pontos: um pouco maior e em laranja, com um calor discreto atrás. */
+.team-performance-stat-points {
+  background: radial-gradient(90% 120% at 50% 120%, rgb(var(--rgb-accent) / 0.12), transparent 70%);
+}
+
+.team-performance-stat-points dd {
+  font-size: 1.9rem;
+  color: var(--color-accent-500);
+}
+
+@container (min-width: 560px) {
+  .team-performance-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .team-performance-stat { padding: 16px 12px; }
+  .team-performance-stat:nth-child(n + 3) { border-top: 0; }
+  .team-performance-stat + .team-performance-stat { border-left: 1px solid var(--color-border); }
+}

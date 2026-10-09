@@ -184,7 +184,9 @@ test("admin gera só os jogos que faltam quando duas duplas entram depois", asyn
 test("jogador visualiza dupla e parceiro, lança e corrige resultado", async ({ page }) => {
   await mockCoreApi(page, "jogador", true);
   await page.goto("/minha-dupla");
-  await expect(page.getByText("Parceiro de dupla")).toBeVisible();
+  const profile = page.getByRole("region", { name: "Perfil da sua dupla" });
+  await expect(profile.locator(".team-profile-member strong")).toHaveText(["Jogador 1", "Jogador 2"]);
+  await expect(profile.locator(".team-profile-role")).toHaveText(["Você", "Seu parceiro"]);
   await page.goto("/jogos");
   await expect(page.getByRole("heading", { name: "Jogos" })).toBeVisible();
   await page.getByRole("button", { name: "Editar resultado" }).first().click();
@@ -272,8 +274,8 @@ test("jogador envia foto pelo perfil e as fotos ficam visíveis na dupla", async
   });
   await expect(page.getByRole("status")).toHaveText("Foto atualizada. Ela já aparece nas listas e nos jogos.");
   await page.goto("/minha-dupla");
-  await expect(page.locator(".my-team-player-card .player-avatar img").first()).toHaveAttribute("src", "/avatars/player-1.webp");
-  await expect(page.locator(".my-team-player-card .player-avatar img").nth(1)).toHaveAttribute("src", "/avatars/player-2.webp");
+  await expect(page.locator(".team-profile-member .player-avatar img").first()).toHaveAttribute("src", "/avatars/player-1.webp");
+  await expect(page.locator(".team-profile-member .player-avatar img").nth(1)).toHaveAttribute("src", "/avatars/player-2.webp");
 });
 
 test("a tela de entrada usa a arte da edição correspondente ao tema escolhido", async ({ page }) => {
@@ -530,9 +532,12 @@ async function expectOwnTeamEverywhere(page: Page, league: League, teamName: str
   await expect(hero.locator(".home-hero-group")).toHaveText(`Grupo ${groupId}`);
 
   await openMenu(page, "Minha Dupla");
-  await expect(page.locator(".team-identity-head")).toContainText(teamName);
-  await expect(page.locator(".team-identity-position strong")).toHaveAttribute("aria-label", `${row.position}º lugar`);
-  await expect(page.locator(".campaign-stats-grid dd")).toHaveText([String(row.pontos), String(row.vitorias), String(row.derrotas), saldo]);
+  await expect(page.locator(".team-profile-name")).toHaveText(teamName);
+  await expect(page.locator(".team-profile-member strong")).toHaveText([team.player1Id, team.player2Id].map((id) => league.players.find((player) => player.id === id)!.name));
+  await expect(page.locator(".team-profile-group-mark")).toHaveText(`Grupo ${groupId}`);
+  await expect(page.locator(".team-profile-position")).toHaveText(`${row.position}º lugar`);
+  // Os números contam até o valor (AnimatedCounter); toHaveText espera a contagem terminar.
+  await expect(page.locator(".team-performance dd")).toHaveText([String(row.pontos), String(row.vitorias), String(row.derrotas), saldo]);
 
   await openMenu(page, "Grupos");
   await expect(page.locator(".standings-row-mine")).toHaveCount(1);
@@ -579,20 +584,116 @@ test("Bagriel & Diguinho e Vito & Luizão veem só os próprios números reais a
   await loginAs(page, "Bagriel");
   await expectOwnTeamEverywhere(page, realSnapshotLeague, "Bagriel & Diguinho");
   await openMenu(page, "Minha Dupla");
-  await expect(page.locator(".campaign-stats-grid dd")).toHaveText(["8", "3", "1", "+3"]);
+  await expect(page.locator(".team-performance dd")).toHaveText(["8", "3", "1", "+3"]);
   await logout(page);
 
   await loginAs(page, "Vito");
   await expectOwnTeamEverywhere(page, realSnapshotLeague, "Vito & Luizão");
   await openMenu(page, "Minha Dupla");
   // Vito & Luizão: 1 ponto (derrota por 1x2 para Bagriel & Diguinho), nunca os 8 da outra dupla.
-  await expect(page.locator(".campaign-stats-grid dd")).toHaveText(["1", "0", "1", "-1"]);
+  await expect(page.locator(".team-performance dd")).toHaveText(["1", "0", "1", "-1"]);
   await page.reload();
   await expectOwnTeamEverywhere(page, realSnapshotLeague, "Vito & Luizão");
   await logout(page);
 
   await loginAs(page, "Diguinho");
   await expectOwnTeamEverywhere(page, realSnapshotLeague, "Bagriel & Diguinho");
+});
+
+// ---------- Minha Dupla: perfil da dupla, desempenho e histórico ----------
+/** Partidas com placar lançado; as demais ficam pendentes. Chave = índice em `matches`. */
+async function routeTeamMatches(page: Page, finished: Record<number, { setsA: number; setsB: number; queuePosition: number }>) {
+  await page.route((url) => url.pathname.endsWith("/api/matches"), (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify(matches.map((match, index) => finished[index] ? { ...match, result: { setsA: finished[index].setsA, setsB: finished[index].setsB }, status: "realizado", queuePosition: finished[index].queuePosition } : match)),
+  }));
+}
+
+test("Minha Dupla mostra os três jogos encerrados mais recentes e leva a Jogos", async ({ page }) => {
+  await mockCoreApi(page, "jogador");
+  // Dupla 1 joga os índices 0 a 3 (contra as Duplas 2 a 5); o índice 4 é Dupla 2 x Dupla 3.
+  await routeTeamMatches(page, {
+    0: { setsA: 2, setsB: 0, queuePosition: 1 },
+    1: { setsA: 1, setsB: 2, queuePosition: 2 },
+    2: { setsA: 2, setsB: 1, queuePosition: 3 },
+    3: { setsA: 0, setsB: 2, queuePosition: 4 },
+    4: { setsA: 2, setsB: 0, queuePosition: 9 },
+  });
+  await page.goto("/minha-dupla");
+  const history = page.getByRole("region", { name: "Histórico da dupla" });
+  await expect(history.locator(".team-results-row")).toHaveCount(3);
+  // Do mais recente para o mais antigo; o jogo mais antigo (2 × 0 na Dupla 2) fica de fora,
+  // e o jogo de outras duplas nunca entra.
+  await expect(history.locator(".team-results-opponent strong")).toHaveText(["Dupla 5", "Dupla 4", "Dupla 3"]);
+  await expect(history.locator(".team-results-score")).toHaveText(["0 × 2", "2 × 1", "1 × 2"]);
+  await expect(history.locator(".team-results-outcome")).toHaveText(["Derrota", "Vitória", "Derrota"]);
+  await expect(history.locator(".team-results-points")).toHaveText(["+0 pts", "+2 pts", "+1 pt"]);
+  const link = history.getByRole("link", { name: "Ver todos os jogos" });
+  await expect(link).toHaveAttribute("href", "/jogos");
+  await link.click();
+  await expect(page).toHaveURL(/\/jogos$/);
+  await expect(page.getByRole("heading", { name: "Jogos", level: 1 })).toBeVisible();
+});
+
+test("Minha Dupla sem jogo encerrado mostra o estado vazio e nenhum placar", async ({ page }) => {
+  await mockCoreApi(page, "jogador");
+  await page.goto("/minha-dupla");
+  const history = page.getByRole("region", { name: "Histórico da dupla" });
+  await expect(history.getByText("A campanha ainda não começou", { exact: true })).toBeVisible();
+  await expect(history.locator(".team-results-row, .team-results-score")).toHaveCount(0);
+  await expect(history).not.toContainText(/Vitória|Derrota|pts|×/);
+  await expect(history.getByRole("link", { name: "Ver todos os jogos" })).toHaveAttribute("href", "/jogos");
+});
+
+test("Minha Dupla continua de pé quando a busca de jogos falha", async ({ page }) => {
+  await mockCoreApi(page, "jogador");
+  await page.route((url) => url.pathname.endsWith("/api/matches"), (route) => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Falha simulada" }) }));
+  await page.goto("/minha-dupla");
+  await expect(page.locator(".team-profile-name")).toHaveText("Dupla 1");
+  await expect(page.locator(".team-performance dd")).toHaveText(["0", "0", "0", "0"]);
+  const history = page.getByRole("region", { name: "Histórico da dupla" });
+  await expect(history.getByText("Histórico indisponível no momento", { exact: true })).toBeVisible();
+  await expect(history.locator(".team-results-row")).toHaveCount(0);
+});
+
+test("Minha Dupla mostra o nome da dupla uma vez, a ordem aprovada e nenhum selo extra", async ({ page }) => {
+  await mockCoreApi(page, "jogador", true);
+  await page.goto("/minha-dupla");
+  const root = page.locator(".my-team");
+  await expect(root.getByRole("heading", { name: "Minha Dupla", level: 1 })).toBeVisible();
+  await expect(root.locator(".page-header p")).toHaveText("Truco do Novo · 5ª Edição");
+  await expect(root.getByRole("heading", { name: "Dupla 1", level: 2 })).toBeVisible();
+  await expect(root.getByText("Dupla 1", { exact: true })).toHaveCount(1);
+  // Cabeçalho, card da dupla, desempenho e histórico, nesta ordem.
+  expect(await root.locator(":scope > *").evaluateAll((blocks) => blocks.map((block) => block.className.split(" ")[0]))).toEqual(["page-header", "team-profile", "team-performance", "team-results"]);
+  const profile = page.getByRole("region", { name: "Perfil da sua dupla" });
+  await expect(profile.getByText("Força 1 de 5", { exact: true })).toBeVisible();
+  await expect(profile.locator(".team-profile-star")).toHaveCount(5);
+  await expect(profile.locator(".team-profile-star-lit")).toHaveCount(1);
+  await expect(profile.locator(".team-profile-group-mark")).toHaveText("Grupo A");
+  await expect(profile.locator(".team-profile-position")).toHaveText("1º lugar");
+  await expect(profile.getByRole("link", { name: "Ver meu grupo" })).toHaveAttribute("href", "/grupos");
+  // O único selo da página é o resultado do jogo encerrado, no histórico.
+  await expect(root.locator(".badge")).toHaveText(["Vitória"]);
+  await expect(root).not.toContainText(/Zona de|Dupla aprovada|Aprovação pendente|Cabeça de chave|Saldo de sets/i);
+  await expect(page.locator(".team-performance dt")).toHaveText(["Pontos", "Vitórias", "Derrotas", "Saldo de quedas"]);
+});
+
+test("Minha Dupla sem grupo mostra travessões, nenhuma posição e só o selo de aprovação pendente", async ({ page }) => {
+  await mockCoreApi(page, "jogador");
+  await page.route((url) => url.pathname.endsWith("/api/teams"), (route) => route.request().method() === "GET"
+    ? route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(teams.map((team, index) => index === 0 ? { ...team, status: "pendente", groupId: null, strength: 0, seeded: true } : team)) })
+    : route.fallback());
+  await page.goto("/minha-dupla");
+  const profile = page.getByRole("region", { name: "Perfil da sua dupla" });
+  await expect(profile.getByText("Força a definir", { exact: true })).toBeVisible();
+  await expect(profile.locator(".team-profile-star, .team-profile-position")).toHaveCount(0);
+  await expect(profile.getByText("Grupo a definir", { exact: true })).toBeVisible();
+  await expect(profile.getByRole("link", { name: "Ver grupos" })).toHaveAttribute("href", "/grupos");
+  await expect(profile.locator(".badge")).toHaveText(["Aprovação pendente"]);
+  await expect(page.locator(".team-performance dd")).toHaveText(["—", "—", "—", "—"]);
+  await expect(page.locator(".my-team")).not.toContainText(/Zona de|Dupla aprovada|Cabeça de chave/i);
 });
 
 test("home explica quando falta aplicar a migration das duplas e oferece nova tentativa", async ({ page }) => {
@@ -609,25 +710,44 @@ test("home explica quando falta aplicar a migration das duplas e oferece nova te
   await expect(page.getByRole("button", { name: "Tentar novamente" })).toBeVisible();
 });
 
-test("admin vê o chaveamento provisório e só pode gerar o mata-mata com os grupos encerrados", async ({ page }) => {
+test("admin não gera mais o mata-mata: as fases nascem sozinhas e ele só registra ou corrige placar", async ({ page }) => {
   await mockCoreApi(page, "admin");
-  await page.goto("/admin/mata-mata");
-  await expect(page.getByText(/O mata-mata é gerado quando os dois grupos terminarem/)).toBeVisible();
-  await expect(page.locator(".ko-match")).toHaveCount(7);
-  await expect(page.getByRole("button", { name: "Gerar mata-mata" })).toHaveCount(0);
-
-  // Grupos encerrados e sem empate pendente: o botão aparece e chama a geração.
-  await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(finalStandings(route.request().url().includes("/A/") ? "A" : "B")) }));
   let generateCalls = 0;
   await page.route("**/api/bracket/generate", (route) => {
     generateCalls += 1;
-    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(knockoutFixture(0).bracket) });
+    return route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+  });
+  const generateButton = page.getByRole("button", { name: /Gerar mata-mata/ });
+  await page.goto("/admin/mata-mata");
+  await expect(page.getByText(/A repescagem nasce sozinha quando todos os jogos de grupo terminarem/)).toBeVisible();
+  await expect(page.locator(".ko-match")).toHaveCount(7);
+  await expect(generateButton).toHaveCount(0);
+
+  // Grupos encerrados e sem empate: nada a gerar, a tela só explica.
+  await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(finalStandings(route.request().url().includes("/A/") ? "A" : "B")) }));
+  await page.reload();
+  await expect(page.getByText(/A repescagem nasce sozinha a partir da classificação final: não é preciso gerar nada/)).toBeVisible();
+  await expect(generateButton).toHaveCount(0);
+  await expect(page.locator(".admin-bracket-tie")).toHaveCount(0);
+
+  // Empate exato: a única pendência do administrador, com o caminho para decidir.
+  await page.route("**/api/groups/*/standings", (route) => {
+    const groupId = route.request().url().includes("/A/") ? "A" : "B";
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(finalStandings(groupId, groupId === "A" ? ["team-2", "team-3"] : [])) });
   });
   await page.reload();
-  await expect(page.getByText(/Fase de grupos encerrada\. Confira a classificação e gere o mata-mata/)).toBeVisible();
-  await page.getByRole("button", { name: "Gerar mata-mata" }).click();
-  await expect(page.getByText("Mata-mata gerado a partir da classificação final.")).toBeVisible();
-  expect(generateCalls).toBe(1);
+  await expect(page.getByText(/A repescagem nasce sozinha logo depois que você decidir as posições/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Decidir o empate em Grupos" })).toHaveAttribute("href", "/admin/grupos");
+  await expect(generateButton).toHaveCount(0);
+
+  // Chaveamento já criado: o administrador registra o que falta e corrige o que já saiu.
+  await mockKnockout(page, 1, "admin");
+  await page.reload();
+  await expect(page.getByText(/As fases nascem sozinhas/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Registrar resultado" })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Corrigir resultado" })).toHaveCount(1);
+  await expect(generateButton).toHaveCount(0);
+  expect(generateCalls).toBe(0);
 });
 
 test("jogador sem sessão é encaminhado ao login ao acessar área administrativa", async ({ page }) => {
@@ -892,7 +1012,7 @@ test("abertura usa conquistas registradas e continua para a campanha", async ({ 
   await expect(road.locator(".home-road-status")).toHaveCount(1);
   await expect(page.getByRole("heading", { name: "Próximo confronto" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Resumo da campanha" })).toHaveCount(0);
-  await expect(page.locator(".home-banner, .campaign-stats-grid, .team-identity")).toHaveCount(0);
+  await expect(page.locator(".home-banner, .team-performance, .team-profile")).toHaveCount(0);
   await page.goto("/");
   await expect(page).toHaveURL(/\/inicio$/);
 });
@@ -901,10 +1021,13 @@ test("ranking preserva empates e jogos de outras duplas não oferecem edição",
   await mockCoreApi(page, "jogador", true);
   await page.goto("/maiores-campeoes");
   await expect(page.locator(".champions-podium-place-2")).toHaveCount(2);
-  // As três duplas do ranking simulado estão no pódio: nenhuma reaparece na lista de baixo.
+  // As três campeãs do ranking simulado estão no pódio: a página não tem lista, contadores
+  // nem o card da dupla "na corrida".
   await expect(page.locator(".champions-podium-place")).toHaveCount(3);
-  await expect(page.locator(".major-row")).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Demais duplas" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Também levantaram o caneco" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: /Demais duplas|Duplas no ranking|na corrida/ })).toHaveCount(0);
+  await expect(page.locator(".major-hero-stats, .major-mine, .major-row")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Ver o histórico por edição" })).toHaveAttribute("href", "/hall-da-fama");
   await page.goto("/jogos");
   await page.getByRole("tab", { name: "Grupo B" }).click();
   await expect(page.locator(".match-card")).toHaveCount(10);
@@ -912,7 +1035,7 @@ test("ranking preserva empates e jogos de outras duplas não oferecem edição",
   await expect(page.locator(".match-card .team-strength")).toHaveCount(20);
 });
 
-test("Maiores Campeões não repete o pódio na lista e só dá metal a quem tem título", async ({ page }) => {
+test("Maiores Campeões mostra só duplas com título e só dá metal a quem tem título", async ({ page }) => {
   await mockCoreApi(page, "jogador");
   await page.route("**/api/history/major-champions", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([
     { key: "historical-1", players: ["Campeão 1", "Campeão 2"], name: "Campeão 1 & Campeão 2", titles: 3, editions: [1, 3, 4], rank: 1 },
@@ -922,7 +1045,7 @@ test("Maiores Campeões não repete o pódio na lista e só dá metal a quem tem
   ]) }));
   await page.goto("/maiores-campeoes");
   const podium = page.locator(".champions-podium-real");
-  const list = page.locator(".major-ranking-list");
+  const main = page.locator(".major-champions-page");
   // Pódio: só quem tem título. O 3º lugar sem título não sobe nem ganha destaque.
   await expect(podium.locator(".champions-podium-place")).toHaveCount(2);
   await expect(podium.locator(".champions-podium-place-1")).toContainText("3 títulos");
@@ -930,17 +1053,58 @@ test("Maiores Campeões não repete o pódio na lista e só dá metal a quem tem
   await expect(podium.locator(".champions-podium-place-1").getByRole("list", { name: "Edições conquistadas" }).getByRole("listitem")).toHaveText(["1ª edição", "3ª edição", "4ª edição"]);
   // Um caneco de cada metal, com gradientes próprios (ids únicos por instância).
   expect(await page.locator(".champions-podium-cup > svg linearGradient[id^='ot-gold-']").evaluateAll((nodes) => new Set(nodes.map((node) => node.id)).size === nodes.length)).toBe(true);
-  // Lista: as demais duplas, sem repetir ninguém do pódio.
-  await expect(page.getByRole("heading", { name: "Demais duplas" })).toBeVisible();
-  await expect(list.locator(".major-row")).toHaveCount(2);
-  await expect(list).not.toContainText("Campeão 1");
-  await expect(list).not.toContainText("Campeão 3");
+  // Duplas sem título não aparecem em lugar nenhum da página, nem a do próprio jogador.
+  await expect(main).not.toContainText("Jogador 1");
+  await expect(main).not.toContainText("Jogador 3");
+  await expect(main).not.toContainText("Sua dupla");
+  await expect(main).not.toContainText(/0\s*títulos/);
+  await expect(page.getByRole("heading", { name: /Demais duplas|Duplas no ranking|na corrida/ })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Também levantaram o caneco" })).toHaveCount(0);
+  await expect(page.locator(".major-hero-stats, .major-mine, .major-row")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Ver meus jogos" })).toHaveCount(0);
+});
+
+test("Maiores Campeões lista a campeã fora do pódio sem repetir ninguém e marca a dupla do jogador", async ({ page }) => {
+  await mockCoreApi(page, "jogador");
+  await page.route("**/api/history/major-champions", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([
+    { key: "historical-1", players: ["Campeão 1", "Campeão 2"], name: "Campeão 1 & Campeão 2", titles: 3, editions: [1, 3, 4], rank: 1 },
+    { key: "historical-2", players: ["Campeão 3", "Campeão 4"], name: "Campeão 3 & Campeão 4", titles: 2, editions: [2, 6], rank: 2 },
+    { key: "historical-3", players: ["Campeão 5", "Campeão 6"], name: "Campeão 5 & Campeão 6", titles: 2, editions: [5, 7], rank: 2 },
+    { key: "current-1", players: ["Jogador 1", "Jogador 2"], name: "Jogador 1 & Jogador 2", titles: 1, editions: [8], rank: 4 },
+    { key: "current-2", players: ["Jogador 3", "Jogador 4"], name: "Jogador 3 & Jogador 4", titles: 0, editions: [], rank: 5 },
+  ]) }));
+  await page.goto("/maiores-campeoes");
+  const podium = page.locator(".champions-podium-real");
+  await expect(podium.locator(".champions-podium-place")).toHaveCount(3);
+  await expect(podium.locator(".champions-podium-place-1")).toHaveCount(1);
+  await expect(podium.locator(".champions-podium-place-2")).toHaveCount(2);
   await expect(podium).not.toContainText("Jogador 1");
-  await expect(list.locator(".major-row-mine")).toContainText("Jogador 1 & Jogador 2");
-  await expect(list.locator(".major-row-mine")).toContainText("Sua dupla");
-  await expect(list.locator(".major-row").first().locator(".major-row-titles")).toHaveText("0títulos");
-  await expect(list.locator(".edition-plaque")).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Dupla 1 na corrida" })).toBeVisible();
+  // A campeã em 4º não some: aparece na seção discreta, com posição, títulos e plaquinha.
+  const also = page.getByRole("region", { name: "Também levantaram o caneco" });
+  await expect(also.getByRole("heading", { name: "Também levantaram o caneco" })).toBeVisible();
+  const rows = also.getByRole("listitem").filter({ has: page.locator(".major-also-rank") });
+  await expect(rows).toHaveCount(1);
+  await expect(rows).toContainText("Jogador 1 & Jogador 2");
+  await expect(rows.getByLabel("4º lugar")).toHaveText("4º");
+  await expect(rows.locator(".major-also-titles")).toHaveText(/^1\s*título$/);
+  await expect(rows.getByRole("list", { name: "Edições conquistadas" }).getByRole("listitem")).toHaveText(["8ª edição"]);
+  await expect(rows).toContainText("Sua dupla");
+  // Ninguém do pódio se repete ali, e a dupla sem título continua fora da página.
+  for (const name of ["Campeão 1", "Campeão 3", "Campeão 5"]) await expect(also).not.toContainText(name);
+  await expect(page.locator(".major-champions-page")).not.toContainText("Jogador 3");
+  await expect(page.getByRole("heading", { name: /na corrida/ })).toHaveCount(0);
+});
+
+test("Maiores Campeões sem título registrado mostra o estado vazio, sem palco", async ({ page }) => {
+  await mockCoreApi(page, "jogador");
+  await page.route("**/api/history/major-champions", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([
+    { key: "current-1", players: ["Jogador 1", "Jogador 2"], name: "Jogador 1 & Jogador 2", titles: 0, editions: [], rank: 1 },
+  ]) }));
+  await page.goto("/maiores-campeoes");
+  await expect(page.getByRole("heading", { name: "Maiores Campeões", level: 1 })).toBeVisible();
+  await expect(page.getByText("O ranking está começando")).toBeVisible();
+  await expect(page.locator(".major-gallery, .major-stage, .champions-podium-real, .major-also")).toHaveCount(0);
+  await expect(page.locator(".major-champions-page")).not.toContainText("Jogador 1");
 });
 
 test("abertura sem títulos não inventa campeões e não impede continuar", async ({ page }) => {
@@ -1191,12 +1355,11 @@ test("abertura com movimento reduzido não tem laço e mostra o palco inteiro", 
   await page.goto("/abertura");
   await expect(page.getByRole("heading", { name: "Bora fazer história e levar esse caneco para casa?" })).toBeVisible();
   await expect(page.locator(".opening-stage .opening-trophy-svg")).toBeVisible();
-  const state = await page.evaluate(() => ({
-    looping: document.getAnimations().filter((animation) => animation.playState === "running").length,
-    hidden: Array.from(document.querySelectorAll(".opening-hero *")).filter((element) => getComputedStyle(element).opacity === "0" && !element.closest("svg")).length,
-  }));
-  expect(state.looping).toBe(0);
-  expect(state.hidden).toBe(0);
+  // Com movimento reduzido as animações duram 0,01 ms: ainda aparecem como "running" por um
+  // quadro logo depois de a tela montar. Um laço de verdade nunca chegaria a zero.
+  await expect.poll(() => page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === "running").length)).toBe(0);
+  const hidden = await page.evaluate(() => Array.from(document.querySelectorAll(".opening-hero *")).filter((element) => getComputedStyle(element).opacity === "0" && !element.closest("svg")).length);
+  expect(hidden).toBe(0);
 });
 
 test("movimento reduzido mostra o conteúdo sem deslocamento", async ({ page }) => {
@@ -1268,10 +1431,23 @@ function knockoutFixture(played: number, repechage: RepechageOutcome = "thirds")
 async function mockKnockout(page: Page, played: number, role: "admin" | "jogador" = "jogador", repechage: RepechageOutcome = "thirds") {
   await mockCoreApi(page, role);
   const fixture = knockoutFixture(played, repechage);
+  await page.route("**/api/bracket/status", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ editionFinished: played === 7, syncPending: false }) }));
   await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(finalStandings(route.request().url().includes("/A/") ? "A" : "B")) }));
   await page.route("**/api/bracket", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixture.bracket) }));
   await page.route("**/api/matches?stage=mata-mata", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixture.matches) }));
 }
+
+/** Troca a dupla da sessão simulada (o padrão de mockCoreApi é a Dupla 1). */
+async function asTeam(page: Page, teamId: string) {
+  await page.addInitScript((id) => {
+    const session = JSON.parse(localStorage.getItem("truco-do-novo:session")!);
+    session.user.teamId = id;
+    localStorage.setItem("truco-do-novo:session", JSON.stringify(session));
+  }, teamId);
+}
+
+const resultButtons = (page: Page) => page.getByRole("button", { name: /Lançar resultado|Editar resultado/ });
+const campaignPanel = (page: Page) => page.getByRole("region", { name: "Sua dupla no mata-mata" });
 
 const cardSides = (page: Page, key: string) => page.locator(".ko-cell-" + key + " .ko-side-team strong");
 const noSidewaysScroll = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -1450,14 +1626,17 @@ test("admin decide um empate exato escolhendo a ordem final das duplas", async (
   await expect(page.getByRole("region", { name: "Decidir empate do Grupo A" })).toHaveCount(0);
 });
 
-test("com os grupos encerrados o jogador vê os confrontos aguardando a confirmação do administrador", async ({ page }) => {
+test("com os grupos encerrados o jogador vê a repescagem valendo, sem depender do administrador", async ({ page }) => {
   await mockCoreApi(page, "jogador");
   await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(finalStandings(route.request().url().includes("/A/") ? "A" : "B")) }));
   await page.goto("/mata-mata");
-  await expect(page.getByText(/começam assim que o administrador confirmar o mata-mata/)).toBeVisible();
+  await expect(page.getByText(/a repescagem já está valendo/)).toBeVisible();
+  await expect(page.locator(".knockout-page")).not.toContainText(/administrador confirmar|aguardando confirmação|Gerar mata-mata/i);
   await expect(cardSides(page, "R1")).toHaveText(["Dupla 3", "Dupla 9"]);
-  await expect(page.locator(".ko-cell-R1 .ko-side-team small").first()).toContainText("aguardando confirmação");
+  await expect(page.locator(".ko-cell-R1 .ko-side-team small").first()).toContainText("classificação final");
   await expect(page.locator(".ko-cell-R1 .ko-match-status")).toHaveText("Aguardando");
+  // Sem jogo criado não há o que lançar.
+  await expect(resultButtons(page)).toHaveCount(0);
 });
 
 test("primeiro acesso obriga a criar senha própria antes de liberar o campeonato", async ({ page }) => {
@@ -1573,6 +1752,199 @@ test("reencontro inevitável nas quartas é mostrado, não escondido", async ({ 
   await expect(page.locator(".ko-cell-Q1 .ko-match-rematch")).toHaveText("Reencontro do grupo");
   await expect(page.locator(".ko-cell-Q2 .ko-match-rematch")).toHaveCount(0);
   await expect(page.getByText(/Reencontro inevitável nas quartas: Dupla 2 e Dupla 4 já se enfrentaram na fase de grupos/)).toBeVisible();
+  expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
+});
+
+// ---------- Resultado direto no chaveamento ----------
+
+test("integrante da repescagem lança o resultado no chaveamento e vê o vencedor na hora", async ({ page }) => {
+  await mockKnockout(page, 0);
+  await asTeam(page, "team-3");
+  const fixture = knockoutFixture(0);
+  let saved = false;
+  const posts: Array<{ path: string; body: unknown }> = [];
+  await page.route("**/api/matches?stage=mata-mata", (route) => route.fulfill({
+    status: 200, contentType: "application/json",
+    body: JSON.stringify(fixture.matches.map((match) => (saved && match.id === "ko-R1" ? { ...match, result: { setsA: 2, setsB: 1 }, status: "realizado" } : match))),
+  }));
+  await page.route(/\/api\/matches\/[^/]+\/result$/, (route) => {
+    posts.push({ path: new URL(route.request().url()).pathname, body: route.request().postDataJSON() });
+    saved = true;
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...fixture.matches[0], result: route.request().postDataJSON(), status: "realizado" }) });
+  });
+
+  await page.goto("/mata-mata");
+  const card = page.locator(".ko-cell-R1");
+  await expect(card.locator(".ko-match-status")).toHaveText("A jogar");
+  // "Sua vez": o confronto e o adversário aparecem no topo, com o botão de lançar.
+  await expect(campaignPanel(page)).toContainText("Sua vez");
+  await expect(campaignPanel(page)).toContainText("Repescagem 1 · contra Dupla 9");
+  await expect(campaignPanel(page).getByRole("button", { name: "Lançar resultado" })).toBeVisible();
+  // A outra repescagem não é da dupla: só leitura.
+  await expect(page.locator(".ko-cell-R2").getByRole("button")).toHaveCount(0);
+
+  await card.getByRole("button", { name: "Lançar resultado" }).click();
+  await card.getByRole("button", { name: "2x1", exact: true }).click();
+  await card.getByRole("button", { name: "Confirmar resultado" }).click();
+
+  await expect(card.locator(".ko-side-sets")).toHaveText(["2", "1"]);
+  expect(posts).toEqual([{ path: "/api/matches/ko-R1/result", body: { setsA: 2, setsB: 1 } }]);
+  await expect(card.locator(".ko-side-winner")).toContainText("Dupla 3");
+  await expect(card.locator(".ko-match-status")).toHaveText("Encerrado");
+  await expect(card.getByRole("button", { name: "Editar resultado" })).toBeVisible();
+  // Toast e destaque dizem a mesma coisa; nada de "classificação do seu grupo".
+  await expect(campaignPanel(page).getByRole("heading", { name: "Classificados para as quartas de final!" })).toBeVisible();
+  await expect(page.getByText(/classificação do seu grupo/)).toHaveCount(0);
+  await expect(campaignPanel(page)).toContainText("Vocês aguardam o fim da Repescagem 2");
+  expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
+});
+
+test("quem não joga a partida vê o chaveamento sem nenhum botão de resultado", async ({ page }) => {
+  // Dupla 1: líder do Grupo A, espera na semifinal.
+  await mockKnockout(page, 1);
+  await page.goto("/mata-mata");
+  await expect(page.locator(".ko-cell-R2 .ko-match-status")).toHaveText("A jogar");
+  await expect(page.locator(".ko-cell-R1 .ko-match-status")).toHaveText("Encerrado");
+  await expect(resultButtons(page)).toHaveCount(0);
+  await expect(page.locator(".ko-match-actions")).toHaveCount(0);
+  await expect(campaignPanel(page)).toContainText("Vocês aguardam o vencedor das Quartas 2, na Semifinal 1.");
+});
+
+test("cadeado fechado deixa o chaveamento só para leitura, com aviso", async ({ page }) => {
+  await mockKnockout(page, 1);
+  await asTeam(page, "team-8");
+  await mockResultsLock(page, true);
+  await page.goto("/mata-mata");
+  await expect(page.locator(".ko-cell-R2 .ko-match-status")).toHaveText("A jogar");
+  await expect(page.locator(".results-lock-notice")).toHaveText(LOCKED_MESSAGE);
+  await expect(resultButtons(page)).toHaveCount(0);
+  // O confronto da dupla continua destacado, só sem ação.
+  await expect(campaignPanel(page)).toContainText("Repescagem 2 · contra Dupla 4");
+});
+
+test("editar resultado no chaveamento pede confirmação e mostra a recusa da API", async ({ page }) => {
+  await mockKnockout(page, 4);
+  await asTeam(page, "team-3");
+  const refusal = "Não é possível trocar o vencedor: a fase seguinte já foi disputada.";
+  const posts: unknown[] = [];
+  await page.route(/\/api\/matches\/[^/]+\/result$/, (route) => {
+    posts.push(route.request().postDataJSON());
+    return route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ message: refusal }) });
+  });
+  await page.goto("/mata-mata");
+  const card = page.locator(".ko-cell-R1");
+  await expect(card.locator(".ko-side-sets")).toHaveText(["2", "0"]);
+  await card.getByRole("button", { name: "Editar resultado" }).click();
+  await card.getByRole("button", { name: "1x2", exact: true }).click();
+  await card.getByRole("button", { name: "Salvar correção" }).click();
+
+  // Nada é enviado antes da confirmação, e o texto é o do mata-mata.
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toContainText("Substituir o resultado já lançado?");
+  await expect(dialog).toContainText("corrigido para 1x2");
+  await expect(dialog).toContainText("Se o vencedor mudar, a vaga na fase seguinte muda junto");
+  await expect(dialog).not.toContainText("grupo");
+  expect(posts).toHaveLength(0);
+
+  await dialog.getByRole("button", { name: "Salvar correção" }).click();
+  await expect(page.getByText(refusal)).toBeVisible();
+  expect(posts).toEqual([{ setsA: 1, setsB: 2 }]);
+  await expect(dialog).toHaveCount(0);
+  await expect(card.locator(".ko-side-sets")).toHaveText(["2", "0"]);
+});
+
+test("recusa 403 da API fecha o formulário e o chaveamento passa a mostrar o cadeado", async ({ page }) => {
+  await mockKnockout(page, 0);
+  await asTeam(page, "team-3");
+  const lock = await mockResultsLock(page, false);
+  await page.goto("/mata-mata");
+  const card = page.locator(".ko-cell-R1");
+  await card.getByRole("button", { name: "Lançar resultado" }).click();
+  // O administrador fecha o cadeado com a tela aberta.
+  lock.locked = true;
+  await card.getByRole("button", { name: "2x0", exact: true }).click();
+  await card.getByRole("button", { name: "Confirmar resultado" }).click();
+  await expect(page.locator(".results-lock-notice")).toHaveText(LOCKED_MESSAGE);
+  expect(lock.rejected).toBe(1);
+  await expect(page.locator(".score-form")).toHaveCount(0);
+  await expect(resultButtons(page)).toHaveCount(0);
+});
+
+test("quem vence as quartas vê Classificados para a semifinal, e o destaque sobrevive ao reload", async ({ page }) => {
+  // Quartas 2: Dupla 7 vence a Dupla 3 e pega a Dupla 1 na Semifinal 1.
+  await mockKnockout(page, 4);
+  await asTeam(page, "team-7");
+  await page.goto("/mata-mata");
+  const headline = campaignPanel(page).getByRole("heading", { name: "Classificados para a semifinal!" });
+  await expect(headline).toBeVisible();
+  await expect(campaignPanel(page)).toContainText("Quartas 2: Dupla 7 2 × 0 Dupla 3");
+  await expect(campaignPanel(page)).toContainText("Semifinal 1 · contra Dupla 1");
+  await expect(campaignPanel(page).getByRole("button", { name: "Lançar resultado" })).toBeVisible();
+  await page.reload();
+  await expect(headline).toBeVisible();
+  expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
+});
+
+test("quem perde no mata-mata vê o fim da campanha, sem festa", async ({ page }) => {
+  await mockKnockout(page, 4);
+  await asTeam(page, "team-3");
+  await page.goto("/mata-mata");
+  await expect(campaignPanel(page).getByRole("heading", { name: "Fim da campanha nesta edição" })).toBeVisible();
+  await expect(campaignPanel(page)).not.toContainText(/Classificados|Sua vez/);
+});
+
+test("final encerrada mostra o campeão e nenhum botão de resultado para jogador", async ({ page }) => {
+  await mockKnockout(page, 7);
+  await asTeam(page, "team-6");
+  await page.goto("/mata-mata");
+  await expect(page.locator(".ko-champion-decided .ko-champion-name")).toHaveText("Dupla 6");
+  await expect(campaignPanel(page).getByRole("heading", { name: "Campeões da 5ª edição!" })).toBeVisible();
+  await expect(page.locator(".ko-match-played")).toHaveCount(7);
+  await expect(resultButtons(page)).toHaveCount(0);
+  await page.reload();
+  await expect(campaignPanel(page).getByRole("heading", { name: "Campeões da 5ª edição!" })).toBeVisible();
+  await expect(resultButtons(page)).toHaveCount(0);
+
+  // O vice vê a despedida, também sem botão.
+  await asTeam(page, "team-1");
+  await page.reload();
+  await expect(campaignPanel(page).getByRole("heading", { name: "Fim da campanha nesta edição" })).toBeVisible();
+  await expect(resultButtons(page)).toHaveCount(0);
+});
+
+test("Jogos tem o filtro Mata-mata: vazio antes dos jogos existirem e com os confrontos depois", async ({ page }) => {
+  await mockCoreApi(page, "jogador");
+  await asTeam(page, "team-3");
+  await page.goto("/jogos");
+  const tab = page.getByRole("tab", { name: "Mata-mata" });
+  await expect(tab).toBeVisible();
+  await tab.click();
+  await expect(tab).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("heading", { name: "O mata-mata ainda não começou" })).toBeVisible();
+  await expect(page.locator(".match-card")).toHaveCount(0);
+
+  // Repescagens encerradas: as quartas existem e a Dupla 3 joga as Quartas 2.
+  const fixture = knockoutFixture(2);
+  await page.route("**/api/matches", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([...matches, ...fixture.matches]) }));
+  await page.reload();
+  await page.getByRole("tab", { name: "Mata-mata" }).click();
+  await expect(page.locator(".match-card")).toHaveCount(4);
+  await expect(page.locator(".match-card-round")).toHaveText(["Repescagem 1", "Repescagem 2", "Quartas 1", "Quartas 2"]);
+  // Mata-mata não rende pontos de grupo.
+  await expect(page.locator(".match-card-points")).toHaveCount(0);
+  // Uma seção por fase, na ordem do chaveamento.
+  await expect(page.locator(".match-group-title")).toContainText(["Repescagem", "Quartas de final"]);
+  const mine = page.locator(".match-card").filter({ hasText: "Quartas 2" });
+  await expect(mine.getByRole("button", { name: "Lançar resultado" })).toBeVisible();
+  await expect(page.locator(".match-card").filter({ hasText: "Quartas 1" }).getByRole("button")).toHaveCount(0);
+
+  // Editar um jogo de mata-mata em Jogos usa o mesmo fluxo, com o texto do mata-mata.
+  const played = page.locator(".match-card").filter({ hasText: "Repescagem 1" });
+  await played.getByRole("button", { name: "Editar resultado" }).click();
+  await played.getByRole("button", { name: "2x1", exact: true }).click();
+  await played.getByRole("button", { name: "Salvar correção" }).click();
+  await expect(page.getByRole("alertdialog")).toContainText("Se o vencedor mudar, a vaga na fase seguinte muda junto");
+  await expect(page.getByRole("alertdialog")).not.toContainText("grupo");
   expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
 });
 
@@ -1694,4 +2066,43 @@ test("sem resposta sobre o cadeado a tela do jogador fica bloqueada, nunca liber
   await expect(page.locator(".match-card")).toHaveCount(4);
   await expect(page.locator(".results-lock-notice")).toBeVisible();
   await expect(page.getByRole("button", { name: /Lançar resultado|Editar resultado/ })).toHaveCount(0);
+});
+
+test("placar salvo com avanço pendente fecha o formulário, recarrega o placar e não pede reenvio", async ({ page }) => {
+  await mockCoreApi(page, "jogador");
+  await mockResultsLock(page, false);
+  let saved = false;
+  let posts = 0;
+  await page.route((url) => url.pathname === "/api/matches", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(matches.map((match, index) => index === 0 && saved ? { ...match, result: { setsA: 2, setsB: 0 }, status: "realizado" } : match)) }));
+  await page.route(/\/api\/matches\/[^/]+\/result$/, (route) => {
+    saved = true;
+    posts += 1;
+    return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ code: "progression_pending", resultSaved: true, retryable: true, message: "O placar foi gravado. O avanço está pendente. Não reenvie o resultado." }) });
+  });
+  await page.goto("/jogos");
+  await page.getByRole("button", { name: "Lançar resultado" }).first().click();
+  await page.getByRole("button", { name: "2x0" }).click();
+  await page.getByRole("button", { name: "Confirmar resultado" }).click();
+  await expect(page.getByText(/O placar foi gravado/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Confirmar resultado" })).toHaveCount(0);
+  const savedCard = page.locator(".match-card").filter({ has: page.locator(".match-card-team-name", { hasText: /^Dupla 2$/ }) });
+  await expect(savedCard.locator(".match-card-team-result > strong")).toHaveText(["2", "0"]);
+  expect(posts).toBe(1);
+  await page.reload();
+  expect(posts).toBe(1);
+});
+
+test("final salva com campeão pendente mantém placar e não anuncia campeonato encerrado", async ({ page }) => {
+  await mockKnockout(page, 7);
+  const fixture = knockoutFixture(7);
+  const final = fixture.matches.find((match) => match.id === "ko-F")!;
+  await asTeam(page, String(final.teamBId));
+  await page.route("**/api/bracket/status", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ editionFinished: false, syncPending: true }) }));
+  await page.goto("/mata-mata");
+  await expect(page.getByRole("heading", { name: "Final vencida. Registro do título pendente." })).toBeVisible();
+  await expect(page.getByText("Final salva; título em confirmação")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Campeões da 5ª edição!" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Lançar resultado|Editar resultado/ })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByText("Final salva; título em confirmação")).toBeVisible();
 });

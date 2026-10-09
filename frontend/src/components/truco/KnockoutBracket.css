@@ -164,6 +164,39 @@
   font-weight: 750;
 }
 
+/* ---------- Lançar / editar o placar no próprio confronto ---------- */
+.ko-match-actions {
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--color-border);
+  container: ko-actions / inline-size;
+}
+
+.ko-match-actions > .btn {
+  width: 100%;
+  min-height: 44px;
+  white-space: normal;
+}
+
+/* Formulário aberto: o card ganha o contorno azul de "em edição", como em Jogos. */
+.ko-match:has(.score-form) {
+  border-color: var(--color-tech-400);
+  box-shadow: 0 0 0 2px rgb(var(--rgb-tech) / 0.12);
+}
+
+.ko-match-actions .score-form-hint { overflow-wrap: anywhere; }
+.ko-match-actions .score-preset { min-height: 44px; }
+.ko-match-actions .score-form-actions { flex-wrap: wrap; }
+.ko-match-actions .score-form-cancel { flex: 1 1 auto; }
+.ko-match-actions .score-form-submit { flex: 2 1 150px; }
+
+/* Coluna estreita do chaveamento largo: placares em 2×2 e botões empilhados. */
+@container ko-actions (max-width: 219px) {
+  .ko-match-actions .score-form-grid { grid-template-columns: repeat(2, 1fr); }
+  .ko-match-actions .score-form-actions { flex-direction: column; }
+  .ko-match-actions .score-form-actions .score-form-cancel,
+  .ko-match-actions .score-form-actions .score-form-submit { flex: none; margin-top: 0; padding-inline: 6px; }
+}
+
 /* ---------- Campeão ---------- */
 .ko-champion {
   --tw: 92px;

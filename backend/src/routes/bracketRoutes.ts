@@ -1,11 +1,13 @@
 import { Router } from "express";
+import { isEditionFinished, type KnockoutStatus } from "@truco/shared";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { store } from "../data/store.js";
-import { BracketError, generateBracket } from "../services/bracketService.js";
+import { describeGroupStageBlock, inspectKnockout, syncKnockoutLocked } from "../services/bracketService.js";
 import { requireAuth, requireRole } from "../middleware/requireAuth.js";
 
 export const bracketRoutes = Router();
 
+// Consultas nunca reconciliam ou alteram confrontos.
 bracketRoutes.get(
   "/",
   requireAuth,
@@ -15,17 +17,54 @@ bracketRoutes.get(
   }),
 );
 
+/** Situação do mata-mata e da edição, só leitura. */
+bracketRoutes.get(
+  "/status",
+  requireAuth,
+  asyncHandler(async (_req, res) => {
+    const championship = await store.getCurrentChampionship();
+    const [plan, bracket, champion] = await Promise.all([
+      inspectKnockout(championship.truco_id),
+      store.listBracketMatches(championship.truco_id),
+      store.getEditionChampion(championship.truco_id),
+    ]);
+    const finished = isEditionFinished(championship.current_phase) && champion !== null
+      && !plan.steps.some((step) => step.type === "record-champion") && plan.anomalies.length === 0;
+    const team = async (teamId: string | null | undefined) => {
+      const row = teamId ? await store.getTeam(teamId) : undefined;
+      return row ? { teamId: row.id, teamName: row.name } : null;
+    };
+    const payload: KnockoutStatus = {
+      phase: championship.current_phase,
+      groupStage: plan.status,
+      pendingTieGroups: plan.pendingTieGroups,
+      bracketGenerated: bracket.length > 0,
+      editionFinished: finished,
+      champion: finished ? await team(champion?.championTeamId) : null,
+      runnerUp: finished ? await team(champion?.runnerUpTeamId) : null,
+      finalResult: finished ? (champion?.finalResult ?? null) : null,
+      syncPending: plan.steps.length > 0 || championship.progression_pending === true,
+      anomalies: plan.anomalies,
+    };
+    res.json(payload);
+  }),
+);
+
+/**
+ * Reconciliação manual, para o administrador. O mata-mata é gerado sozinho; esta rota só roda
+ * a mesma sincronização idempotente (não gera nada que o automático não geraria) e devolve o
+ * chaveamento. Com a fase de grupos em aberto ou empate pendente, responde 409 com o motivo.
+ */
 bracketRoutes.post(
   "/generate",
   requireAuth,
   requireRole("admin", "superadmin"),
   asyncHandler(async (_req, res) => {
     const championship = await store.getCurrentChampionship();
-    try {
-      await generateBracket(championship.truco_id);
-    } catch (error) {
-      if (!(error instanceof BracketError)) throw error;
-      res.status(409).json({ message: error.message });
+    const report = await syncKnockoutLocked(championship.truco_id);
+    const blocked = describeGroupStageBlock(report);
+    if (blocked) {
+      res.status(409).json({ message: blocked });
       return;
     }
     res.json(await store.listBracketMatches(championship.truco_id));

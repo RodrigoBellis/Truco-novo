@@ -396,13 +396,18 @@ function bracketWith(matchIds: Partial<Record<KnockoutKey, string>>): BracketMat
 
 const free = { blocked: null, repair: null, rebuildQuarterfinals: [] };
 
-test("placar de grupo pode ser corrigido até o mata-mata ser gerado, e nunca depois", () => {
+test("placar de grupo pode ser corrigido até o primeiro placar do mata-mata, e nunca depois", () => {
+  // Regra de 09/10/2026: o chaveamento nasce sozinho e, enquanto nenhum jogo dele tem placar,
+  // a correção de grupo é aceita (o chaveamento é refeito pela nova classificação).
   const groupMatch = fixtureMatch("g1", "grupos", "a1", "a2", { setsA: 2, setsB: 0 });
   assert.deepEqual(planResultChange(groupMatch, { setsA: 0, setsB: 2 }, [], []), free);
-  const plan = planResultChange(groupMatch, { setsA: 0, setsB: 2 }, bracketWith({ R1: "r1" }), []);
-  assert.match(plan.blocked ?? "", /mata-mata já foi gerado/);
+  const r1Pending = fixtureMatch("r1", "mata-mata", "a3", "b4", null);
+  assert.deepEqual(planResultChange(groupMatch, { setsA: 0, setsB: 2 }, bracketWith({ R1: "r1" }), [r1Pending]), free);
+  const r1Played = { ...r1Pending, result: { setsA: 2, setsB: 0 }, status: "realizado" as const };
+  const plan = planResultChange(groupMatch, { setsA: 0, setsB: 2 }, bracketWith({ R1: "r1" }), [r1Played]);
+  assert.match(plan.blocked ?? "", /mata-mata já tem placar lançado \(Repescagem 1\)/);
   // Nem um lançamento novo de grupo passa depois disso.
-  assert.match(planResultChange(fixtureMatch("g2", "grupos", "a1", "a3", null), { setsA: 2, setsB: 1 }, bracketWith({ R1: "r1" }), []).blocked ?? "", /não podem mais ser alterados/);
+  assert.match(planResultChange(fixtureMatch("g2", "grupos", "a1", "a3", null), { setsA: 2, setsB: 1 }, bracketWith({ R1: "r1" }), [r1Played]).blocked ?? "", /não podem mais ser alterados/);
 });
 
 test("no mata-mata, corrigir o placar sem trocar o vencedor é sempre aceito", () => {

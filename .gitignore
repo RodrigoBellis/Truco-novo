@@ -11,3 +11,5 @@ tok.txt
 matches.json
 test-results/
 playwright-report/
+
+.env.homologacao

@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch --env-file=.env src/server.ts",
+    "dev:rehearsal": "tsx src/rehearsalServer.ts",
+    "dev:homologacao": "tsx src/homologacaoServer.ts",
     "build": "tsc",
     "start": "node --env-file=.env dist/server.js",
     "typecheck": "tsc --noEmit",
@@ -14,12 +16,14 @@
     "@supabase/supabase-js": "^2.112.2",
     "@truco/shared": "*",
     "cors": "^2.8.5",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^24.13.3",
+    "@types/pg": "^8.23.1",
     "tsx": "^4.19.2",
     "typescript": "~5.7.2"
   }

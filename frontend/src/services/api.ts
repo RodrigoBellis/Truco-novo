@@ -4,10 +4,16 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? "/api";
 
 export class ApiError extends Error {
   status: number;
+  readonly code?: string;
+  readonly resultSaved: boolean;
+  readonly retryable: boolean;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code?: string, resultSaved = false, retryable = false) {
     super(message);
     this.status = status;
+    this.code = code;
+    this.resultSaved = resultSaved;
+    this.retryable = retryable;
   }
 }
 
@@ -39,7 +45,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     const message = (data && typeof data === "object" && "message" in data)
       ? String((data as { message: unknown }).message)
       : "Não foi possível completar a solicitação.";
-    throw new ApiError(message, response.status);
+    throw new ApiError(message, response.status, data?.code, data?.resultSaved === true, data?.retryable === true);
   }
 
   return data as T;

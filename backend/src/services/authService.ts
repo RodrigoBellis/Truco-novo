@@ -1,5 +1,8 @@
 import type { AuthUser, LoginResponse, UserRole } from "@truco/shared";
 import { createLoginClient, supabaseAdmin } from "../data/supabaseClient.js";
+import { isRehearsalMode } from "../utils/rehearsalMode.js";
+import { rehearsalAuthUser, rehearsalLogin } from "../data/rehearsalAuth.js";
+import { rehearsalStore } from "../data/rehearsalStore.js";
 
 export class AuthError extends Error {}
 
@@ -54,6 +57,13 @@ async function emailForPlayerId(playerId: string): Promise<string> {
  * Aceita `playerId` ou `email`. A tela de login usa playerId, porque a listagem pública
  * de jogadores (/players/roster) não devolve e-mails. */
 export async function login(identifier: { email?: string; playerId?: string }, password: string): Promise<LoginResponse> {
+  // Modo ensaio: contas fictícias em memória, sem Supabase Auth.
+  if (isRehearsalMode()) {
+    const session = await rehearsalLogin(identifier, password);
+    if (!session) throw new AuthError("Senha incorreta. Tente novamente.");
+    return session;
+  }
+
   const email = identifier.email?.trim()
     ? identifier.email.trim().toLowerCase()
     : await emailForPlayerId(String(identifier.playerId ?? ""));
@@ -86,6 +96,13 @@ export function passwordProblem(newPassword: string): string | null {
 export async function changePassword(authUserId: string, newPassword: string): Promise<AuthUser> {
   const problem = passwordProblem(newPassword);
   if (problem) throw new AuthError(problem);
+
+  if (isRehearsalMode()) {
+    rehearsalStore().setAccountPassword(authUserId, newPassword);
+    const account = rehearsalStore().findAccount({ id: authUserId });
+    if (!account) throw new AuthError("Perfil não encontrado para este usuário.");
+    return rehearsalAuthUser(account);
+  }
 
   const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(authUserId, { password: newPassword });
   if (updateError) throw new AuthError(updateError.code === "weak_password" ? "Senha fraca demais. Escolha outra com pelo menos " + MIN_PASSWORD_LENGTH + " caracteres." : "Não foi possível salvar a nova senha.");

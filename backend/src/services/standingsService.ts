@@ -19,10 +19,3 @@ export async function computeStandings(championshipId: string, groupId: GroupId)
   const overrides = await store.listStandingOverrides(championshipId, groupRowId);
   return computeGroupStandings(group.teamIds, matches, overrides);
 }
-
-export async function isGroupComplete(championshipId: string, groupId: GroupId): Promise<boolean> {
-  const group = await store.getGroup(championshipId, groupId);
-  if (group.teamIds.length === 0) return false;
-  const matches = await store.listMatches(championshipId, { stage: "grupos", groupLabel: groupId });
-  return matches.length > 0 && matches.every((m) => m.status === "realizado");
-}

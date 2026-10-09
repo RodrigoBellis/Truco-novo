@@ -1,6 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
 import type { UserRole } from "@truco/shared";
 import { supabaseAdmin } from "../data/supabaseClient.js";
+import { isRehearsalMode } from "../utils/rehearsalMode.js";
+import { accountFromAccessToken } from "../data/rehearsalAuth.js";
 
 export interface AuthenticatedUser {
   id: string;
@@ -29,6 +31,22 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
   if (!token) {
     res.status(401).json({ message: "Sessão não encontrada. Faça login novamente." });
+    return;
+  }
+
+  // Modo ensaio: o token é o emitido pelo login de ensaio; nada é consultado no Supabase.
+  if (isRehearsalMode()) {
+    const account = accountFromAccessToken(token);
+    if (!account) {
+      res.status(401).json({ message: "Sessão inválida ou expirada." });
+      return;
+    }
+    if (account.mustChangePassword && !req.originalUrl.split("?")[0].endsWith("/auth/change-password")) {
+      res.status(403).json({ message: "Crie sua senha antes de continuar.", code: "password_change_required" });
+      return;
+    }
+    req.authUser = { id: account.id, role: account.role, playerId: account.playerId };
+    next();
     return;
   }
 
