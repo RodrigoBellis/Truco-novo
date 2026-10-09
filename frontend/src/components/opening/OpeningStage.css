@@ -1,0 +1,306 @@
+/* Palco da abertura (OpeningStage.tsx): o caneco sobre a mesa e as três manilhas em leque
+   saindo de trás da boca da taça.
+
+   Tudo é medido em --u, 1/320 da largura do caneco (--tw, definida no hero): as posições
+   abaixo são as mesmas coordenadas do viewBox do troféu, deslocadas de (10, 106). É isso
+   que garante o encaixe em qualquer tamanho: os pés das cartas ficam escondidos atrás da
+   taça, acima das alças, e as alças nunca cruzam uma carta.
+
+   Camadas de transform, de fora para dentro, para ninguém disputar a mesma propriedade:
+   cena (paralaxe do mouse) → posição fixa em 3D → ambiente em laço (JS) → entrada (CSS). */
+.opening-stage {
+  /* --px/--py vão de -1 a 1 e vêm do ponteiro (OpeningStage.tsx). */
+  --px: 0;
+  --py: 0;
+  --trophy-shine-delay: 1080ms;
+  position: relative;
+  width: calc(var(--u) * 340);
+  height: calc(var(--u) * 512);
+  justify-self: center;
+  /* Folga à direita: o halo e a poça de luz são maiores que o palco e precisam caber na página. */
+  margin-right: calc(var(--u) * 34);
+  perspective: calc(var(--u) * 1300);
+  perspective-origin: 50% 42%;
+  pointer-events: none;
+}
+
+.opening-scene {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: rotateY(calc(var(--px) * 4deg)) rotateX(calc(var(--py) * -2.5deg));
+  transition: transform 620ms var(--ease-out);
+}
+
+/* ---------- Luz ---------- */
+/* Foco que desce sobre a mesa: cone de bordas suaves, sem blur. */
+.opening-spot {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--u) * -60);
+  width: calc(var(--u) * 520);
+  height: calc(var(--u) * 550);
+  margin-left: calc(var(--u) * -260);
+  /* O vértice fica bem acima da caixa e o topo esmaece: sem ponta visível. */
+  background: conic-gradient(from 167deg at 50% -60%, transparent 0deg, rgb(var(--rgb-tech) / var(--opening-spot-alpha)) 13deg, transparent 26deg, transparent 360deg);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 34%, #000 48%, transparent 94%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 34%, #000 48%, transparent 94%);
+  transform: translateZ(calc(var(--u) * -160));
+  animation: opening-fade 560ms ease-out backwards;
+}
+
+/* Halo atrás do leque: calor laranja no centro, aro azul na borda. Desloca com o ponteiro. */
+.opening-halo-shift {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--u) * 150);
+  width: 0;
+  height: 0;
+  transform: translate3d(calc(var(--px) * 14px), calc(var(--py) * 9px), calc(var(--u) * -150));
+  transition: transform 620ms var(--ease-out);
+}
+
+.opening-halo {
+  position: absolute;
+  left: calc(var(--u) * -270);
+  top: calc(var(--u) * -270);
+  width: calc(var(--u) * 540);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(closest-side, rgb(var(--rgb-accent) / var(--opening-halo-alpha)), rgb(var(--rgb-accent) / calc(var(--opening-halo-alpha) * 0.3)) 50%, transparent 72%),
+    radial-gradient(closest-side, transparent 54%, rgb(var(--rgb-tech) / var(--opening-ring-alpha)) 74%, transparent 100%);
+  animation: opening-halo-in 820ms var(--ease-out) 80ms backwards;
+}
+
+/* ---------- Mesa ---------- */
+.opening-table {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--u) * 480);
+  width: 0;
+  height: 0;
+  transform: translateZ(calc(var(--u) * -4));
+}
+
+.opening-table > span {
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Poça de luz do foco no tampo. */
+.opening-table-pool {
+  width: calc(var(--u) * 500);
+  height: calc(var(--u) * 100);
+  background: radial-gradient(closest-side, rgb(var(--rgb-accent) / var(--opening-pool-alpha)), rgb(var(--rgb-tech) / calc(var(--opening-pool-alpha) * 0.42)) 58%, transparent 100%);
+  animation: opening-pool-in 760ms var(--ease-out) 120ms backwards;
+}
+
+/* Reflexo do metal no tampo, logo à frente do pedestal. */
+.opening-table-glint {
+  top: calc(var(--u) * 12);
+  width: calc(var(--u) * 190);
+  height: calc(var(--u) * 34);
+  background: radial-gradient(closest-side, rgb(var(--rgb-accent-hi) / var(--opening-glint-alpha)), transparent 100%);
+  animation: opening-fade 620ms ease-out 900ms backwards;
+}
+
+/* Sombra de contato do pedestal. */
+.opening-table-shadow {
+  width: calc(var(--u) * 250);
+  height: calc(var(--u) * 44);
+  background: radial-gradient(closest-side, rgb(var(--opening-shadow-rgb) / var(--opening-shadow-alpha)), transparent 100%);
+  animation: opening-fade 620ms ease-out 700ms backwards;
+}
+
+/* ---------- Cartas ---------- */
+/* --cx/--cy: centro da carta no palco; --cw: largura. Tudo em unidades --u. */
+.opening-card {
+  position: absolute;
+  left: calc(var(--u) * var(--cx));
+  top: calc(var(--u) * var(--cy));
+  width: calc(var(--u) * var(--cw));
+  aspect-ratio: 5 / 7;
+  margin: calc(var(--u) * var(--cw) * -0.7) 0 0 calc(var(--u) * var(--cw) * -0.5);
+  font-size: calc(var(--u) * var(--cw) * 0.2);
+  transform-style: preserve-3d;
+}
+
+/* As laterais ficam mais ao fundo e viradas para o centro; o zap vem à frente, maior. */
+.opening-card-left {
+  --cx: 82;
+  --cy: 96;
+  --cw: 114;
+  --deal-x: 80%;
+  --deal-r: 24deg;
+  transform: translateZ(calc(var(--u) * -70)) rotateZ(-35deg) rotateY(10deg);
+}
+
+.opening-card-right {
+  --cx: 258;
+  --cy: 96;
+  --cw: 114;
+  --deal-x: -80%;
+  --deal-r: -24deg;
+  transform: translateZ(calc(var(--u) * -70)) rotateZ(35deg) rotateY(-10deg);
+}
+
+.opening-card-center {
+  --cx: 170;
+  --cy: 90;
+  --cw: 122;
+  --deal-x: 0%;
+  --deal-r: 8deg;
+  transform: translateZ(calc(var(--u) * -34));
+}
+
+.opening-card-flip {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  animation: opening-card-deal 760ms var(--ease-out) backwards;
+}
+
+.opening-card-left .opening-card-flip { animation-delay: 200ms; }
+.opening-card-center .opening-card-flip { animation-delay: 330ms; }
+.opening-card-right .opening-card-flip { animation-delay: 460ms; }
+
+.opening-card-face,
+.opening-card-back {
+  position: absolute;
+  inset: 0;
+  border-radius: 0.38em;
+  border: max(1px, 0.07em) solid rgb(255 196 122 / 0.72);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.2),
+    0 0.3em 0.5em rgb(var(--opening-shadow-rgb) / calc(var(--opening-shadow-alpha) * 0.5)),
+    0 1.1em 1.9em -0.5em rgb(var(--opening-shadow-rgb) / var(--opening-shadow-alpha));
+  /* A opacidade anima aqui, nas folhas: no nível que gira ela achataria o 3D. */
+  animation: opening-fade 240ms ease-out backwards;
+}
+
+.opening-card-left :is(.opening-card-face, .opening-card-back) { animation-delay: 200ms; }
+.opening-card-center :is(.opening-card-face, .opening-card-back) { animation-delay: 330ms; }
+.opening-card-right :is(.opening-card-face, .opening-card-back) { animation-delay: 460ms; }
+
+.opening-card-face {
+  background:
+    linear-gradient(118deg, rgb(255 255 255 / 0.16) 0%, rgb(255 255 255 / 0.03) 30%, transparent 46%),
+    linear-gradient(158deg, #1f4686 0%, #112c58 46%, #08162f 100%);
+  color: #8fb4ff;
+}
+
+/* Filete interno da face. */
+.opening-card-face::after,
+.opening-card-back::after {
+  content: "";
+  position: absolute;
+  inset: 6%;
+  border-radius: 0.24em;
+  border: 1px solid rgb(255 255 255 / 0.1);
+}
+
+.opening-card-warm { color: #ff9a4f; }
+
+.opening-card-corner {
+  position: absolute;
+  top: 8%;
+  left: 10%;
+  display: grid;
+  justify-items: center;
+  gap: 0.1em;
+  font-size: 1em;
+  font-weight: 850;
+  line-height: 1;
+  color: #f4f7fd;
+}
+
+.opening-card-corner svg {
+  width: 0.72em;
+  height: auto;
+  color: #8fb4ff;
+}
+
+.opening-card-warm .opening-card-corner svg { color: #ff9a4f; }
+
+.opening-card-corner-flip {
+  top: auto;
+  left: auto;
+  right: 10%;
+  bottom: 8%;
+  transform: rotate(180deg);
+}
+
+/* Na carta da direita o canto de cima à esquerda fica atrás do zap: os índices trocam de lado. */
+.opening-card-right .opening-card-corner { left: auto; right: 10%; }
+.opening-card-right .opening-card-corner-flip { right: auto; left: 10%; }
+
+.opening-card-pip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 42%;
+  height: auto;
+  transform: translate(-50%, -50%);
+}
+
+/* Verso: só aparece no meio da virada. */
+.opening-card-back {
+  display: grid;
+  place-items: center;
+  background:
+    repeating-linear-gradient(45deg, rgb(255 196 122 / 0.1) 0 1px, transparent 1px 0.42em),
+    repeating-linear-gradient(-45deg, rgb(255 196 122 / 0.1) 0 1px, transparent 1px 0.42em),
+    linear-gradient(158deg, #17386f 0%, #0c2148 100%);
+  color: #ff9a4f;
+  transform: rotateY(180deg);
+}
+
+.opening-card-back svg {
+  width: 34%;
+  height: auto;
+}
+
+/* ---------- Caneco ---------- */
+.opening-trophy-layer {
+  position: absolute;
+  left: calc(var(--u) * 10);
+  top: calc(var(--u) * 106);
+  width: var(--tw);
+  transform:
+    translateZ(calc(var(--u) * 26))
+    rotateY(calc(var(--px) * 5deg))
+    rotateX(calc(var(--py) * -3deg));
+  transition: transform 620ms var(--ease-out);
+}
+
+.opening-trophy-float { will-change: transform; }
+
+.opening-trophy-rise {
+  animation: opening-trophy-in 820ms var(--ease-out) 560ms backwards;
+}
+
+.opening-hero:hover .opening-trophy-shine {
+  transform: translateX(330px);
+  transition: transform 900ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes opening-halo-in {
+  from { opacity: 0; transform: scale(0.5); }
+}
+
+@keyframes opening-pool-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.4, 0.7); }
+}
+
+/* A carta sai da mesa com o verso para cima e vira no ar até o lugar dela no leque. */
+@keyframes opening-card-deal {
+  from { transform: translate3d(var(--deal-x), 150%, calc(var(--u) * 120)) rotateY(-180deg) rotateZ(var(--deal-r)) scale(0.8); }
+}
+
+@keyframes opening-trophy-in {
+  from { opacity: 0; transform: translate3d(0, calc(var(--u) * 46), 0) scale(0.84); filter: blur(8px); }
+}

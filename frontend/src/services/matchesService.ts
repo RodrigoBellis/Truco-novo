@@ -1,4 +1,4 @@
-import type { Match, MatchResult, MatchStage } from "@truco/shared";
+import type { Match, MatchResult, MatchStage, ResultsLockState } from "@truco/shared";
 import { apiRequest } from "./api";
 
 interface MatchFilters {
@@ -32,4 +32,9 @@ export interface MatchResultAuditEntry {
 
 export function getMatchResultAudit(): Promise<MatchResultAuditEntry[]> {
   return apiRequest<MatchResultAuditEntry[]>("/matches/audit");
+}
+
+/** Cadeado global de resultados da edição. */
+export function getResultsLock(): Promise<ResultsLockState> {
+  return apiRequest<ResultsLockState>("/matches/lock");
 }

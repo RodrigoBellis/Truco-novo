@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { SimulationReport } from "@truco/shared";
+import { QUALIFICATION_ZONE_LABEL, type QualificationZone, type SimulationReport } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Card } from "../../components/ui/Card";
 import { Badge } from "../../components/ui/Badge";
@@ -8,6 +8,7 @@ import { Loading } from "../../components/ui/Loading";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { AnimatedBorderCard } from "../../components/ui/AnimatedBorderCard";
+import { KnockoutBracket } from "../../components/truco/KnockoutBracket";
 import { useFetchData } from "../../hooks/useFetchData";
 import { useToast } from "../../hooks/useToast";
 import { getSimulationAvailability, runSimulation, resetSimulation } from "../../services/simulationService";
@@ -16,6 +17,8 @@ import { IS_DEV_BUILD } from "../../utils/navigation";
 import "./AdminSimulationPage.css";
 
 type PendingAction = "run" | "reset";
+
+const ZONE_TONE: Record<QualificationZone, "green" | "info" | "gold" | "danger"> = { semifinal: "green", quartas: "info", repescagem: "gold", eliminado: "danger" };
 
 export function AdminSimulationPage() {
   const { data: availability, isLoading } = useFetchData(getSimulationAvailability);
@@ -89,9 +92,9 @@ export function AdminSimulationPage() {
 
       <Card className="simulation-intro">
         <p className="text-muted">
-          Executa todo o fluxo do campeonato com dados determinísticos: sorteio, fase de grupos, classificação, mata-mata,
-          semifinais, final, campeão, ranking e histórico — validando cada regra ao final. Nenhum dado é persistido fora da
-          memória local.
+          Executa o campeonato inteiro com duplas e placares de teste: sorteio, fase de grupos, classificação com os cinco critérios,
+          repescagem, quartas, semifinais, final e campeão — validando cada regra ao final. Tudo acontece na memória do
+          servidor local: os placares reais do campeonato não são lidos nem alterados.
         </p>
       </Card>
 
@@ -176,19 +179,33 @@ export function AdminSimulationPage() {
               <Card key={group.id}>
                 <h3>{group.name}</h3>
                 <ol className="simulation-group-list">
-                  {group.teamNames.map((name, index) => (
-                    <li key={name}>
-                      <span className="simulation-group-position">{index + 1}º</span>
-                      <span>{name}</span>
-                      {index === 0 && <Badge tone="gold">Semifinal</Badge>}
-                      {index > 0 && index < 5 && <Badge tone="green">Mata-mata</Badge>}
-                      {index === 5 && <Badge tone="danger">Eliminado</Badge>}
+                  {group.standings.map((row) => (
+                    <li key={row.teamId}>
+                      <span className="simulation-group-position">{row.position}º</span>
+                      <span>
+                        {row.teamName}
+                        <small className="text-faint simulation-group-stats"> {row.pontos} pts · {row.vitorias} V · {row.vitorias2x0} por 2x0 · confronto direto {row.confrontoDireto} · saldo {row.saldoSets}</small>
+                      </span>
+                      <Badge tone={ZONE_TONE[row.zone]}>{QUALIFICATION_ZONE_LABEL[row.zone]}</Badge>
                     </li>
                   ))}
                 </ol>
+                {group.tieResolvedManually && <p className="text-muted simulation-group-note">Houve empate exato: a posição foi decidida pela simulação no lugar do administrador (veja os avisos).</p>}
               </Card>
             ))}
           </div>
+
+          <Card>
+            <h3>Mata-mata da simulação</h3>
+            {report.quarterfinals && (
+              <p className="text-muted simulation-group-note">
+                Quartas: {report.quarterfinals.swapped ? "cruzamento trocado para evitar reencontro" : "cruzamento padrão"}
+                {report.quarterfinals.avoided > 0 && ` · ${report.quarterfinals.avoided} reencontros evitados`}
+                {report.quarterfinals.inevitable ? " · 1 reencontro inevitável (os dois vencedores da repescagem são do mesmo grupo)" : " · nenhum reencontro"}
+              </p>
+            )}
+            <KnockoutBracket view={report.knockout} />
+          </Card>
 
           <Card>
             <h3>Validações automáticas</h3>
@@ -240,8 +257,8 @@ export function AdminSimulationPage() {
         title={pendingAction === "reset" ? "Reiniciar simulação?" : "Simular campeonato completo?"}
         description={
           pendingAction === "reset"
-            ? "O projeto volta ao estado inicial: sem grupos sorteados, sem resultados e sem campeão. Jogadores, duplas e dados-base são preservados."
-            : "Todos os dados atuais de sorteio e resultados serão substituídos pela simulação determinística."
+            ? "A simulação volta ao estado inicial: sem grupos sorteados, sem resultados e sem campeão. O campeonato real não é alterado."
+            : "A simulação roda só na memória do servidor local, com dados de teste. O campeonato real não é alterado."
         }
         tone={pendingAction === "reset" ? "danger" : "default"}
         confirmLabel={pendingAction === "reset" ? "Reiniciar" : "Simular"}

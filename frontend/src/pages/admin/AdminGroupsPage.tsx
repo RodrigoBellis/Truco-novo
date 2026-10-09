@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { EDITION_GROUP_IDS, MATCHES_PER_GROUP, TEAMS_PER_GROUP, type Group, type Match, type StandingRow, type Team } from "@truco/shared";
+import { EDITION_GROUP_IDS, MATCHES_PER_GROUP, TEAMS_PER_GROUP, pendingTieClusters, type Group, type GroupId, type Match, type StandingRow, type Team } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Loading } from "../../components/ui/Loading";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { StandingsTable } from "../../components/truco/StandingsTable";
 import { useFetchData } from "../../hooks/useFetchData";
 import { getTeams } from "../../services/teamsService";
-import { completeGroupFixtures, generateGroupFixtures, getGroups, getStandings } from "../../services/groupsService";
+import { completeGroupFixtures, generateGroupFixtures, getGroups, getStandings, resolveGroupTie } from "../../services/groupsService";
+import { TieDecision } from "../../components/truco/TieDecision";
 import { getMatches } from "../../services/matchesService";
 import { Button } from "../../components/ui/Button";
 import { useToast } from "../../hooks/useToast";
@@ -21,7 +22,7 @@ interface Data {
   matches: Match[];
 }
 
-/** Confrontos que ainda faltam quando os dois grupos já têm as seis duplas. */
+/** Confrontos que ainda faltam quando os dois grupos já estão completos. */
 function missingMatchCount(groups: Group[], matches: Match[]): number {
   if (!EDITION_GROUP_IDS.every((groupId) => groups.find((group) => group.id === groupId)?.teamIds.length === TEAMS_PER_GROUP)) return 0;
   return EDITION_GROUP_IDS.reduce((total, groupId) => total + Math.max(0, MATCHES_PER_GROUP - matches.filter((match) => match.groupId === groupId).length), 0);
@@ -35,6 +36,18 @@ export function AdminGroupsPage() {
   });
   const { showToast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [savingTie, setSavingTie] = useState<GroupId | null>(null);
+
+  async function handleTie(groupId: GroupId, orderedTeamIds: string[]) {
+    setSavingTie(groupId);
+    try {
+      await resolveGroupTie(groupId, orderedTeamIds);
+      showToast("success", "Posições confirmadas. O empate do Grupo " + groupId + " está decidido.");
+      refetch();
+    } catch (err) {
+      showToast("error", err instanceof ApiError ? err.message : "Não foi possível registrar a decisão do empate.");
+    } finally { setSavingTie(null); }
+  }
 
   async function handleGenerate(mode: "all" | "missing") {
     setIsGenerating(true);
@@ -78,10 +91,12 @@ export function AdminGroupsPage() {
         <section>
           <h2 className="section-title section-title-gold">Grupo A</h2>
           <StandingsTable rows={data.standingsA} teams={data.teams} />
+          {pendingTieClusters(data.standingsA).map((cluster) => <TieDecision key={cluster.map((row) => row.teamId).join("-")} groupId="A" cluster={cluster} teams={data.teams} isSaving={savingTie === "A"} onConfirm={(order) => void handleTie("A", order)} />)}
         </section>
         <section>
           <h2 className="section-title section-title-gold">Grupo B</h2>
           <StandingsTable rows={data.standingsB} teams={data.teams} />
+          {pendingTieClusters(data.standingsB).map((cluster) => <TieDecision key={cluster.map((row) => row.teamId).join("-")} groupId="B" cluster={cluster} teams={data.teams} isSaving={savingTie === "B"} onConfirm={(order) => void handleTie("B", order)} />)}
         </section>
       </div>
     </div>

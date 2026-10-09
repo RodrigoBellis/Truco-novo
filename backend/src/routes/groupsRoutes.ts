@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { EDITION_GROUP_IDS, EDITION_TEAM_COUNT, MATCHES_PER_GROUP, TEAMS_PER_GROUP, type GroupId } from "@truco/shared";
+import { EDITION_GROUP_IDS, EDITION_TEAM_COUNT, MATCHES_PER_GROUP, TEAMS_PER_GROUP, pendingTieClusters, type GroupId } from "@truco/shared";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { store } from "../data/store.js";
 import { computeStandings } from "../services/standingsService.js";
@@ -83,6 +83,45 @@ groupsRoutes.post(
     // A escala só reorganiza jogos pendentes; partidas realizadas mantêm placar e posição.
     await generateSchedule(championship.truco_id);
     res.status(201).json({ matchesCreated });
+  }),
+);
+
+/**
+ * Decisão do administrador para um empate que sobreviveu aos cinco critérios da classificação:
+ * recebe as duplas empatadas na ordem final e grava a posição de cada uma. Só vale com o
+ * grupo encerrado e antes de o mata-mata ser gerado.
+ */
+groupsRoutes.post(
+  "/:id/tiebreak",
+  requireAuth,
+  requireRole("admin", "superadmin"),
+  asyncHandler(async (req, res) => {
+    const groupId = String(req.params.id).toUpperCase() as GroupId;
+    const orderedTeamIds: unknown = req.body?.orderedTeamIds;
+    if ((groupId !== "A" && groupId !== "B") || !Array.isArray(orderedTeamIds) || orderedTeamIds.some((teamId) => typeof teamId !== "string")) {
+      res.status(400).json({ message: "Informe o grupo e as duplas empatadas na ordem final." });
+      return;
+    }
+    const championship = await store.getCurrentChampionship();
+    if ((await store.listBracketMatches(championship.truco_id)).length > 0) {
+      res.status(409).json({ message: "O mata-mata já foi gerado; a classificação não pode mais mudar." });
+      return;
+    }
+    const rows = await computeStandings(championship.truco_id, groupId);
+    const chosen = new Set(orderedTeamIds as string[]);
+    const cluster = pendingTieClusters(rows).find((item) => item.length === chosen.size && item.every((row) => chosen.has(row.teamId)));
+    if (!cluster || chosen.size !== orderedTeamIds.length) {
+      res.status(409).json({ message: "Essas duplas não formam um empate pendente neste grupo. Atualize a página e confira a classificação." });
+      return;
+    }
+    const positions = cluster.map((row) => row.position).sort((a, b) => a - b);
+    await store.saveStandingOverrides({
+      championshipId: championship.truco_id,
+      groupRowId: await store.getGroupRowId(championship.truco_id, groupId),
+      actorId: req.authUser!.id,
+      decisions: (orderedTeamIds as string[]).map((teamId, index) => ({ teamId, position: positions[index] })),
+    });
+    res.status(201).json(await computeStandings(championship.truco_id, groupId));
   }),
 );
 

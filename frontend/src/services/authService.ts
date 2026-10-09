@@ -8,6 +8,7 @@ export function login(identifier: LoginIdentifier, password: string): Promise<Lo
   return apiRequest<LoginResponse>("/auth/login", { method: "POST", body: { ...identifier, password } });
 }
 
-export function changePassword(email: string, newPassword: string): Promise<{ user: AuthUser }> {
-  return apiRequest<{ user: AuthUser }>("/auth/change-password", { method: "POST", body: { email, newPassword } });
+/** Troca a senha da conta autenticada; o backend identifica a conta pelo token, não por e-mail. */
+export function changePassword(newPassword: string): Promise<{ user: AuthUser }> {
+  return apiRequest<{ user: AuthUser }>("/auth/change-password", { method: "POST", body: { newPassword } });
 }

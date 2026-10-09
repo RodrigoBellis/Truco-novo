@@ -1,0 +1,359 @@
+/* Card protagonista do Início (HomeTeamHero.tsx). Mesma linguagem de luz da abertura: feixe azul
+   vindo de cima à esquerda, calor laranja no canto oposto e a cor da dupla atrás dos rostos.
+   Medidas em cqi do container `.player-home`: com a barra lateral sobra menos que 100vw.
+   A altura sai sempre do conteúdo. */
+.home-hero {
+  --hero-avatar: clamp(72px, 24cqi, 92px);
+  --hero-star: clamp(28px, 9cqi, 34px);
+  --hero-beam-alpha: 0.1;
+  --hero-warm-alpha: 0.12;
+  --hero-team-mix: 20%;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "head" "duo" "meta" "cta";
+  justify-items: center;
+  gap: 22px;
+  padding: clamp(22px, 6cqi, 30px) clamp(18px, 5.5cqi, 28px);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg), var(--edge-light);
+  text-align: center;
+}
+
+:root[data-theme="dark"] .home-hero {
+  --hero-beam-alpha: 0.22;
+  --hero-warm-alpha: 0.14;
+  --hero-team-mix: 26%;
+}
+
+/* Fio de 1px na cor da dupla: assina o card sem virar faixa colorida. */
+.home-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--team-line) 25%, var(--team-color) 70%, transparent);
+  pointer-events: none;
+}
+
+/* Feixe azul e calor laranja, revelados uma vez na entrada. */
+.home-hero-light {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 70% at 100% 100%, rgb(var(--rgb-accent) / var(--hero-warm-alpha)), transparent 70%),
+    conic-gradient(from 96deg at -6% -22%, transparent 0deg, rgb(var(--rgb-tech) / var(--hero-beam-alpha)) 22deg, rgb(var(--rgb-tech) / calc(var(--hero-beam-alpha) * 0.5)) 34deg, transparent 52deg, transparent 360deg);
+  animation: home-hero-fade 800ms ease-out 140ms backwards;
+}
+
+.home-hero-head { grid-area: head; min-width: 0; max-width: 100%; }
+
+.home-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.home-hero-eyebrow svg { color: var(--color-brand-orange); }
+
+.home-hero-name {
+  margin-top: 8px;
+  font-size: clamp(1.7rem, 8.4cqi, 2.9rem);
+  font-weight: 850;
+  line-height: 1.06;
+  letter-spacing: -0.03em;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+/* ---------- Integrantes ---------- */
+.home-hero-duo {
+  grid-area: duo;
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(6px, 2.4cqi, 16px);
+  width: 100%;
+  max-width: 440px;
+}
+
+/* Dupla com um só integrante carregado: sem a coluna do "&". */
+.home-hero-duo:has(> :only-child) { grid-template-columns: minmax(0, 1fr); }
+
+/* Luz na cor da dupla atrás dos rostos. */
+.home-hero-duo::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(var(--hero-avatar) / 2 + 4px);
+  width: min(140%, 560px);
+  aspect-ratio: 1.7;
+  z-index: -1;
+  translate: -50% -50%;
+  background: radial-gradient(closest-side, color-mix(in oklch, var(--team-color) var(--hero-team-mix), transparent), transparent);
+  pointer-events: none;
+  animation: home-hero-glow 900ms var(--ease-out) 200ms backwards;
+}
+
+.home-hero-member {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  text-align: center;
+  animation: rise-in var(--motion-reveal) 220ms backwards;
+}
+
+.home-hero-member:last-child { animation-delay: 300ms; }
+
+/* Anel na cor da dupla com um respiro da superfície entre o anel e a foto. */
+.home-hero-face {
+  display: grid;
+  place-items: center;
+  margin-bottom: 7px;
+  padding: 3px;
+  border-radius: 50%;
+  background: linear-gradient(150deg, var(--team-color), var(--team-line));
+  box-shadow: 0 0 0 5px var(--team-soft), 0 16px 26px -16px rgb(var(--rgb-void) / 0.75);
+}
+
+.home-hero-face .player-avatar {
+  width: var(--hero-avatar);
+  height: var(--hero-avatar);
+  border: 3px solid var(--color-surface);
+  background: var(--color-surface-hover);
+  color: var(--team-ink);
+  font-size: calc(var(--hero-avatar) * 0.32);
+}
+
+.home-hero-member strong {
+  max-width: 100%;
+  font-size: clamp(0.9rem, 4.4cqi, 1rem);
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--color-text);
+  overflow-wrap: break-word;
+}
+
+.home-hero-role {
+  font-size: 0.74rem;
+  font-weight: 650;
+  color: var(--color-text-muted);
+}
+
+/* "Você": destaque neutro, na cor do texto. */
+.home-hero-role-me {
+  padding: 2px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  font-weight: 750;
+  color: var(--color-text);
+}
+
+.home-hero-amp {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-top: calc(var(--hero-avatar) / 2 - 12px);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 50%;
+  background: var(--color-surface);
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--color-text-muted);
+}
+
+/* ---------- Força e grupo ---------- */
+.home-hero-meta {
+  grid-area: meta;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 14px 22px;
+  min-width: 0;
+}
+
+.home-hero-strength {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.home-hero-stars { display: inline-flex; gap: clamp(3px, 1.2cqi, 6px); }
+
+.home-hero-star {
+  position: relative;
+  display: grid;
+  width: var(--hero-star);
+  height: var(--hero-star);
+  color: var(--color-text-faint);
+}
+
+.home-hero-star > svg { opacity: 0.4; }
+
+.home-hero-star svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Estrela acesa: entra por cima do contorno, uma depois da outra, uma vez. */
+.home-hero-star-lit {
+  position: absolute;
+  inset: 0;
+  color: var(--color-star);
+  animation: home-hero-star-on 460ms var(--ease-spring) calc(520ms + var(--star-index, 0) * 110ms) backwards;
+}
+
+.home-hero-star-lit svg { fill: currentColor; }
+
+.home-hero-strength-label {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--color-accent-600);
+  font-variant-numeric: tabular-nums;
+}
+
+.home-hero-strength-label.is-pending,
+.home-hero-group.is-pending {
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--color-text-muted);
+}
+
+/* Grupo: marca única, na cor do grupo. */
+.home-hero-group.group-tone {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 6px 5px 14px;
+  border: 1px solid var(--group-line);
+  border-radius: var(--radius-full);
+  background: var(--group-soft);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--group-ink);
+}
+
+.home-hero-group strong {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--group-color);
+  font-size: 1.05rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  color: var(--color-surface);
+}
+
+/* ---------- Ação ---------- */
+.home-hero-cta {
+  grid-area: cta;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 54px;
+  padding: 12px 22px;
+  border-radius: var(--radius-md);
+  background: var(--color-action);
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--color-on-action);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-on-brand) 38%, transparent),
+    0 14px 28px -12px rgb(var(--rgb-accent) / 0.8);
+  transition: transform var(--motion-micro), background-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.home-hero-cta svg {
+  flex-shrink: 0;
+  transition: transform 260ms var(--ease-out);
+}
+
+.home-hero-cta:hover {
+  background: var(--color-action-hover);
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-on-brand) 38%, transparent),
+    0 20px 34px -14px rgb(var(--rgb-accent) / 0.9);
+}
+
+.home-hero-cta:hover svg,
+.home-hero-cta:focus-visible svg { transform: translateX(5px); }
+
+.home-hero-cta:active { transform: translateY(1px) scale(0.97); }
+
+.home-hero-cta:focus-visible {
+  outline: 2px solid var(--color-tech-400);
+  outline-offset: 3px;
+}
+
+@keyframes home-hero-fade {
+  from { opacity: 0; }
+}
+
+@keyframes home-hero-glow {
+  from { opacity: 0; transform: scale(0.7); }
+}
+
+@keyframes home-hero-star-on {
+  from { opacity: 0; transform: scale(0.3) rotate(-30deg); }
+}
+
+/* Duas colunas quando o container comporta: texto e ação à esquerda, a dupla à direita. */
+@container (min-width: 620px) {
+  .home-hero {
+    --hero-avatar: clamp(88px, 11cqi, 124px);
+    --hero-star: 34px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "head duo" "meta duo" "cta duo";
+    justify-items: start;
+    align-items: center;
+    column-gap: clamp(20px, 4.5cqi, 56px);
+    row-gap: 24px;
+    padding: clamp(28px, 3.6cqi, 44px) clamp(28px, 4cqi, 48px);
+    text-align: left;
+  }
+
+  .home-hero-name { font-size: clamp(2rem, 4.6cqi, 3.1rem); }
+  .home-hero-duo { justify-self: center; }
+  .home-hero-meta { justify-content: flex-start; gap: 14px 26px; }
+  .home-hero-strength { align-items: flex-start; }
+  .home-hero-member strong { font-size: 1rem; }
+  .home-hero-cta { width: auto; min-width: 230px; padding-inline: 26px 22px; }
+
+  .home-hero-no-duo {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "head" "meta" "cta";
+  }
+}
+
+@container (min-width: 900px) {
+  .home-hero { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); }
+  .home-hero-duo { max-width: 480px; gap: 20px; }
+  .home-hero-member strong { font-size: 1.1rem; }
+}

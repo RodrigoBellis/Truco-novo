@@ -9,6 +9,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { Icon } from "../../components/ui/Icon";
 import { AnimatedBorderCard } from "../../components/ui/AnimatedBorderCard";
 import { Disclosure } from "../../components/ui/Disclosure";
+import { ResultsLockControl } from "../../components/truco/ResultsLockControl";
 import { useFetchData } from "../../hooks/useFetchData";
 import { getDashboardStats } from "../../services/dashboardService";
 import { getTeams } from "../../services/teamsService";
@@ -27,6 +28,8 @@ export function AdminDashboardPage() {
   return (
     <div className="page-enter">
       <PageHeader title="Painel do campeonato" subtitle="Visão geral da 5ª Edição · 2026" />
+
+      <ResultsLockControl />
 
       {stats.champion && (
         <AnimatedBorderCard duration={4.5} className="admin-dashboard-champion-wrap">

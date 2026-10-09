@@ -77,8 +77,9 @@ const seedTeams: SeedTeam[] = [
   { id: "t-rafael-pigas", player1: rosterPlayers[14], player2: rosterPlayers[15], seeded: false, isPlaceholder: false, status: "aprovada" },
   { id: "t-rogerio-waguinho", player1: rosterPlayers[16], player2: rosterPlayers[17], seeded: false, isPlaceholder: false, status: "aprovada" },
   { id: "t-vitor-fernando", player1: rosterPlayers[18], player2: rosterPlayers[19], seeded: false, isPlaceholder: false, status: "aprovada" },
-  { id: "t-jp-davi", player1: rosterPlayers[20], player2: rosterPlayers[21], seeded: false, isPlaceholder: false, status: "aprovada" },
-  { id: "t-bruno-thiaguinho", player1: rosterPlayers[22], player2: rosterPlayers[23], seeded: false, isPlaceholder: true, status: "aprovada" },
+  // A edição tem 10 duplas (5 por grupo): estas ficam fora da simulação, como inscrições pendentes.
+  { id: "t-jp-davi", player1: rosterPlayers[20], player2: rosterPlayers[21], seeded: false, isPlaceholder: false, status: "pendente" },
+  { id: "t-bruno-thiaguinho", player1: rosterPlayers[22], player2: rosterPlayers[23], seeded: false, isPlaceholder: true, status: "pendente" },
   { id: "t-kaka-nenem", player1: pendingRosterPlayers[0], player2: pendingRosterPlayers[1], seeded: false, isPlaceholder: false, status: "pendente" },
   { id: "t-zeca-duda", player1: pendingRosterPlayers[2], player2: pendingRosterPlayers[3], seeded: false, isPlaceholder: false, status: "pendente" },
 ];
@@ -128,8 +129,8 @@ const HALL_OF_FAME: HallOfFameEdition[] = [
   {
     edition: 3,
     year: 2024,
-    championIds: ["p-bitula", "p-galao"],
-    notes: "Bitula e Galão quebraram a sequência e levantaram o troféu pela primeira vez.",
+    championIds: ["p-bitula", "p-vinicius"],
+    notes: "Bitula e Vinícius quebraram a sequência e levantaram o troféu pela primeira vez.",
   },
   {
     edition: 4,
@@ -139,8 +140,16 @@ const HALL_OF_FAME: HallOfFameEdition[] = [
   },
 ];
 
+/**
+ * Campeões de edições passadas que não estão no elenco simulado da edição atual.
+ * Entram só no histórico e no ranking; nunca viram dupla nem conta da simulação.
+ */
+const historicPlayers: SeedPlayer[] = [
+  { id: "p-vinicius", name: "Vinícius" },
+];
+
 function nameOf(playerId: string): string {
-  return rosterPlayers.find((player) => player.id === playerId)?.name ?? playerId;
+  return [...rosterPlayers, ...historicPlayers].find((player) => player.id === playerId)?.name ?? playerId;
 }
 
 export const SEED_HISTORY: HistoryEntry[] = HALL_OF_FAME.map((edition) => ({
@@ -154,7 +163,7 @@ export const SEED_HISTORY: HistoryEntry[] = HALL_OF_FAME.map((edition) => ({
   notes: edition.notes,
 }));
 
-export const SEED_RANKING: RankingEntry[] = rosterPlayers
+export const SEED_RANKING: RankingEntry[] = [...rosterPlayers, ...historicPlayers]
   .map((player) => ({
     playerId: player.id,
     playerName: player.name,

@@ -53,10 +53,10 @@ export const snapshotMatches = JOGOS.map(([groupId, order, teamAId, teamBId, res
   tableNumber: null, blockNumber: null, queuePosition,
 }));
 
-const row = (position: number, teamId: string, jogos: number, vitorias: number, derrotas: number, pontos: number, saldoSets: number) =>
-  ({ position, teamId, jogos, vitorias, derrotas, pontos, saldoSets });
+const row = (position: number, teamId: string, jogos: number, vitorias: number, derrotas: number, pontos: number, saldoSets: number, vitorias2x0 = 0) =>
+  ({ position, teamId, jogos, vitorias, vitorias2x0, derrotas, pontos, saldoSets, confrontoDireto: 0, tiePending: false });
 
 export const snapshotStandings: Record<GroupId, ReturnType<typeof row>[]> = {
-  A: [row(1, "t-bagriel", 4, 3, 1, 8, 3), row(2, "t-pg", 1, 1, 0, 2, 1), row(3, "t-vito", 1, 0, 1, 1, -1), row(4, "t-xablauu", 1, 0, 1, 1, -1), row(5, "t-bitula", 1, 0, 1, 0, -2)],
+  A: [row(1, "t-bagriel", 4, 3, 1, 8, 3, 1), row(2, "t-pg", 1, 1, 0, 2, 1), row(3, "t-vito", 1, 0, 1, 1, -1), row(4, "t-xablauu", 1, 0, 1, 1, -1), row(5, "t-bitula", 1, 0, 1, 0, -2)],
   B: [row(1, "t-ronaldo", 0, 0, 0, 0, 0), row(2, "t-rafael", 0, 0, 0, 0, 0), row(3, "t-vitor", 0, 0, 0, 0, 0), row(4, "t-rogerio", 0, 0, 0, 0, 0), row(5, "t-jp", 0, 0, 0, 0, 0)],
 };

@@ -1,0 +1,113 @@
+/* Tela Mata-mata do jogador (KnockoutPage.tsx): caminho das fases, chaveamento e a regra de entrada. */
+.knockout-path {
+  margin-bottom: 24px;
+}
+
+.knockout-path ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.knockout-path li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.knockout-path li::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-border-strong);
+}
+
+.knockout-path li.knockout-step-done::before { background: var(--color-tech-400); }
+
+.knockout-path .knockout-step-current {
+  border-color: var(--color-action);
+  background: var(--color-action);
+  color: var(--color-on-action);
+  font-weight: 750;
+}
+
+.knockout-path li.knockout-step-current::before { background: var(--color-on-action); }
+
+.knockout-path p {
+  margin-top: 12px;
+  max-width: 72ch;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+}
+
+.knockout-rules {
+  margin-top: 32px;
+  padding-top: 22px;
+  border-top: 1px solid var(--color-border);
+}
+
+.knockout-rules h2 {
+  font-size: var(--text-md);
+  margin-bottom: 12px;
+}
+
+.knockout-rules ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.knockout-rules li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  line-height: 1.5;
+}
+
+/* Mesmas cores das zonas na tabela de grupos. */
+.knockout-rules li::before {
+  content: "";
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--zone);
+  transform: translateY(1px);
+}
+
+.knockout-rules strong { color: var(--color-text); white-space: nowrap; }
+
+.knockout-rule-semifinal { --zone: #128a5c; }
+.knockout-rule-quartas { --zone: #0758bf; }
+.knockout-rule-repescagem { --zone: #ed6a15; }
+.knockout-rule-eliminado { --zone: #d02c2c; }
+
+:root[data-theme="dark"] .knockout-rule-semifinal { --zone: #34d399; }
+:root[data-theme="dark"] .knockout-rule-quartas { --zone: #6ea2ff; }
+:root[data-theme="dark"] .knockout-rule-repescagem { --zone: #ff9a4f; }
+:root[data-theme="dark"] .knockout-rule-eliminado { --zone: #fb5b5b; }
+
+.knockout-path .knockout-rematch-note {
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--color-border-strong);
+  background: var(--color-surface);
+}

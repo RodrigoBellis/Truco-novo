@@ -1,0 +1,67 @@
+/* Decisão de empate exato pelo administrador (TieDecision.tsx). */
+.tie-decision {
+  margin-top: 16px;
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--color-border-strong);
+  background: var(--color-surface);
+}
+
+.tie-decision h3 { font-size: var(--text-md); }
+
+.tie-decision p {
+  margin-top: 8px;
+  max-width: 72ch;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+}
+
+.tie-decision-list {
+  display: grid;
+  gap: 8px;
+  max-width: 520px;
+  margin: 16px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tie-decision-list li {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-alt);
+}
+
+.tie-decision-position {
+  font-size: 1.1rem;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.tie-decision-list strong { overflow-wrap: anywhere; }
+
+.tie-decision-moves { display: flex; gap: 6px; }
+
+.tie-decision-moves button {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), transform var(--motion-micro);
+}
+
+.tie-decision-moves button:hover:not(:disabled) { border-color: var(--color-action); }
+.tie-decision-moves button:active:not(:disabled) { transform: scale(0.94); }
+.tie-decision-moves button:disabled { opacity: 0.35; cursor: default; }

@@ -11,6 +11,7 @@ import type {
   HistoryEntry,
   GroupId,
   DrawStatus,
+  StandingOverride,
   UserRole,
 } from "@truco/shared";
 import { MATCHES_PER_GROUP } from "@truco/shared";
@@ -55,10 +56,17 @@ function mapBracketSlot(type: BracketRow["slot_a_type"], teamId: string | null, 
   return { type: "tbd" };
 }
 
+/**
+ * O enum do banco (truco_bracket_round) ainda chama a primeira fase de "oitavas"; no app ela é
+ * a repescagem. A tradução fica só aqui, na fronteira com o banco.
+ */
+const ROUND_FROM_DB: Record<BracketRow["round"], BracketMatch["round"]> = { oitavas: "repescagem", quartas: "quartas", semifinal: "semifinal", final: "final" };
+const ROUND_TO_DB: Record<BracketMatch["round"], BracketRow["round"]> = { repescagem: "oitavas", quartas: "quartas", semifinal: "semifinal", final: "final" };
+
 function mapBracket(row: BracketRow): BracketMatch {
   return {
     id: row.truco_id,
-    round: row.round,
+    round: ROUND_FROM_DB[row.round],
     label: row.label,
     order: row.match_order,
     slotA: mapBracketSlot(row.slot_a_type, row.slot_a_team_id, row.slot_a_source_id),
@@ -104,6 +112,22 @@ class TrucoRepository {
     if (error) fail("carregar o campeonato atual", error);
     if (!data) throw new Error("Nenhum campeonato em andamento encontrado.");
     return data;
+  }
+
+  /**
+   * Cadeado global de resultados da edição. Fecha por padrão: se a coluna ainda não existir
+   * (migration 202610070002 não aplicada) ou vier vazia, o resultado é "bloqueado".
+   */
+  isResultsLocked(championship: { results_locked?: boolean | null }): boolean {
+    return championship.results_locked !== false;
+  }
+
+  async setResultsLocked(championshipId: string, locked: boolean): Promise<void> {
+    const { error } = await supabaseAdmin.from("truco_championships").update({ results_locked: locked }).eq("truco_id", championshipId);
+    if (error && (error.code === "PGRST204" || error.code === "42703")) {
+      throw new EditionSetupError("O cadeado de resultados precisa da migration 202610070002_results_lock.sql aplicada no Supabase. Até lá os resultados ficam bloqueados para os jogadores.");
+    }
+    if (error) fail("alterar o cadeado de resultados", error);
   }
 
   async setDrawStatus(championshipId: string, status: DrawStatus): Promise<void> {
@@ -250,6 +274,14 @@ class TrucoRepository {
     if (error) fail("atualizar status da dupla", error);
   }
 
+  /** A dupla é campeã ou vice de alguma edição registrada no Hall da Fama. */
+  async isTeamInHistory(teamId: string): Promise<boolean> {
+    const { count, error } = await supabaseAdmin.from("truco_history").select("truco_id", { count: "exact", head: true })
+      .or(`champion_team_id.eq.${teamId},runner_up_team_id.eq.${teamId}`);
+    if (error) fail("consultar o Hall da Fama", error);
+    return (count ?? 0) > 0;
+  }
+
   async rejectTeam(teamId: string): Promise<void> {
     const { error } = await supabaseAdmin.from("truco_teams").delete().eq("truco_id", teamId);
     if (error) fail("rejeitar dupla", error);
@@ -340,6 +372,39 @@ class TrucoRepository {
       .maybeSingle();
     if (error || !data) fail(`localizar o grupo ${groupId}`, error);
     return data!.truco_id;
+  }
+
+  /** Decisões manuais do administrador para empates exatos de um grupo (somente leitura). */
+  async listStandingOverrides(championshipId: string, groupRowId: string): Promise<StandingOverride[]> {
+    const { data, error } = await supabaseAdmin
+      .from("truco_standings_overrides")
+      .select("resolved_team_id, resolved_position, created_at")
+      .eq("truco_championship_id", championshipId)
+      .eq("truco_group_id", groupRowId)
+      .order("created_at", { ascending: true });
+    if (error) fail("ler os desempates manuais", error);
+    // Uma decisão mais recente para a mesma dupla substitui a anterior.
+    const latest = new Map((data ?? []).map((row) => [row.resolved_team_id, row.resolved_position]));
+    return [...latest].map(([teamId, position]) => ({ teamId, position }));
+  }
+
+  /**
+   * Grava a decisão do administrador para um empate exato: uma linha por dupla empatada, com a
+   * posição final dela. Decisões anteriores das mesmas duplas continuam no histórico; vale a
+   * mais recente (ver listStandingOverrides).
+   */
+  async saveStandingOverrides(input: { championshipId: string; groupRowId: string; actorId: string; decisions: StandingOverride[] }): Promise<void> {
+    const tiedTeamIds = input.decisions.map((decision) => decision.teamId);
+    const { error } = await supabaseAdmin.from("truco_standings_overrides").insert(input.decisions.map((decision) => ({
+      truco_championship_id: input.championshipId,
+      truco_group_id: input.groupRowId,
+      tied_team_ids: tiedTeamIds,
+      resolved_team_id: decision.teamId,
+      resolved_position: decision.position,
+      criterion: "decisao_do_administrador",
+      truco_actor_id: input.actorId,
+    })));
+    if (error) fail("registrar a decisão do empate", error);
   }
 
   async ensureGroups(championshipId: string): Promise<void> {
@@ -490,6 +555,14 @@ class TrucoRepository {
     return match;
   }
 
+  /** Troca a dupla de um lado de um jogo ainda sem placar (vencedor corrigido na fase anterior). */
+  async setMatchTeam(matchId: string, side: "A" | "B", teamId: string): Promise<void> {
+    const { error } = await supabaseAdmin.from("truco_matches")
+      .update(side === "A" ? { truco_team_a_id: teamId } : { truco_team_b_id: teamId })
+      .eq("truco_id", matchId).eq("status", "pendente");
+    if (error) fail("atualizar a dupla do jogo seguinte", error);
+  }
+
   async listMatchResultAudit(championshipId: string): Promise<Array<{ id: string; matchId: string | null; actorId: string | null; action: string; createdAt: string; metadata: unknown }>> {
     const { data, error } = await supabaseAdmin.from("truco_audit_log")
       .select("truco_id, entity_id, truco_actor_id, action, created_at, metadata")
@@ -593,7 +666,7 @@ class TrucoRepository {
       return {
         truco_id: row.id,
         truco_championship_id: championshipId,
-        round: row.round,
+        round: ROUND_TO_DB[row.round],
         label: row.label,
         match_order: row.order,
         slot_a_type: a.type,
@@ -607,6 +680,21 @@ class TrucoRepository {
 
     const { error } = await supabaseAdmin.from("truco_bracket_matches").insert(payload);
     if (error) fail("criar o mata-mata", error);
+  }
+
+  /** Regrava de qual confronto vem o lado B (usado para o cruzamento das quartas). */
+  async setBracketSlotBSource(bracketMatchId: string, sourceBracketMatchId: string): Promise<void> {
+    const { error } = await supabaseAdmin.from("truco_bracket_matches")
+      .update({ slot_b_type: "winner", slot_b_team_id: null, slot_b_source_id: sourceBracketMatchId })
+      .eq("truco_id", bracketMatchId);
+    if (error) fail("atualizar o cruzamento das quartas", error);
+  }
+
+  /** Remove um jogo do mata-mata ainda sem placar; o vínculo no chaveamento é desfeito pelo banco. */
+  async deletePendingKnockoutMatch(matchId: string): Promise<void> {
+    const { error } = await supabaseAdmin.from("truco_matches").delete()
+      .eq("truco_id", matchId).eq("stage", "mata-mata").eq("status", "pendente");
+    if (error) fail("remover o jogo pendente do mata-mata", error);
   }
 
   async linkBracketMatch(bracketMatchId: string, matchId: string): Promise<void> {

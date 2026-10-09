@@ -1,8 +1,8 @@
 ﻿import { expect, test, type Page } from "@playwright/test";
 import { snapshotGroups, snapshotMatches, snapshotPlayers, snapshotStandings, snapshotTeams } from "./fixtures/edition5Snapshot";
 
-// Dados fictícios só para os testes, no formato definitivo da edição: 12 duplas, 6 por grupo.
-const players = Array.from({ length: 24 }, (_, index) => ({
+// Dados fictícios só para os testes, no formato definitivo da edição: 10 duplas, 5 por grupo.
+const players = Array.from({ length: 20 }, (_, index) => ({
   id: `player-${index + 1}`,
   name: `Jogador ${index + 1}`,
   role: "jogador",
@@ -10,7 +10,7 @@ const players = Array.from({ length: 24 }, (_, index) => ({
   avatarUrl: index < 2 ? `/avatars/player-${index + 1}.webp` : null,
 }));
 
-const teams = Array.from({ length: 12 }, (_, index) => ({
+const teams = Array.from({ length: 10 }, (_, index) => ({
   id: `team-${index + 1}`,
   name: `Dupla ${index + 1}`,
   player1Id: players[index * 2].id,
@@ -18,13 +18,13 @@ const teams = Array.from({ length: 12 }, (_, index) => ({
   status: "aprovada",
   seeded: false,
   isPlaceholder: false,
-  groupId: index < 6 ? "A" : "B",
+  groupId: index < 5 ? "A" : "B",
   strength: index % 5 + 1,
 }));
 
 const groups = [
-  { id: "A", name: "Grupo A", teamIds: teams.slice(0, 6).map((team) => team.id) },
-  { id: "B", name: "Grupo B", teamIds: teams.slice(6).map((team) => team.id) },
+  { id: "A", name: "Grupo A", teamIds: teams.slice(0, 5).map((team) => team.id) },
+  { id: "B", name: "Grupo B", teamIds: teams.slice(5).map((team) => team.id) },
 ];
 
 const standings = (teamList: typeof teams) => teamList.map((team, index) => ({
@@ -32,22 +32,25 @@ const standings = (teamList: typeof teams) => teamList.map((team, index) => ({
   teamId: team.id,
   jogos: 0,
   vitorias: 0,
+  vitorias2x0: 0,
   derrotas: 0,
   pontos: 0,
   saldoSets: 0,
+  confrontoDireto: 0,
+  tiePending: false,
 }));
 
-const groupPairs = Array.from({ length: 6 }, (_, first) => Array.from({ length: 6 - first - 1 }, (_, offset) => [first, first + offset + 1] as const)).flat();
-const matches = Array.from({ length: 30 }, (_, index) => {
-  const groupOffset = index < 15 ? 0 : 6;
-  const [first, second] = groupPairs[index % 15];
+const groupPairs = Array.from({ length: 5 }, (_, first) => Array.from({ length: 5 - first - 1 }, (_, offset) => [first, first + offset + 1] as const)).flat();
+const matches = Array.from({ length: 20 }, (_, index) => {
+  const groupOffset = index < 10 ? 0 : 5;
+  const [first, second] = groupPairs[index % 10];
   return ({
   id: `match-${index + 1}`,
   championshipId: "edition-5",
   stage: "grupos",
-  round: index < 15 ? "Grupo A" : "Grupo B",
-  order: index < 15 ? index : index - 15,
-  groupId: index < 15 ? "A" : "B",
+  round: index < 10 ? "Grupo A" : "Grupo B",
+  order: index < 10 ? index : index - 10,
+  groupId: index < 10 ? "A" : "B",
   teamAId: teams[groupOffset + first].id,
   teamBId: teams[groupOffset + second].id,
   result: null,
@@ -107,8 +110,9 @@ async function mockCoreApi(page: Page, role: "admin" | "jogador", resultSaved = 
     else if (url.pathname.endsWith("/teams")) payload = smallTeamList ? teams.slice(0, 8) : teams;
     else if (url.pathname.endsWith("/players")) payload = players;
     else if (url.pathname.endsWith("/groups")) payload = groups;
-    else if (url.pathname.includes("/standings")) payload = standings(url.pathname.endsWith("/A/standings") ? teams.slice(0, 6) : teams.slice(6));
+    else if (url.pathname.includes("/standings")) payload = standings(url.pathname.endsWith("/A/standings") ? teams.slice(0, 5) : teams.slice(5));
     else if (url.pathname.endsWith("/matches/audit")) payload = [];
+    else if (url.pathname.endsWith("/matches/lock")) payload = { locked: false };
     else if (url.pathname.endsWith("/matches")) payload = noMatches ? [] : matches.map((match, index) => index === 0 && resultSaved ? { ...match, result: { setsA: 2, setsB: 0 }, status: "realizado" } : match);
     else if (url.pathname.endsWith("/bracket")) payload = [];
     else if (url.pathname.endsWith("/dashboard")) payload = { currentPhase: "Fase de Grupos", drawStatus: "realizado", pendingApprovals: 0, upcomingMatches: [], stats: {} };
@@ -121,7 +125,7 @@ async function mockCoreApi(page: Page, role: "admin" | "jogador", resultSaved = 
     else if (url.pathname.endsWith("/history")) payload = { editions: [{ id: "history-1", edition: 4, name: "4ª Edição", year: 2025, champions: ["Campeão 1", "Campeão 2"], runnersUp: null, finalResult: null, notes: "" }], currentEdition: 5, currentYear: 2026 };
     else if (url.pathname.endsWith("/players/roster")) payload = players.map(({ id, name }) => ({ id, name }));
     else if (url.pathname.endsWith("/admin/sorteio")) payload = { message: "Sorteio desativado" };
-    else if (url.pathname.endsWith("/groups/generate-matches")) payload = { matchesCreated: 30 };
+    else if (url.pathname.endsWith("/groups/generate-matches")) payload = { matchesCreated: 20 };
     else if (url.pathname.match(/\/matches\/[^/]+\/result$/)) payload = { ...matches[0], result: route.request().postDataJSON(), status: "realizado" };
     else if (url.pathname.endsWith("/matches") || url.pathname.endsWith("/teams") || url.pathname.endsWith("/players")) payload = [];
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload) });
@@ -147,31 +151,33 @@ test("admin cadastra pessoa e define dupla, grupo e estrelas", async ({ page }) 
   await expect(page.getByText("Participação atualizada.").or(page.getByText("Dupla criada para esta edição."))).toBeVisible();
 });
 
-test("admin confere as seis posições e solicita os trinta jogos", async ({ page }) => {
+test("admin confere as cinco posições e solicita os vinte jogos", async ({ page }) => {
   await mockCoreApi(page, "admin", false, false, true);
   await page.goto("/admin/grupos");
-  await expect(page.getByText("Semifinal").filter({ visible: true }).first()).toBeVisible();
-  await expect(page.getByText("Repescagem").filter({ visible: true }).first()).toBeVisible();
-  await expect(page.getByText("Eliminado").filter({ visible: true }).first()).toBeVisible();
-  await expect(page.getByText("6º", { exact: true }).filter({ visible: true }).first()).toBeVisible();
-  await page.getByRole("button", { name: "Gerar 30 jogos da fase de grupos" }).click();
-  await expect(page.getByText("30 jogos criados com os grupos definidos pelo administrador.")).toBeVisible();
+  await expect(page.getByText("Semifinal", { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByText("Quartas", { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByText("Repescagem", { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByText("Eliminado", { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByText("5º", { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByText("6º", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Gerar 20 jogos da fase de grupos" }).click();
+  await expect(page.getByText("20 jogos criados com os grupos definidos pelo administrador.")).toBeVisible();
 });
 
 test("admin gera só os jogos que faltam quando duas duplas entram depois", async ({ page }) => {
   await mockCoreApi(page, "admin");
-  // Jogos já gerados com 5 duplas por grupo: faltam os das duplas 6 (Grupo A) e 12 (Grupo B).
-  const newcomers = ["team-6", "team-12"];
+  // Jogos já gerados com 4 duplas por grupo: faltam os das duplas 5 (Grupo A) e 10 (Grupo B).
+  const newcomers = ["team-5", "team-10"];
   await page.route("**/api/matches**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(matches.filter((match) => !newcomers.includes(match.teamAId) && !newcomers.includes(match.teamBId))) }));
   let completeCalls = 0;
   await page.route("**/api/groups/complete-matches", (route) => {
     completeCalls += 1;
-    return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ matchesCreated: 10 }) });
+    return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ matchesCreated: 8 }) });
   });
   await page.goto("/admin/grupos");
-  await expect(page.getByRole("button", { name: /Gerar 30 jogos/ })).toHaveCount(0);
-  await page.getByRole("button", { name: "Gerar 10 jogos das duplas novas" }).click();
-  await expect(page.getByText("10 jogos criados para as duplas novas. Placar e ordem dos jogos já disputados não mudaram.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Gerar 20 jogos/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Gerar 8 jogos das duplas novas" }).click();
+  await expect(page.getByText("8 jogos criados para as duplas novas. Placar e ordem dos jogos já disputados não mudaram.")).toBeVisible();
   expect(completeCalls).toBe(1);
 });
 
@@ -212,27 +218,27 @@ test("Jogos filtra pela dupla, grupo, situação e mostra placar na partida", as
   await mockCoreApi(page, "jogador", true);
   await page.goto("/jogos");
   await expect(page.getByRole("tab", { name: "Meus Jogos" })).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator(".match-card")).toHaveCount(5);
+  await expect(page.locator(".match-card")).toHaveCount(4);
   await expect(page.locator(".match-group-title").filter({ hasText: "Grupo B" })).toHaveCount(0);
   const myTeamBanner = page.getByRole("region", { name: "Sua dupla e seu grupo" });
   await expect(myTeamBanner).toContainText("Dupla 1");
   await expect(myTeamBanner).toContainText("Está no Grupo A");
   await expect(page.locator(".match-card-outcome-win")).toHaveCount(1);
   await expect(page.locator(".match-card-outcome-win")).toContainText("Vitória");
-  await expect(page.locator(".match-card-outcome-pending")).toHaveCount(4);
-  await expect(page.locator(".match-group-title")).toHaveText(["Próximos confrontos4", "Já jogados1"]);
+  await expect(page.locator(".match-card-outcome-pending")).toHaveCount(3);
+  await expect(page.locator(".match-group-title")).toHaveText(["Próximos confrontos3", "Já jogados1"]);
   await expect(myTeamBanner).toContainText("Próximo jogo");
 
   await page.getByRole("tab", { name: "Grupo A" }).click();
-  await expect(page.locator(".match-card")).toHaveCount(15);
+  await expect(page.locator(".match-card")).toHaveCount(10);
 
   await page.getByRole("tab", { name: "Grupo B" }).click();
-  await expect(page.locator(".match-card")).toHaveCount(15);
+  await expect(page.locator(".match-card")).toHaveCount(10);
   await expect(page.getByText("Dupla 7").first()).toBeVisible();
   await expect(page.locator(".match-card-mine")).toHaveCount(0);
   await expect(myTeamBanner).toContainText("Está no Grupo A");
   await page.getByRole("tab", { name: "Todos", exact: true }).click();
-  await expect(page.locator(".match-card")).toHaveCount(30);
+  await expect(page.locator(".match-card")).toHaveCount(20);
 
   await page.getByLabel("Filtrar por situação").selectOption("finished");
   await expect(page.locator(".match-card")).toHaveCount(1);
@@ -241,7 +247,7 @@ test("Jogos filtra pela dupla, grupo, situação e mostra placar na partida", as
   await expect(page.locator(".match-card-points").first()).toHaveText("+3 pts");
   await expect(page.locator(".match-card-points").last()).toHaveText("+0 pts");
   await page.getByLabel("Filtrar por situação").selectOption("upcoming");
-  await expect(page.locator(".match-card")).toHaveCount(29);
+  await expect(page.locator(".match-card")).toHaveCount(19);
 });
 
 test("rotas antigas levam às telas consolidadas sem quebrar", async ({ page }) => {
@@ -416,7 +422,7 @@ test("com movimento reduzido as cartas ficam numa fila plana e a escolha continu
 // Classificação como o backend (truco_rpc_standings) a devolveria, com valores diferentes
 // para cada dupla: se uma tela reaproveitar estado de outro usuário ou pegar a linha errada
 // (primeira do grupo, outra dupla), o número exibido não bate.
-type StandingFixture = { position: number; teamId: string; jogos: number; vitorias: number; derrotas: number; pontos: number; saldoSets: number };
+type StandingFixture = { position: number; teamId: string; jogos: number; vitorias: number; vitorias2x0: number; derrotas: number; pontos: number; saldoSets: number; confrontoDireto: number; tiePending: boolean };
 interface League {
   players: Array<{ id: string; name: string }>;
   teams: Array<{ id: string; name: string; player1Id: string; player2Id: string; groupId: string | null }>;
@@ -425,23 +431,11 @@ interface League {
   matches: Array<{ teamAId: string; teamBId: string; status: string }>;
 }
 
+const fixtureRow = (position: number, teamId: string, jogos: number, vitorias: number, derrotas: number, pontos: number, saldoSets: number): StandingFixture =>
+  ({ position, teamId, jogos, vitorias, vitorias2x0: 0, derrotas, pontos, saldoSets, confrontoDireto: 0, tiePending: false });
 const leagueStandings: Record<"A" | "B", StandingFixture[]> = {
-  A: [
-    { position: 1, teamId: "team-3", jogos: 5, vitorias: 4, derrotas: 1, pontos: 10, saldoSets: 5 },
-    { position: 2, teamId: "team-1", jogos: 5, vitorias: 3, derrotas: 2, pontos: 8, saldoSets: 2 },
-    { position: 3, teamId: "team-2", jogos: 5, vitorias: 3, derrotas: 2, pontos: 7, saldoSets: 1 },
-    { position: 4, teamId: "team-6", jogos: 5, vitorias: 2, derrotas: 3, pontos: 5, saldoSets: -1 },
-    { position: 5, teamId: "team-5", jogos: 5, vitorias: 2, derrotas: 3, pontos: 4, saldoSets: -2 },
-    { position: 6, teamId: "team-4", jogos: 5, vitorias: 1, derrotas: 4, pontos: 2, saldoSets: -5 },
-  ],
-  B: [
-    { position: 1, teamId: "team-7", jogos: 4, vitorias: 3, derrotas: 1, pontos: 9, saldoSets: 4 },
-    { position: 2, teamId: "team-8", jogos: 4, vitorias: 2, derrotas: 2, pontos: 6, saldoSets: 1 },
-    { position: 3, teamId: "team-10", jogos: 4, vitorias: 2, derrotas: 2, pontos: 4, saldoSets: 0 },
-    { position: 4, teamId: "team-12", jogos: 4, vitorias: 1, derrotas: 3, pontos: 3, saldoSets: -1 },
-    { position: 5, teamId: "team-11", jogos: 4, vitorias: 1, derrotas: 3, pontos: 1, saldoSets: -2 },
-    { position: 6, teamId: "team-9", jogos: 4, vitorias: 0, derrotas: 4, pontos: 0, saldoSets: -2 },
-  ],
+  A: [fixtureRow(1, "team-3", 4, 4, 0, 10, 5), fixtureRow(2, "team-1", 4, 3, 1, 8, 2), fixtureRow(3, "team-2", 4, 2, 2, 6, 1), fixtureRow(4, "team-5", 4, 1, 3, 3, -2), fixtureRow(5, "team-4", 4, 0, 4, 1, -6)],
+  B: [fixtureRow(1, "team-7", 3, 3, 0, 9, 4), fixtureRow(2, "team-8", 3, 2, 1, 6, 1), fixtureRow(3, "team-10", 3, 2, 1, 4, 0), fixtureRow(4, "team-6", 3, 1, 2, 3, -1), fixtureRow(5, "team-9", 3, 0, 3, 0, -4)],
 };
 const fictionalLeague: League = { players, teams, groups, standings: leagueStandings, matches };
 const realSnapshotLeague: League = { players: snapshotPlayers, teams: snapshotTeams, groups: snapshotGroups, standings: snapshotStandings, matches: snapshotMatches };
@@ -483,6 +477,7 @@ async function mockLeagueWithAccounts(page: Page, league: League) {
     else if (url.pathname.endsWith("/groups")) payload = league.groups;
     else if (url.pathname.endsWith("/A/standings")) payload = league.standings.A;
     else if (url.pathname.endsWith("/B/standings")) payload = league.standings.B;
+    else if (url.pathname.endsWith("/matches/lock")) payload = { locked: false };
     else if (url.pathname.endsWith("/matches")) payload = league.matches;
     else if (url.pathname.endsWith("/schedule/my-status")) payload = { status: "aguardando", opponentTeamId: null, matchesAhead: null };
     else if (url.pathname.endsWith("/history/major-champions") || url.pathname.endsWith("/bracket")) payload = [];
@@ -525,10 +520,14 @@ async function expectOwnTeamEverywhere(page: Page, league: League, teamName: str
   const saldo = `${row.saldoSets > 0 ? "+" : ""}${row.saldoSets}`;
   const pending = league.matches.filter((match) => match.status === "pendente" && [match.teamAId, match.teamBId].includes(team.id)).length;
 
+  // O Início mostra a dupla, os dois integrantes e o grupo; posição e números ficam em Minha Dupla e Grupos.
   await openMenu(page, "Início");
-  await expect(page.locator(".team-identity-head")).toContainText(teamName);
-  await expect(page.locator(".team-identity-position strong")).toHaveAttribute("aria-label", `${row.position}º lugar`);
-  await expect(page.locator(".campaign-stats-grid dd")).toHaveText([String(row.pontos), String(row.vitorias), String(row.derrotas), saldo]);
+  const hero = page.getByRole("region", { name: "Resumo da sua dupla" });
+  await expect(hero.locator(".home-hero-name")).toHaveText(teamName);
+  await expect(hero.locator(".home-hero-member strong")).toHaveText([team.player1Id, team.player2Id].map((id) => league.players.find((player) => player.id === id)!.name));
+  await expect(hero.locator(".home-hero-role-me")).toHaveText("Você");
+  await expect(hero.getByText("Seu parceiro", { exact: true })).toHaveCount(1);
+  await expect(hero.locator(".home-hero-group")).toHaveText(`Grupo ${groupId}`);
 
   await openMenu(page, "Minha Dupla");
   await expect(page.locator(".team-identity-head")).toContainText(teamName);
@@ -579,13 +578,13 @@ test("Bagriel & Diguinho e Vito & Luizão veem só os próprios números reais a
 
   await loginAs(page, "Bagriel");
   await expectOwnTeamEverywhere(page, realSnapshotLeague, "Bagriel & Diguinho");
-  await openMenu(page, "Início");
+  await openMenu(page, "Minha Dupla");
   await expect(page.locator(".campaign-stats-grid dd")).toHaveText(["8", "3", "1", "+3"]);
   await logout(page);
 
   await loginAs(page, "Vito");
   await expectOwnTeamEverywhere(page, realSnapshotLeague, "Vito & Luizão");
-  await openMenu(page, "Início");
+  await openMenu(page, "Minha Dupla");
   // Vito & Luizão: 1 ponto (derrota por 1x2 para Bagriel & Diguinho), nunca os 8 da outra dupla.
   await expect(page.locator(".campaign-stats-grid dd")).toHaveText(["1", "0", "1", "-1"]);
   await page.reload();
@@ -610,11 +609,25 @@ test("home explica quando falta aplicar a migration das duplas e oferece nova te
   await expect(page.getByRole("button", { name: "Tentar novamente" })).toBeVisible();
 });
 
-test("rota de mata-mata informa que os cruzamentos da repescagem aguardam definição", async ({ page }) => {
+test("admin vê o chaveamento provisório e só pode gerar o mata-mata com os grupos encerrados", async ({ page }) => {
   await mockCoreApi(page, "admin");
   await page.goto("/admin/mata-mata");
-  await expect(page.getByText(/cruzamentos entre Grupo A e Grupo B ainda precisam ser definidos/)).toBeVisible();
+  await expect(page.getByText(/O mata-mata é gerado quando os dois grupos terminarem/)).toBeVisible();
+  await expect(page.locator(".ko-match")).toHaveCount(7);
   await expect(page.getByRole("button", { name: "Gerar mata-mata" })).toHaveCount(0);
+
+  // Grupos encerrados e sem empate pendente: o botão aparece e chama a geração.
+  await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(finalStandings(route.request().url().includes("/A/") ? "A" : "B")) }));
+  let generateCalls = 0;
+  await page.route("**/api/bracket/generate", (route) => {
+    generateCalls += 1;
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(knockoutFixture(0).bracket) });
+  });
+  await page.reload();
+  await expect(page.getByText(/Fase de grupos encerrada\. Confira a classificação e gere o mata-mata/)).toBeVisible();
+  await page.getByRole("button", { name: "Gerar mata-mata" }).click();
+  await expect(page.getByText("Mata-mata gerado a partir da classificação final.")).toBeVisible();
+  expect(generateCalls).toBe(1);
 });
 
 test("jogador sem sessão é encaminhado ao login ao acessar área administrativa", async ({ page }) => {
@@ -678,6 +691,182 @@ test("Hall da Fama mostra somente a edição histórica armazenada", async ({ pa
   await expect(page.getByText("Placar da final")).toBeVisible();
 });
 
+// ---------- Hall da Fama: linha do tempo por edições ----------
+
+const hallDuo = (first: string, second: string) => ({ name: `${first} & ${second}`, truco_team_members: [{ position: 1, truco_players: { name: first } }, { position: 2, truco_players: { name: second } }] });
+/** Histórico fictício: a edição N foi vencida por "Campeão 2N-1" e "Campeão 2N", no ano 2021 + N. */
+const hallHistory = (count: number) => Array.from({ length: count }, (_, index) => ({
+  truco_id: `hist-${index + 1}`, edition: index + 1, name: `${index + 1}ª Edição`, year: 2022 + index, final_result: index === 2 ? "2x1" : null, notes: "",
+  champion: hallDuo(`Campeão ${index * 2 + 1}`, `Campeão ${index * 2 + 2}`), runner_up: index === 2 ? hallDuo("Vice 1", "Vice 2") : null,
+}));
+
+async function openHall(page: Page, closedEditions: number, currentEdition: number) {
+  await mockCoreApi(page, "jogador");
+  // Fora de ordem de propósito: quem ordena os capítulos é a tela.
+  await page.route("**/rest/v1/truco_history**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(hallHistory(closedEditions).reverse()) }));
+  await page.route("**/rest/v1/truco_championships**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ edition: currentEdition, year: 2026 }]) }));
+  await page.goto("/hall-da-fama");
+  await expect(page.getByRole("heading", { name: "Hall da Fama", level: 1 })).toBeVisible();
+}
+
+test("Hall da Fama conta a história por edições, da 1ª até a edição em disputa", async ({ page }) => {
+  await openHall(page, 4, 5);
+  const chapters = page.locator("ol.hof-chapters > li");
+  await expect(chapters).toHaveCount(5);
+  await expect(chapters.getByRole("heading", { level: 2 })).toHaveText(["1ªEdição", "2ªEdição", "3ªEdição", "4ªEdição", "5ªEdição"]);
+  await expect(chapters.nth(2).getByRole("heading", { name: "3ª Edição", exact: true })).toBeVisible();
+  // Organização só por edições: nenhum ano na linha do tempo, nem em rótulos acessíveis.
+  const timelineText = await page.locator(".hof-timeline").evaluate((section) => [section.textContent ?? "", ...Array.from(section.querySelectorAll("[aria-label]")).map((element) => element.getAttribute("aria-label") ?? "")].join(" "));
+  expect(timelineText).not.toMatch(/20\d\d/);
+
+  // Edições encerradas: campeões reais em destaque.
+  await expect(chapters.nth(0)).toContainText("Campeões");
+  await expect(chapters.nth(0).locator(".hof-duo strong")).toHaveText(["Campeão 1", "Campeão 2"]);
+  await expect(chapters.nth(3).locator(".hof-duo strong")).toHaveText(["Campeão 7", "Campeão 8"]);
+  await expect(chapters.nth(3).locator(".opening-trophy-svg")).toContainText("4ª EDIÇÃO");
+
+  // Capítulo em aberto: sem campeão antecipado, sem dupla, sem metal e sem detalhe.
+  const open = chapters.nth(4);
+  await expect(open).toContainText("Em disputa");
+  await expect(open).toContainText("A próxima história será escrita");
+  await expect(open).not.toContainText("Campe");
+  await expect(open.locator(".hof-duo, .player-avatar, .opening-trophy-svg")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Ver detalhes da 5ª edição" })).toHaveCount(0);
+
+  // Por padrão o detalhe mostra a edição encerrada mais recente; o botão troca a edição.
+  const detail = page.locator(".history-detail");
+  await expect(detail.getByRole("heading", { level: 2 })).toHaveText("4ª Edição");
+  await page.getByRole("button", { name: "Ver detalhes da 3ª edição" }).click();
+  await expect(detail.getByRole("heading", { level: 2 })).toHaveText("3ª Edição");
+  await expect(detail.getByRole("heading", { level: 2 })).toBeFocused();
+  await expect(detail.locator(".history-champion")).toContainText("Campeão 5");
+  await expect(detail.locator(".history-champion")).toContainText("Campeão 6");
+  await expect(detail).toContainText("Vice 1 & Vice 2");
+  await expect(detail.locator(".history-result")).toContainText("2x1");
+  await expect(detail).toBeInViewport();
+  await expect(detail).not.toContainText(/20\d\d/);
+  // Sem ranking nem contagem de títulos aqui: isso mora em Maiores Campeões.
+  await expect(page.locator(".champions-ranking, .champions-podium-place")).toHaveCount(0);
+  await expect(page.locator(".hof")).not.toContainText(/título/i);
+  await expect(page.getByRole("link", { name: "Ranking de maiores campeões" })).toHaveAttribute("href", "/maiores-campeoes");
+
+  // Voltar devolve o foco ao capítulo de onde o detalhe saiu.
+  await page.getByRole("button", { name: "Voltar à linha do tempo" }).click();
+  await expect(page.getByRole("button", { name: "Ver detalhes da 3ª edição" })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Ver detalhes da 3ª edição" })).toBeInViewport({ ratio: 1 });
+});
+
+test("Hall da Fama abre o próximo capítulo sozinho quando o histórico cresce", async ({ page }) => {
+  await openHall(page, 5, 6);
+  const chapters = page.locator("ol.hof-chapters > li");
+  await expect(chapters).toHaveCount(6);
+  await expect(chapters.nth(4).locator(".hof-duo strong")).toHaveText(["Campeão 9", "Campeão 10"]);
+  await expect(chapters.nth(5).getByRole("heading", { name: "6ª Edição", exact: true })).toHaveCount(1);
+  await expect(chapters.nth(5)).toContainText("Em disputa");
+  await expect(chapters.nth(5).locator(".hof-duo")).toHaveCount(0);
+  await expect(page.locator(".history-detail").getByRole("heading", { level: 2 })).toHaveText("5ª Edição");
+});
+
+test("Hall da Fama com movimento reduzido mostra todos os capítulos prontos, sem trilha presa", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await openHall(page, 4, 5);
+  const chapters = page.locator("ol.hof-chapters > li");
+  await expect(chapters).toHaveCount(5);
+  await expect.poll(() => page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === "running").length)).toBe(0);
+  const state = await page.evaluate(() => {
+    const section = document.querySelector<HTMLElement>(".hof-timeline")!;
+    const hidden = Array.from(section.querySelectorAll<HTMLElement>(".hof-chapter *")).filter((element) => !element.closest("svg") && getComputedStyle(element).opacity !== "1");
+    const masked = Array.from(section.querySelectorAll<HTMLElement>(".hof-mask > span")).filter((element) => getComputedStyle(element).transform !== "none");
+    return {
+      live: section.hasAttribute("data-live"),
+      mode: getComputedStyle(section).getPropertyValue("--hof-mode").trim(),
+      pin: getComputedStyle(section.querySelector(".hof-pin")!).position,
+      track: getComputedStyle(section.querySelector(".hof-track")!).transform,
+      fill: getComputedStyle(section.querySelector(".hof-rail-fill")!).transform,
+      hidden: hidden.length,
+      masked: masked.length,
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+  // Linha inteira desenhada (escala 1), nada escondido e nenhuma trilha presa ou deslocada.
+  expect(state).toEqual({ live: false, mode: "", pin: "relative", track: "none", fill: "matrix(1, 0, 0, 1, 0, 0)", hidden: 0, masked: 0, overflow: 0 });
+  for (const edition of [1, 2, 3, 4]) await expect(page.getByRole("button", { name: `Ver detalhes da ${edition}ª edição` })).toBeVisible();
+  await expect(chapters.nth(4)).toContainText("Em disputa");
+  await expect(page.getByRole("button", { name: "Próxima edição" })).toHaveCount(0);
+});
+
+test("Hall da Fama: a rolagem conduz a trilha no desktop e o celular empilha os capítulos", async ({ page }) => {
+  await openHall(page, 4, 5);
+  const section = page.locator(".hof-timeline");
+  const chapters = page.locator("ol.hof-chapters > li");
+  await expect(section).toHaveAttribute("data-live", "true");
+  const pinned = await section.evaluate((element) => getComputedStyle(element).getPropertyValue("--hof-mode").trim() === "pinned");
+  const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  const progress = async () => Number(await section.getAttribute("data-progress"));
+  const trackX = () => page.locator(".hof-track").evaluate((element) => new DOMMatrixReadOnly(getComputedStyle(element).transform).m41);
+  const boxes = () => chapters.evaluateAll((items) => items.map((item) => { const rect = item.getBoundingClientRect(); return { x: Math.round(rect.left), y: Math.round(rect.top + window.scrollY) }; }));
+  expect(await overflow()).toBeLessThanOrEqual(0);
+
+  if (!pinned) {
+    // Celular: trilho vertical, capítulos um abaixo do outro, sem trilha horizontal nem controles.
+    const layout = await boxes();
+    expect(new Set(layout.map((box) => box.x)).size).toBe(1);
+    for (let index = 1; index < layout.length; index += 1) expect(layout[index].y).toBeGreaterThan(layout[index - 1].y);
+    expect(await trackX()).toBe(0);
+    await expect(page.getByRole("button", { name: "Próxima edição" })).toHaveCount(0);
+    // A linha cresce com a rolagem e os capítulos revelam ao entrar na tela.
+    await expect(chapters.nth(0)).toHaveAttribute("data-revealed", "true");
+    const before = await progress();
+    await chapters.nth(4).scrollIntoViewIfNeeded();
+    await expect(chapters.nth(4)).toHaveAttribute("data-revealed", "true");
+    await expect.poll(progress).toBeGreaterThan(before);
+    expect(await overflow()).toBeLessThanOrEqual(0);
+    return;
+  }
+
+  // Desktop: capítulos lado a lado, alternando acima e abaixo da linha.
+  const layout = await boxes();
+  for (let index = 1; index < layout.length; index += 1) expect(layout[index].x).toBeGreaterThan(layout[index - 1].x);
+  await expect(chapters.nth(0)).toHaveClass(/hof-chapter-above/);
+  await expect(chapters.nth(1)).toHaveClass(/hof-chapter-below/);
+  await expect(page.locator(".hof-progress")).toHaveText("Edição 1 de 5");
+  await expect(page.getByRole("button", { name: "Edição anterior" })).toBeDisabled();
+  await expect(section).toHaveAttribute("data-progress", "0.000");
+  expect(await trackX()).toBe(0);
+
+  // Rolar a página na vertical avança a trilha na horizontal.
+  await page.mouse.move(700, 400);
+  await page.mouse.wheel(0, 320);
+  await expect.poll(progress).toBeGreaterThan(0);
+  await expect.poll(trackX).toBeLessThan(-100);
+  expect(await overflow()).toBeLessThanOrEqual(0);
+
+  // Marcos e setas levam a rolagem até o capítulo.
+  await page.getByRole("button", { name: "Ir para a 4ª edição" }).click();
+  await expect(page.locator(".hof-progress")).toHaveText("Edição 4 de 5");
+  await expect(page.getByRole("button", { name: "Ver detalhes da 4ª edição" })).toBeInViewport({ ratio: 1 });
+  await page.getByRole("button", { name: "Próxima edição" }).click();
+  await expect(page.locator(".hof-progress")).toHaveText("Edição 5 de 5");
+  await expect(page.getByRole("button", { name: "Próxima edição" })).toBeDisabled();
+  await expect(section).toHaveAttribute("data-progress", "1.000");
+  await expect(chapters.nth(4)).toHaveAttribute("data-revealed", "true");
+  await expect(page.getByText("A próxima história será escrita")).toBeInViewport({ ratio: 1 });
+  await page.getByRole("button", { name: "Edição anterior" }).click();
+  await expect(page.locator(".hof-progress")).toHaveText("Edição 4 de 5");
+
+  // Foco por teclado num capítulo fora da tela traz o capítulo para a área visível.
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(section).toHaveAttribute("data-progress", "0.000");
+  const target = page.getByRole("button", { name: "Ver detalhes da 4ª edição" });
+  await expect(target).not.toBeInViewport();
+  await page.getByRole("link", { name: "Ranking de maiores campeões" }).focus();
+  for (let presses = 0; presses < 12 && !(await target.evaluate((element) => element === document.activeElement)); presses += 1) await page.keyboard.press("Tab");
+  await expect(target).toBeFocused();
+  await expect(target).toBeInViewport({ ratio: 1 });
+  expect(await overflow()).toBeLessThanOrEqual(0);
+  await expect.poll(() => page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === "running").length)).toBe(0);
+});
+
 test("abertura usa conquistas registradas e continua para a campanha", async ({ page }) => {
   await mockCoreApi(page, "jogador");
   await page.goto("/");
@@ -688,11 +877,22 @@ test("abertura usa conquistas registradas e continua para a campanha", async ({ 
   await expect(page.locator(".champions-podium-place-2")).toHaveCount(2);
   await page.getByRole("button", { name: "Entrar na edição atual" }).click();
   await expect(page).toHaveURL(/\/inicio$/);
-  await expect(page.getByRole("region", { name: "Resumo da sua dupla" })).toContainText("Dupla 1");
-  await expect(page.locator(".team-identity-members")).toContainText("Seu parceiro");
-  await expect(page.locator(".team-identity-details")).toContainText("Força 1/5");
-  await expect(page.getByRole("heading", { name: "Próximo confronto" })).toBeVisible();
-  await expect(page.locator(".home-opponent")).toContainText("Dupla 2");
+  const hero = page.getByRole("region", { name: "Resumo da sua dupla" });
+  await expect(hero.getByRole("heading", { name: "Dupla 1", exact: true })).toBeVisible();
+  await expect(hero.locator(".home-hero-member strong")).toHaveText(["Jogador 1", "Jogador 2"]);
+  await expect(hero.locator(".home-hero-role")).toHaveText(["Você", "Seu parceiro"]);
+  await expect(hero.getByText("Força 1 de 5", { exact: true })).toBeVisible();
+  await expect(hero.locator(".home-hero-star-lit")).toHaveCount(1);
+  await expect(hero.locator(".home-hero-group")).toHaveText("Grupo A");
+  await expect(hero.getByRole("link", { name: "Ver meu grupo" })).toHaveAttribute("href", "/grupos");
+  // O card não repete posição, zona, aprovação nem números da campanha.
+  await expect(hero).not.toContainText(/lugar|Zona|aprovada|Cabeça de chave|Pontos|Vitórias|Saldo/i);
+  const road = page.getByRole("region", { name: "Rumo ao campeonato" });
+  await expect(road.locator("time")).toHaveText("25/10/2026 · 12h");
+  await expect(road.locator(".home-road-status")).toHaveCount(1);
+  await expect(page.getByRole("heading", { name: "Próximo confronto" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Resumo da campanha" })).toHaveCount(0);
+  await expect(page.locator(".home-banner, .campaign-stats-grid, .team-identity")).toHaveCount(0);
   await page.goto("/");
   await expect(page).toHaveURL(/\/inicio$/);
 });
@@ -701,12 +901,46 @@ test("ranking preserva empates e jogos de outras duplas não oferecem edição",
   await mockCoreApi(page, "jogador", true);
   await page.goto("/maiores-campeoes");
   await expect(page.locator(".champions-podium-place-2")).toHaveCount(2);
-  await expect(page.locator(".major-row")).toHaveCount(3);
+  // As três duplas do ranking simulado estão no pódio: nenhuma reaparece na lista de baixo.
+  await expect(page.locator(".champions-podium-place")).toHaveCount(3);
+  await expect(page.locator(".major-row")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Demais duplas" })).toHaveCount(0);
   await page.goto("/jogos");
   await page.getByRole("tab", { name: "Grupo B" }).click();
-  await expect(page.locator(".match-card")).toHaveCount(15);
+  await expect(page.locator(".match-card")).toHaveCount(10);
   await expect(page.getByRole("button", { name: /Lançar resultado|Editar resultado/ })).toHaveCount(0);
-  await expect(page.locator(".match-card .team-strength")).toHaveCount(30);
+  await expect(page.locator(".match-card .team-strength")).toHaveCount(20);
+});
+
+test("Maiores Campeões não repete o pódio na lista e só dá metal a quem tem título", async ({ page }) => {
+  await mockCoreApi(page, "jogador");
+  await page.route("**/api/history/major-champions", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([
+    { key: "historical-1", players: ["Campeão 1", "Campeão 2"], name: "Campeão 1 & Campeão 2", titles: 3, editions: [1, 3, 4], rank: 1 },
+    { key: "historical-2", players: ["Campeão 3", "Campeão 4"], name: "Campeão 3 & Campeão 4", titles: 1, editions: [2], rank: 2 },
+    { key: "current-1", players: ["Jogador 1", "Jogador 2"], name: "Jogador 1 & Jogador 2", titles: 0, editions: [], rank: 3 },
+    { key: "current-2", players: ["Jogador 3", "Jogador 4"], name: "Jogador 3 & Jogador 4", titles: 0, editions: [], rank: 3 },
+  ]) }));
+  await page.goto("/maiores-campeoes");
+  const podium = page.locator(".champions-podium-real");
+  const list = page.locator(".major-ranking-list");
+  // Pódio: só quem tem título. O 3º lugar sem título não sobe nem ganha destaque.
+  await expect(podium.locator(".champions-podium-place")).toHaveCount(2);
+  await expect(podium.locator(".champions-podium-place-1")).toContainText("3 títulos");
+  await expect(podium.locator(".champions-podium-place-3")).toHaveCount(0);
+  await expect(podium.locator(".champions-podium-place-1").getByRole("list", { name: "Edições conquistadas" }).getByRole("listitem")).toHaveText(["1ª edição", "3ª edição", "4ª edição"]);
+  // Um caneco de cada metal, com gradientes próprios (ids únicos por instância).
+  expect(await page.locator(".champions-podium-cup > svg linearGradient[id^='ot-gold-']").evaluateAll((nodes) => new Set(nodes.map((node) => node.id)).size === nodes.length)).toBe(true);
+  // Lista: as demais duplas, sem repetir ninguém do pódio.
+  await expect(page.getByRole("heading", { name: "Demais duplas" })).toBeVisible();
+  await expect(list.locator(".major-row")).toHaveCount(2);
+  await expect(list).not.toContainText("Campeão 1");
+  await expect(list).not.toContainText("Campeão 3");
+  await expect(podium).not.toContainText("Jogador 1");
+  await expect(list.locator(".major-row-mine")).toContainText("Jogador 1 & Jogador 2");
+  await expect(list.locator(".major-row-mine")).toContainText("Sua dupla");
+  await expect(list.locator(".major-row").first().locator(".major-row-titles")).toHaveText("0títulos");
+  await expect(list.locator(".edition-plaque")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Dupla 1 na corrida" })).toBeVisible();
 });
 
 test("abertura sem títulos não inventa campeões e não impede continuar", async ({ page }) => {
@@ -717,6 +951,144 @@ test("abertura sem títulos não inventa campeões e não impede continuar", asy
   await expect(page.locator(".champions-podium-place")).toHaveCount(0);
   await page.getByRole("button", { name: "Entrar na edição atual" }).click();
   await expect(page).toHaveURL(/\/inicio$/);
+});
+
+// ---------- Início: card da dupla e faixa "Rumo ao campeonato" ----------
+
+test("Início de uma dupla do Grupo B leva ao próprio grupo e mantém a dupla ao recarregar", async ({ page }) => {
+  await mockCoreApi(page, "jogador");
+  await page.addInitScript(() => {
+    const session = JSON.parse(localStorage.getItem("truco-do-novo:session")!);
+    session.user.teamId = "team-7";
+    session.user.playerId = "player-13";
+    localStorage.setItem("truco-do-novo:session", JSON.stringify(session));
+  });
+  await page.goto("/inicio");
+  const hero = page.getByRole("region", { name: "Resumo da sua dupla" });
+  await expect(hero.locator(".home-hero-name")).toHaveText("Dupla 7");
+  await expect(hero.locator(".home-hero-member strong")).toHaveText(["Jogador 13", "Jogador 14"]);
+  await expect(hero.locator(".home-hero-role")).toHaveText(["Você", "Seu parceiro"]);
+  await expect(hero.getByText("Força 2 de 5", { exact: true })).toBeVisible();
+  await expect(hero.locator(".home-hero-group")).toHaveText("Grupo B");
+
+  // Recarregar mantém a mesma dupla, sem rastro de outra.
+  await page.reload();
+  await expect(hero.locator(".home-hero-name")).toHaveText("Dupla 7");
+  await expect(hero.locator(".home-hero-member strong")).toHaveText(["Jogador 13", "Jogador 14"]);
+  await expect(page.locator(".player-home")).not.toContainText("Dupla 1");
+
+  await hero.getByRole("link", { name: "Ver meu grupo" }).click();
+  await expect(page).toHaveURL(/\/grupos$/);
+  await expect(page.getByRole("tab", { name: "Grupo B · Seu grupo" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(".standings-row-mine")).toContainText("Dupla 7");
+});
+
+test("Início sem força nem grupo mostra a ausência, e sem dupla mantém a faixa do campeonato", async ({ page }) => {
+  await mockCoreApi(page, "jogador");
+  await page.route("**/api/teams", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(teams.map((team, index) => index === 0 ? { ...team, groupId: null, strength: undefined } : team)) }));
+  await page.goto("/inicio");
+  const hero = page.getByRole("region", { name: "Resumo da sua dupla" });
+  await expect(hero.getByText("Força a definir", { exact: true })).toBeVisible();
+  await expect(hero.locator(".home-hero-star")).toHaveCount(0);
+  await expect(hero.getByText("Grupo a definir", { exact: true })).toBeVisible();
+  await expect(hero.getByRole("link", { name: "Ver grupos" })).toHaveAttribute("href", "/grupos");
+
+  await page.evaluate(() => {
+    const session = JSON.parse(localStorage.getItem("truco-do-novo:session")!);
+    session.user.teamId = null;
+    localStorage.setItem("truco-do-novo:session", JSON.stringify(session));
+  });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Sua dupla está a caminho" })).toBeVisible();
+  await expect(hero).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Rumo ao campeonato" }).locator("time")).toHaveText("25/10/2026 · 12h");
+});
+
+const HOME_DASHBOARD = { totalPlayers: 20, totalTeams: 10, pendingApprovals: 0, approvedTeams: 10, drawStatus: "realizado", matchesPlayed: 0, matchesPending: 20, currentPhase: "Fase de Grupos", nextMatches: [] };
+
+/** Início com relógio, cadeado e campeão controlados. `dashboard: null` simula o painel fora do ar. */
+async function openHomeAt(page: Page, options: { now: string; locked: boolean | "erro"; champion?: { teamId: string; teamName: string } | null; dashboard?: null }) {
+  await mockCoreApi(page, "jogador");
+  await page.route("**/api/matches/lock", (route) => options.locked === "erro"
+    ? route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "falha" }) })
+    : route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ locked: options.locked }) }));
+  await page.route("**/api/dashboard", (route) => options.dashboard === null
+    ? route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "falha" }) })
+    : route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...HOME_DASHBOARD, champion: options.champion ?? null }) }));
+  await page.clock.install({ time: new Date(options.now) });
+  await page.goto("/inicio");
+  const road = page.getByRole("region", { name: "Rumo ao campeonato" });
+  await expect(road.locator("time")).toHaveText("25/10/2026 · 12h");
+  return road;
+}
+
+test("Rumo ao campeonato conta até 25/10 às 12h de São Paulo e troca a contagem pelo estado na hora", async ({ page }) => {
+  // 23/10/2026 08:56:50 em São Paulo: faltam 2 dias, 3 horas, 3 minutos e 10 segundos.
+  const road = await openHomeAt(page, { now: "2026-10-23T11:56:50Z", locked: true });
+  const timer = road.getByRole("timer");
+  await page.clock.pauseAt(new Date("2026-10-23T11:57:00Z"));
+  await expect(road.locator(".home-road-status")).toHaveText("Aguardando início");
+  await expect(timer.locator("b")).toHaveText(["2", "03", "03", "00"]);
+  await expect(road.getByText("Resultados bloqueados", { exact: true })).toBeVisible();
+  // Só os números mudam: um tique por segundo.
+  await page.clock.runFor(4000);
+  await expect(timer.locator("b")).toHaveText(["2", "03", "02", "56"]);
+
+  // Na hora marcada a contagem some (nada de zeros parados) e o cadeado fechado decide o estado.
+  await page.clock.pauseAt(new Date("2026-10-25T14:59:59Z"));
+  await expect(timer.locator("b")).toHaveText(["0", "00", "00", "01"]);
+  await page.clock.runFor(2000);
+  await expect(timer).toHaveCount(0);
+  await expect(road.locator(".home-road-status")).toHaveText("Aguardando liberação do administrador");
+  await expect(road.locator(".home-road-clock")).toHaveCount(0);
+});
+
+test("Rumo ao campeonato: depois do horário o cadeado separa aguardando liberação de em andamento", async ({ page }) => {
+  const closed = await openHomeAt(page, { now: "2026-10-25T15:00:00Z", locked: true });
+  await expect(closed.locator(".home-road-status")).toHaveText("Aguardando liberação do administrador");
+  await expect(closed.getByRole("timer")).toHaveCount(0);
+  await expect(closed.getByText("Resultados bloqueados", { exact: true })).toBeVisible();
+});
+
+test("Rumo ao campeonato: depois do horário, com o cadeado aberto, a edição está em andamento", async ({ page }) => {
+  const open = await openHomeAt(page, { now: "2026-11-02T18:00:00Z", locked: false });
+  await expect(open.locator(".home-road-status")).toHaveText("Em andamento");
+  await expect(open.getByRole("timer")).toHaveCount(0);
+  await expect(open.getByText("Resultados liberados", { exact: true })).toBeVisible();
+});
+
+test("Rumo ao campeonato: placares lançados e cadeado aberto não fazem a edição começar antes da hora", async ({ page }) => {
+  await mockCoreApi(page, "jogador", true);
+  await page.route("**/api/matches/lock", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ locked: false }) }));
+  await page.clock.install({ time: new Date("2026-10-25T14:58:00Z") });
+  await page.goto("/inicio");
+  const road = page.getByRole("region", { name: "Rumo ao campeonato" });
+  await expect(road.locator(".home-road-status")).toHaveText("Aguardando início");
+  await expect(road.getByRole("timer").locator("b").nth(2)).toHaveText("01");
+  await expect(road.getByText("Resultados liberados", { exact: true })).toBeVisible();
+});
+
+test("Rumo ao campeonato: campeão oficial encerra a edição", async ({ page }) => {
+  const ended = await openHomeAt(page, { now: "2026-10-20T12:00:00Z", locked: false, champion: { teamId: "team-3", teamName: "Dupla 3" } });
+  await expect(ended.locator(".home-road-status")).toHaveText("Encerrado");
+  await expect(ended.getByRole("timer")).toHaveCount(0);
+  await expect(ended.locator(".home-road-champion")).toHaveText("Dupla 3");
+});
+
+test("Rumo ao campeonato: sem painel não afirma encerrado, e sem resposta do cadeado conta como bloqueado", async ({ page }) => {
+  // Painel fora do ar: data, contagem e cadeado continuam.
+  const offline = await openHomeAt(page, { now: "2026-10-23T11:56:50Z", locked: false, dashboard: null });
+  await expect(offline.locator(".home-road-status")).toHaveText("Aguardando início");
+  await expect(offline.getByRole("timer").locator("b").first()).toHaveText("2");
+  await expect(offline.getByText("Resultados liberados", { exact: true })).toBeVisible();
+  await expect(page.getByText("Não foi possível confirmar a situação da edição.")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Resumo da sua dupla" })).toContainText("Dupla 1");
+});
+
+test("Rumo ao campeonato: cadeado sem resposta depois do horário fica aguardando liberação", async ({ page }) => {
+  const unknown = await openHomeAt(page, { now: "2026-11-02T18:00:00Z", locked: "erro" });
+  await expect(unknown.locator(".home-road-status")).toHaveText("Aguardando liberação do administrador");
+  await expect(unknown.getByText("Resultados bloqueados", { exact: true })).toBeVisible();
 });
 
 test("Grupos reconhece uma dupla do Grupo B e permite trocar pelo teclado", async ({ page }) => {
@@ -754,7 +1126,7 @@ test("jogador sem dupla não pode registrar partidas com vagas em aberto", async
 });
 
 const ANIMATED_ROUTES: Array<{ role: "admin" | "jogador"; path: string }> = [
-  ...["/inicio", "/abertura", "/hall-da-fama", "/maiores-campeoes", "/minha-dupla", "/grupos", "/jogos", "/perfil"].map((path) => ({ role: "jogador" as const, path })),
+  ...["/inicio", "/abertura", "/hall-da-fama", "/maiores-campeoes", "/minha-dupla", "/grupos", "/jogos", "/mata-mata", "/perfil"].map((path) => ({ role: "jogador" as const, path })),
   ...["/admin", "/admin/jogadores", "/admin/duplas", "/admin/aprovacoes", "/admin/grupos", "/admin/mesas-agora", "/admin/escala", "/admin/jogos", "/admin/mata-mata", "/admin/hall-da-fama", "/admin/configuracoes"].map((path) => ({ role: "admin" as const, path })),
 ];
 
@@ -773,6 +1145,13 @@ for (const { role, path } of ANIMATED_ROUTES) {
       (window as unknown as { __animations: string[] }).__animations = started;
       document.addEventListener("animationstart", (event) => started.push(event.animationName), true);
     });
+    // MOTION_THEME=light gera as capturas de MOTION_SHOTS no tema claro.
+    if (process.env.MOTION_THEME === "light") {
+      await page.addInitScript(() => {
+        localStorage.setItem("truco-do-novo:appearance-version", "black-background-v1");
+        localStorage.setItem("truco-do-novo:theme", "light");
+      });
+    }
     await mockCoreApi(page, role);
     await page.route("**/api/dashboard", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ totalPlayers: 20, totalTeams: 10, pendingApprovals: 0, approvedTeams: 10, drawStatus: "realizado", matchesPlayed: 0, matchesPending: 20, currentPhase: "Fase de Grupos", nextMatches: [], champion: null }) }));
     await page.route("**/api/schedule/queue", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) }));
@@ -782,7 +1161,8 @@ for (const { role, path } of ANIMATED_ROUTES) {
     await expect(page.locator(".page-enter").first()).toBeVisible();
     await expect.poll(() => page.evaluate(() => (window as unknown as { __animations: string[] }).__animations.includes("rise-in"))).toBe(true);
     // Ao terminar, nenhum bloco pode reter transform: isso deslocaria modais fixos.
-    await expect.poll(() => page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === "running" && animation.timeline === document.timeline).length)).toBe(0);
+    // Única exceção em laço (DESIGN.md, abertura): a flutuação do caneco e a respiração do halo.
+    await expect.poll(() => page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === "running" && animation.timeline === document.timeline && !animation.id.startsWith("opening-ambient-")).length)).toBe(0);
     const state = await page.evaluate(() => ({
       retained: Array.from(document.querySelectorAll(".page-enter > *")).filter((element) => getComputedStyle(element).transform !== "none" || getComputedStyle(element).opacity !== "1").length,
       overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -790,9 +1170,34 @@ for (const { role, path } of ANIMATED_ROUTES) {
     expect(state.retained).toBe(0);
     expect(state.overflow).toBeLessThanOrEqual(0);
     expect(pageErrors).toEqual([]);
-    if (process.env.MOTION_SHOTS) await page.screenshot({ path: `${process.env.MOTION_SHOTS}/${testInfo.project.name}${path.replaceAll("/", "_")}.png` });
+    if (process.env.MOTION_SHOTS) await page.screenshot({ path: `${process.env.MOTION_SHOTS}/${testInfo.project.name}${path.replaceAll("/", "_")}.png`, fullPage: true });
   });
 }
+
+test("abertura: só o caneco e o halo ficam em laço, e pausam fora da tela", async ({ page }) => {
+  await mockCoreApi(page, "jogador");
+  await page.goto("/abertura");
+  const ambient = () => page.evaluate(() => document.getAnimations().filter((animation) => animation.id.startsWith("opening-ambient-")).map((animation) => `${animation.id}:${animation.playState}`).sort());
+  await expect.poll(ambient).toEqual(["opening-ambient-float:running", "opening-ambient-halo:running"]);
+  await page.evaluate(() => { document.querySelector<HTMLElement>(".opening-stage")!.style.display = "none"; });
+  await expect.poll(ambient).toEqual(["opening-ambient-float:paused", "opening-ambient-halo:paused"]);
+  await page.evaluate(() => { document.querySelector<HTMLElement>(".opening-stage")!.style.display = ""; });
+  await expect.poll(ambient).toEqual(["opening-ambient-float:running", "opening-ambient-halo:running"]);
+});
+
+test("abertura com movimento reduzido não tem laço e mostra o palco inteiro", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await mockCoreApi(page, "jogador");
+  await page.goto("/abertura");
+  await expect(page.getByRole("heading", { name: "Bora fazer história e levar esse caneco para casa?" })).toBeVisible();
+  await expect(page.locator(".opening-stage .opening-trophy-svg")).toBeVisible();
+  const state = await page.evaluate(() => ({
+    looping: document.getAnimations().filter((animation) => animation.playState === "running").length,
+    hidden: Array.from(document.querySelectorAll(".opening-hero *")).filter((element) => getComputedStyle(element).opacity === "0" && !element.closest("svg")).length,
+  }));
+  expect(state.looping).toBe(0);
+  expect(state.hidden).toBe(0);
+});
 
 test("movimento reduzido mostra o conteúdo sem deslocamento", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -802,4 +1207,491 @@ test("movimento reduzido mostra o conteúdo sem deslocamento", async ({ page }) 
   await expect(header).toBeVisible();
   await expect(header).toHaveCSS("opacity", "1");
   await expect(header).toHaveCSS("transform", "none");
+});
+
+// ---------- Formato definitivo: zonas, desempate e mata-mata ----------
+
+/** Classificação final fictícia: a dupla N do grupo termina em Nº (Dupla 1 a 5 no A, 6 a 10 no B). */
+function finalStandings(groupId: "A" | "B", tied: string[] = []) {
+  return teams.filter((team) => team.groupId === groupId).map((team, index) => ({
+    position: index + 1, teamId: team.id, jogos: 4, vitorias: 4 - index, vitorias2x0: Math.max(0, 3 - index), derrotas: index,
+    pontos: 12 - index * 3, saldoSets: 8 - index * 4, confrontoDireto: 0, tiePending: tied.includes(team.id),
+  }));
+}
+
+type RepechageOutcome = "thirds" | "fourths" | "bothFromA";
+
+/**
+ * Mata-mata fictício já gerado, com os `played` primeiros jogos disputados (na ordem do
+ * chaveamento). `repechage` diz quem vence a repescagem: os dois 3º colocados (padrão), os
+ * dois 4º, ou as duas duplas do Grupo A. Depois dela o lado A vence por 2x0 em tudo, menos na
+ * final, que o lado B vence por 2x1. As quartas seguem a regra do sistema: só existem com as
+ * duas repescagens encerradas, e o cruzamento é trocado quando isso evita reencontro.
+ */
+function knockoutFixture(played: number, repechage: RepechageOutcome = "thirds") {
+  // Com os dois 4º colocados vencendo, o cruzamento padrão daria 2º A × 4º A e 2º B × 4º B.
+  const swapped = repechage === "fourths";
+  const plan = [
+    { key: "R1", round: "repescagem", order: 0, label: "Repescagem 1", a: "team-3", b: "team-9" },
+    { key: "R2", round: "repescagem", order: 1, label: "Repescagem 2", a: "team-8", b: "team-4" },
+    { key: "Q1", round: "quartas", order: 0, label: "Quartas 1", a: "team-2", b: swapped ? "R1" : "R2" },
+    { key: "Q2", round: "quartas", order: 1, label: "Quartas 2", a: "team-7", b: swapped ? "R2" : "R1" },
+    { key: "S1", round: "semifinal", order: 0, label: "Semifinal 1", a: "team-1", b: "Q2" },
+    { key: "S2", round: "semifinal", order: 1, label: "Semifinal 2", a: "team-6", b: "Q1" },
+    { key: "F", round: "final", order: 0, label: "Final", a: "S1", b: "S2" },
+  ];
+  const sideBWins = (key: string) => key === "F" || (key === "R1" && repechage === "fourths") || (key === "R2" && repechage !== "thirds");
+  const winners = new Map<string, string>();
+  const knockoutMatches: Array<Record<string, unknown>> = [];
+  const slot = (source: string) => (source.startsWith("team-") ? { type: "direct", teamId: source } : { type: "winner", bracketMatchId: "bracket-" + source });
+  const resolve = (source: string) => (source.startsWith("team-") ? source : winners.get(source) ?? null);
+
+  const bracket = plan.map((item, index) => {
+    const teamAId = resolve(item.a);
+    const teamBId = resolve(item.b);
+    const repechageDone = winners.has("R1") && winners.has("R2");
+    const ready = Boolean(teamAId && teamBId) && (item.round !== "quartas" || repechageDone);
+    if (ready) {
+      const done = index < played;
+      const result = done ? (sideBWins(item.key) ? { setsA: 1, setsB: 2 } : { setsA: 2, setsB: 0 }) : null;
+      if (result) winners.set(item.key, result.setsA > result.setsB ? teamAId! : teamBId!);
+      knockoutMatches.push({
+        id: "ko-" + item.key, championshipId: "edition-5", stage: "mata-mata", round: item.label, order: item.order, groupId: null,
+        teamAId, teamBId, result, status: done ? "realizado" : "pendente", tableNumber: null, blockNumber: null, queuePosition: null,
+      });
+    }
+    return { id: "bracket-" + item.key, round: item.round, label: item.label, order: item.order, slotA: slot(item.a), slotB: slot(item.b), matchId: ready ? "ko-" + item.key : null };
+  });
+  return { bracket, matches: knockoutMatches };
+}
+
+async function mockKnockout(page: Page, played: number, role: "admin" | "jogador" = "jogador", repechage: RepechageOutcome = "thirds") {
+  await mockCoreApi(page, role);
+  const fixture = knockoutFixture(played, repechage);
+  await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(finalStandings(route.request().url().includes("/A/") ? "A" : "B")) }));
+  await page.route("**/api/bracket", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixture.bracket) }));
+  await page.route("**/api/matches?stage=mata-mata", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixture.matches) }));
+}
+
+const cardSides = (page: Page, key: string) => page.locator(".ko-cell-" + key + " .ko-side-team strong");
+const noSidewaysScroll = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+
+test("Grupos pinta cada linha na cor da zona e a legenda explica as quatro", async ({ page }) => {
+  await mockCoreApi(page, "jogador");
+  await page.goto("/grupos");
+  await expect(page.locator(".standings-row")).toHaveCount(5);
+  // 1º semifinal, 2º quartas, 3º e 4º repescagem, 5º eliminado.
+  await expect(page.locator(".standings-row").nth(0)).toHaveClass(/standings-row-semifinal/);
+  await expect(page.locator(".standings-row").nth(1)).toHaveClass(/standings-row-quartas/);
+  await expect(page.locator(".standings-row").nth(2)).toHaveClass(/standings-row-repescagem/);
+  await expect(page.locator(".standings-row").nth(3)).toHaveClass(/standings-row-repescagem/);
+  await expect(page.locator(".standings-row").nth(4)).toHaveClass(/standings-row-eliminado/);
+  await expect(page.getByRole("list", { name: "Legenda da classificação" }).locator("li")).toHaveText([
+    "Verde = Semifinal", "Azul = Quartas", "Laranja = Repescagem", "Vermelho = Eliminado", "Ordem da classificação: pontos, vitórias, vitórias por 2x0, confronto direto, saldo de quedas",
+  ]);
+
+  // As quatro zonas têm fundos diferentes entre si, e a linha da dupla mantém a cor da zona.
+  const backgrounds = await page.locator(".standings-row").evaluateAll((rows) => rows.map((row) => getComputedStyle(row).backgroundColor));
+  expect(new Set([backgrounds[0], backgrounds[1], backgrounds[2], backgrounds[4]]).size).toBe(4);
+  expect(backgrounds[2]).toBe(backgrounds[3]);
+  await expect(page.locator(".standings-row-mine")).toHaveClass(/standings-row-semifinal/);
+  await expect(page.locator(".standings-row-mine")).toContainText("Sua dupla");
+  expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
+});
+
+test("empate exato aparece como pendente de decisão do administrador nos Grupos e no Mata-mata", async ({ page }) => {
+  await mockCoreApi(page, "jogador");
+  await page.route("**/api/groups/*/standings", (route) => {
+    const groupId = route.request().url().includes("/A/") ? "A" : "B";
+    const rows = finalStandings(groupId, groupId === "A" ? ["team-2", "team-3"] : []).map((row) => (["team-2", "team-3"].includes(row.teamId) ? { ...row, pontos: 8, vitorias: 3, vitorias2x0: 1, confrontoDireto: 0, saldoSets: 2 } : row));
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(rows) });
+  });
+  await page.goto("/grupos");
+  await expect(page.locator(".standings-tie").filter({ visible: true })).toHaveCount(2);
+  await expect(page.getByText(/dependem da decisão do administrador/)).toBeVisible();
+
+  await page.goto("/mata-mata");
+  await expect(page.getByText(/O chaveamento sai assim que o administrador decidir as posições/)).toBeVisible();
+  await expect(page.locator(".ko-champion-decided")).toHaveCount(0);
+});
+
+test("Mata-mata mostra as posições antes do fim dos grupos, sem prometer vaga", async ({ page }) => {
+  await mockCoreApi(page, "jogador");
+  await page.goto("/mata-mata");
+  await expect(page.getByRole("heading", { name: "Mata-mata", level: 1 })).toBeVisible();
+  await expect(page.locator(".ko-match")).toHaveCount(7);
+  // Sem nenhum jogo disputado só aparecem as posições, nunca um nome.
+  await expect(cardSides(page, "R1")).toHaveText(["3º do Grupo A", "4º do Grupo B"]);
+  await expect(cardSides(page, "R2")).toHaveText(["3º do Grupo B", "4º do Grupo A"]);
+  // Qual vencedor da repescagem cai em cada jogo só se decide depois das duas repescagens.
+  await expect(cardSides(page, "Q1")).toHaveText(["2º do Grupo A", "Vencedor da repescagem"]);
+  await expect(cardSides(page, "Q2")).toHaveText(["2º do Grupo B", "Vencedor da repescagem"]);
+  await expect(cardSides(page, "S1")).toHaveText(["1º do Grupo A", "Vencedor das Quartas 2"]);
+  await expect(cardSides(page, "S2")).toHaveText(["1º do Grupo B", "Vencedor das Quartas 1"]);
+  await expect(cardSides(page, "F")).toHaveText(["Vencedor da Semifinal 1", "Vencedor da Semifinal 2"]);
+  await expect(page.locator(".ko-champion-name")).toHaveText("A definir");
+  await expect(page.locator(".knockout-step-current")).toHaveText("Fase de grupos");
+  await expect(page.getByRole("region", { name: "Como cada posição do grupo entra" }).locator("li")).toHaveCount(4);
+
+  // Com a fase de grupos em andamento, mostra quem ocupa cada posição hoje — marcado como provisório.
+  await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(finalStandings(route.request().url().includes("/A/") ? "A" : "B").map((row) => ({ ...row, jogos: 2 }))) }));
+  await page.reload();
+  await expect(page.getByText(/Chaveamento provisório/)).toBeVisible();
+  await expect(cardSides(page, "R1")).toHaveText(["Dupla 3", "Dupla 9"]);
+  await expect(page.locator(".ko-cell-R1 .ko-side-team small").first()).toContainText("posição de hoje");
+  // O 5º de cada grupo não aparece em lugar nenhum do chaveamento.
+  await expect(page.locator(".ko").getByText("Dupla 5", { exact: true })).toHaveCount(0);
+  await expect(page.locator(".ko").getByText("Dupla 10", { exact: true })).toHaveCount(0);
+  expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
+});
+
+test("repescagem cruza os grupos e os vencedores encontram os 2º colocados nas quartas", async ({ page }) => {
+  await mockKnockout(page, 2);
+  await page.goto("/mata-mata");
+  await expect(cardSides(page, "R1")).toHaveText(["Dupla 3", "Dupla 9"]);
+  await expect(cardSides(page, "R2")).toHaveText(["Dupla 8", "Dupla 4"]);
+  await expect(page.locator(".ko-cell-R1 .ko-side-winner")).toContainText("Dupla 3");
+  await expect(page.locator(".ko-cell-R1 .ko-side-sets")).toHaveText(["2", "0"]);
+  // Quartas 1: 2º A × vencedor de B3×A4 · Quartas 2: 2º B × vencedor de A3×B4.
+  await expect(cardSides(page, "Q1")).toHaveText(["Dupla 2", "Dupla 8"]);
+  await expect(cardSides(page, "Q2")).toHaveText(["Dupla 7", "Dupla 3"]);
+  // Os líderes já esperam na semifinal; o outro lado ainda depende das quartas.
+  await expect(cardSides(page, "S1")).toHaveText(["Dupla 1", "Vencedor das Quartas 2"]);
+  await expect(cardSides(page, "S2")).toHaveText(["Dupla 6", "Vencedor das Quartas 1"]);
+  await expect(page.locator(".knockout-step-current")).toHaveText("Quartas de final");
+  await expect(page.locator(".ko-cell-S1 .ko-side-you")).toHaveText("Sua dupla");
+});
+
+test("quartas levam à semifinal, a semifinal gera a final e a final define o campeão", async ({ page }) => {
+  await mockKnockout(page, 6);
+  await page.goto("/mata-mata");
+  await expect(cardSides(page, "S1")).toHaveText(["Dupla 1", "Dupla 7"]);
+  await expect(cardSides(page, "S2")).toHaveText(["Dupla 6", "Dupla 2"]);
+  await expect(cardSides(page, "F")).toHaveText(["Dupla 1", "Dupla 6"]);
+  await expect(page.locator(".ko-cell-F .ko-match-status")).toHaveText("A jogar");
+  await expect(page.locator(".knockout-step-current")).toHaveText("Final");
+  await expect(page.locator(".ko-champion-decided")).toHaveCount(0);
+
+  await mockKnockout(page, 7);
+  await page.reload();
+  await expect(page.locator(".ko-cell-F .ko-side-sets")).toHaveText(["1", "2"]);
+  await expect(page.locator(".ko-cell-F .ko-side-winner")).toContainText("Dupla 6");
+  await expect(page.locator(".ko-champion-decided .ko-champion-name")).toHaveText("Dupla 6");
+  await expect(page.locator(".ko-champion-decided")).toContainText("Campeão da 5ª edição");
+  await expect(page.locator(".ko-match-played")).toHaveCount(7);
+  await expect(page.getByText("Campeonato encerrado.")).toBeVisible();
+  expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
+});
+
+test("o chaveamento vira colunas ligadas no desktop e uma trilha única no celular", async ({ page }, testInfo) => {
+  await mockKnockout(page, 7);
+  await page.goto("/mata-mata");
+  await expect(page.locator(".ko-match")).toHaveCount(7);
+  // Mede só depois da entrada: durante a cascata as colunas ainda estão subindo.
+  await expect.poll(() => page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === "running").length)).toBe(0);
+  const box = async (key: string) => (await page.locator(".ko-cell-" + key).boundingBox())!;
+  const [r1, q2, s1, q1] = [await box("R1"), await box("Q2"), await box("S1"), await box("Q1")];
+  if (testInfo.project.name === "mobile-chromium") {
+    // Uma coluna só: cada fase abaixo da anterior e as quartas na ordem 1, 2.
+    expect(Math.abs(r1.x - q2.x)).toBeLessThan(2);
+    expect(q1.y).toBeLessThan(q2.y);
+    expect(s1.y).toBeGreaterThan(q2.y);
+  } else {
+    // Colunas: Repescagem 1 → Quartas 2 → Semifinal 1 na mesma linha, da esquerda para a direita.
+    expect(q2.x).toBeGreaterThan(r1.x + r1.width);
+    expect(s1.x).toBeGreaterThan(q2.x + q2.width);
+    expect(Math.abs((r1.y + r1.height / 2) - (q2.y + q2.height / 2))).toBeLessThan(3);
+    expect(Math.abs((q2.y + q2.height / 2) - (s1.y + s1.height / 2))).toBeLessThan(3);
+  }
+  expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
+  if (process.env.MOTION_SHOTS) {
+    await page.screenshot({ path: process.env.MOTION_SHOTS + "/" + testInfo.project.name + "_mata-mata-final.png", fullPage: true });
+    await page.goto("/grupos");
+    await expect(page.locator(".standings-row")).toHaveCount(5);
+    await expect.poll(() => page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === "running").length)).toBe(0);
+    await page.screenshot({ path: process.env.MOTION_SHOTS + "/" + testInfo.project.name + "_grupos.png", fullPage: true });
+  }
+});
+
+test("o menu do jogador leva ao Mata-mata", async ({ page }, testInfo) => {
+  await mockCoreApi(page, "jogador");
+  await page.goto("/inicio");
+  if (testInfo.project.name === "mobile-chromium") await page.getByRole("button", { name: /Mais/ }).click();
+  await page.getByRole("link", { name: "Mata-mata" }).first().click();
+  await expect(page).toHaveURL(/\/mata-mata$/);
+  await expect(page.locator(".ko-match")).toHaveCount(7);
+});
+
+test("admin decide um empate exato escolhendo a ordem final das duplas", async ({ page }) => {
+  await mockCoreApi(page, "admin");
+  let decided = false;
+  const tiedRows = () => finalStandings("A", decided ? [] : ["team-2", "team-3"]).map((row) => (["team-2", "team-3"].includes(row.teamId) ? { ...row, pontos: 8, vitorias: 3, vitorias2x0: 1, confrontoDireto: 0, saldoSets: 2 } : row));
+  await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(route.request().url().includes("/A/") ? tiedRows() : finalStandings("B")) }));
+  let sentOrder: string[] = [];
+  await page.route("**/api/groups/A/tiebreak", (route) => {
+    sentOrder = route.request().postDataJSON().orderedTeamIds;
+    decided = true;
+    return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify(tiedRows()) });
+  });
+
+  await page.goto("/admin/grupos");
+  const panel = page.getByRole("region", { name: "Decidir empate do Grupo A" });
+  await expect(panel).toContainText("8 pontos, 3 vitórias, 1 por 2x0");
+  await expect(panel).toContainText("confronto direto empatado e o mesmo saldo de quedas");
+  await expect(panel.locator("li strong")).toHaveText(["Dupla 2", "Dupla 3"]);
+  await expect(panel.locator(".tie-decision-position")).toHaveText(["2º", "3º"]);
+  await expect(page.getByRole("region", { name: "Decidir empate do Grupo B" })).toHaveCount(0);
+
+  await panel.getByRole("button", { name: "Subir Dupla 3" }).click();
+  await expect(panel.locator("li strong")).toHaveText(["Dupla 3", "Dupla 2"]);
+  await panel.getByRole("button", { name: "Confirmar posições do Grupo A" }).click();
+  await expect(page.getByText("Posições confirmadas. O empate do Grupo A está decidido.")).toBeVisible();
+  expect(sentOrder).toEqual(["team-3", "team-2"]);
+  await expect(page.getByRole("region", { name: "Decidir empate do Grupo A" })).toHaveCount(0);
+});
+
+test("com os grupos encerrados o jogador vê os confrontos aguardando a confirmação do administrador", async ({ page }) => {
+  await mockCoreApi(page, "jogador");
+  await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(finalStandings(route.request().url().includes("/A/") ? "A" : "B")) }));
+  await page.goto("/mata-mata");
+  await expect(page.getByText(/começam assim que o administrador confirmar o mata-mata/)).toBeVisible();
+  await expect(cardSides(page, "R1")).toHaveText(["Dupla 3", "Dupla 9"]);
+  await expect(page.locator(".ko-cell-R1 .ko-side-team small").first()).toContainText("aguardando confirmação");
+  await expect(page.locator(".ko-cell-R1 .ko-match-status")).toHaveText("Aguardando");
+});
+
+test("primeiro acesso obriga a criar senha própria antes de liberar o campeonato", async ({ page }) => {
+  await mockLeagueWithAccounts(page, fictionalLeague);
+  const firstAccessUser = { id: "auth-player-1", playerId: "player-1", name: "Jogador 1", email: "test@example.invalid", role: "jogador", teamId: "team-1", mustChangePassword: true, avatarUrl: null };
+  await page.route("**/api/auth/login", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ user: firstAccessUser, token: tokenFor(firstAccessUser.id), refreshToken: "refresh:" + firstAccessUser.id }) }));
+  const changes: Array<{ body: unknown; authorization: string | undefined }> = [];
+  await page.route("**/api/auth/change-password", (route) => {
+    changes.push({ body: route.request().postDataJSON(), authorization: route.request().headers().authorization });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ user: { ...firstAccessUser, mustChangePassword: false } }) });
+  });
+
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Ver lista de nomes" }).click();
+  await page.locator(".profile-card").filter({ has: page.locator(".profile-name", { hasText: /^Jogador 1$/ }) }).click();
+  await page.getByLabel("Senha").fill("senha-temporaria");
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(page).toHaveURL(/\/criar-senha$/);
+  await expect(page.getByRole("heading", { name: "Crie sua senha" })).toBeVisible();
+
+  // Enquanto a senha temporária não for trocada, nenhuma tela do campeonato abre — nem recarregando.
+  await page.goto("/jogos");
+  await expect(page).toHaveURL(/\/criar-senha$/);
+  await page.goto("/grupos");
+  await expect(page).toHaveURL(/\/criar-senha$/);
+
+  await page.getByLabel("Nova senha", { exact: true }).fill("12345");
+  await page.getByLabel("Confirmar nova senha").fill("12345");
+  await page.getByRole("button", { name: "Salvar e continuar" }).click();
+  await expect(page.getByText("A senha deve ter pelo menos 6 caracteres.")).toBeVisible();
+
+  await page.getByLabel("Nova senha", { exact: true }).fill("segura1");
+  await page.getByLabel("Confirmar nova senha").fill("segura2");
+  await page.getByRole("button", { name: "Salvar e continuar" }).click();
+  await expect(page.getByText("As senhas não coincidem.")).toBeVisible();
+  expect(changes).toHaveLength(0);
+
+  await page.getByLabel("Confirmar nova senha").fill("segura1");
+  await page.getByRole("button", { name: "Salvar e continuar" }).click();
+  await expect(page.getByText("Senha criada com sucesso!")).toBeVisible();
+  await expect(page).toHaveURL(/\/inicio$/);
+  // A troca vai com o token da própria sessão e sem e-mail: o servidor decide de quem é a senha.
+  expect(changes).toHaveLength(1);
+  expect(changes[0].body).toEqual({ newPassword: "segura1" });
+  expect(changes[0].authorization).toMatch(/^Bearer .+/);
+  // Depois da troca o campeonato abre normalmente.
+  await page.goto("/jogos");
+  await expect(page).toHaveURL(/\/jogos$/);
+});
+
+test("nenhuma senha fica embutida no que o navegador recebe", async ({ page }) => {
+  const scripts: string[] = [];
+  page.on("response", async (response) => {
+    const type = response.headers()["content-type"] ?? "";
+    if (response.url().includes("/src/") && /javascript|typescript/.test(type)) scripts.push(await response.text().catch(() => ""));
+  });
+  await mockCoreApi(page, "jogador");
+  await page.goto("/inicio");
+  await expect(page.getByRole("region", { name: "Resumo da sua dupla" })).toBeVisible();
+  // As telas de entrada e de senha carregam sob demanda: o código delas é buscado direto.
+  for (const module of ["/src/pages/LoginPage.tsx", "/src/pages/CreatePasswordPage.tsx", "/src/services/authService.ts", "/src/services/api.ts", "/src/lib/authSession.ts"]) {
+    const response = await page.request.get(module);
+    expect(response.ok(), module).toBe(true);
+    scripts.push(await response.text());
+  }
+  const source = scripts.join("\n");
+  expect(scripts.length).toBeGreaterThan(20);
+  // Nem senha padrão, nem chave de serviço, nem atribuição de senha fixa no código do frontend.
+  expect(source).not.toMatch(/TRUCO_DEFAULT_PASSWORD|SUPABASE_SERVICE_ROLE_KEY|sb_secret_/);
+  // Qualquer chave em formato JWT que chegue ao navegador tem de ser a pública, nunca a de serviço.
+  const roles = [...source.matchAll(/eyJ[\w-]{10,}\.(eyJ[\w-]{10,})\./g)].map((match) => {
+    try { return String(JSON.parse(Buffer.from(match[1], "base64url").toString("utf8")).role ?? ""); } catch { return ""; }
+  });
+  expect(roles).not.toContain("service_role");
+  expect(source).not.toMatch(/password\s*[:=]\s*["'][^"']{3,}["']/i);
+});
+
+test("as quartas só são montadas depois das duas repescagens", async ({ page }) => {
+  // Só a Repescagem 1 terminou: nenhum jogo das quartas existe ainda.
+  await mockKnockout(page, 1);
+  await page.goto("/mata-mata");
+  await expect(page.locator(".ko-cell-R1 .ko-side-winner")).toContainText("Dupla 3");
+  await expect(page.locator(".ko-cell-R2 .ko-match-status")).toHaveText("A jogar");
+  await expect(cardSides(page, "Q1")).toHaveText(["Dupla 2", "Vencedor da repescagem"]);
+  await expect(cardSides(page, "Q2")).toHaveText(["Dupla 7", "Vencedor da repescagem"]);
+  await expect(page.locator(".ko-cell-Q1 .ko-match-status")).toHaveText("Aguardando");
+  await expect(page.locator(".ko-cell-Q2 .ko-match-status")).toHaveText("Aguardando");
+});
+
+test("quartas trocam o cruzamento quando isso evita reencontro do mesmo grupo", async ({ page }) => {
+  // Vencem os dois 4º colocados (Dupla 9, do B, e Dupla 4, do A). Pelo cruzamento fixo seria
+  // Dupla 2 × Dupla 4 e Dupla 7 × Dupla 9 — dois reencontros de grupo.
+  await mockKnockout(page, 2, "jogador", "fourths");
+  await page.goto("/mata-mata");
+  await expect(page.locator(".ko-cell-R1 .ko-side-winner")).toContainText("Dupla 9");
+  await expect(page.locator(".ko-cell-R2 .ko-side-winner")).toContainText("Dupla 4");
+  await expect(cardSides(page, "Q1")).toHaveText(["Dupla 2", "Dupla 9"]);
+  await expect(cardSides(page, "Q2")).toHaveText(["Dupla 7", "Dupla 4"]);
+  // A origem de cada vencedor aparece como ficou gravada.
+  await expect(page.locator(".ko-cell-Q1 .ko-side-team small").nth(1)).toContainText("Vencedor da Repescagem 1");
+  await expect(page.locator(".ko-cell-Q2 .ko-side-team small").nth(1)).toContainText("Vencedor da Repescagem 2");
+  await expect(page.locator(".ko-match-rematch")).toHaveCount(0);
+  await expect(page.getByText(/Reencontro inevitável/)).toHaveCount(0);
+});
+
+test("reencontro inevitável nas quartas é mostrado, não escondido", async ({ page }) => {
+  // Os dois vencedores da repescagem são do Grupo A (Dupla 3 e Dupla 4): um deles enfrenta a
+  // Dupla 2, 2ª do mesmo grupo, em qualquer cruzamento.
+  await mockKnockout(page, 2, "jogador", "bothFromA");
+  await page.goto("/mata-mata");
+  await expect(cardSides(page, "Q1")).toHaveText(["Dupla 2", "Dupla 4"]);
+  await expect(cardSides(page, "Q2")).toHaveText(["Dupla 7", "Dupla 3"]);
+  await expect(page.locator(".ko-cell-Q1 .ko-match-rematch")).toHaveText("Reencontro do grupo");
+  await expect(page.locator(".ko-cell-Q2 .ko-match-rematch")).toHaveCount(0);
+  await expect(page.getByText(/Reencontro inevitável nas quartas: Dupla 2 e Dupla 4 já se enfrentaram na fase de grupos/)).toBeVisible();
+  expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
+});
+
+// ---------- Cadeado global de resultados ----------
+
+const LOCKED_MESSAGE = "O lançamento de resultados será liberado pelo administrador no início do campeonato.";
+
+/** Cadeado simulado com estado: o que o administrador grava é o que as próximas leituras devolvem. */
+async function mockResultsLock(page: Page, initiallyLocked: boolean) {
+  const state = { locked: initiallyLocked, updates: [] as boolean[], rejected: 0 };
+  await page.route("**/api/matches/lock", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ locked: state.locked }) }));
+  await page.route("**/api/admin/results-lock", (route) => {
+    state.locked = route.request().postDataJSON().locked;
+    state.updates.push(state.locked);
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ locked: state.locked }) });
+  });
+  // A API recusa placar de jogador com o cadeado fechado, como o backend real.
+  await page.route(/\/api\/matches\/[^/]+\/result$/, (route) => {
+    if (!state.locked) return route.fallback();
+    state.rejected += 1;
+    return route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ message: LOCKED_MESSAGE, code: "results_locked" }) });
+  });
+  return state;
+}
+
+test("com o cadeado fechado o jogador vê tudo, mas não lança nem edita resultado", async ({ page }) => {
+  // resultSaved = true: o jogo 1 da dupla já tem placar, então haveria "Editar resultado".
+  await mockCoreApi(page, "jogador", true);
+  await mockResultsLock(page, true);
+  await page.route("**/rest/v1/truco_history**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(ANIMATED_HISTORY) }));
+  await page.route("**/rest/v1/truco_championships**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ edition: 5, year: 2026 }]) }));
+  await page.goto("/jogos");
+  await expect(page.locator(".match-card")).toHaveCount(4);
+  await expect(page.locator(".results-lock-notice")).toHaveText(LOCKED_MESSAGE);
+  await expect(page.getByRole("button", { name: /Lançar resultado|Editar resultado/ })).toHaveCount(0);
+  // O placar já lançado continua visível.
+  await expect(page.locator(".match-card-outcome-win")).toHaveCount(1);
+
+  // As outras telas abrem normalmente.
+  for (const [path, heading] of [["/inicio", /Olá, Jogador 1/], ["/minha-dupla", "Minha Dupla"], ["/grupos", "Grupos"], ["/mata-mata", "Mata-mata"], ["/hall-da-fama", "Hall da Fama"], ["/maiores-campeoes", "Maiores Campeões"]] as const) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { name: heading, level: 1 })).toBeVisible();
+  }
+
+  // Atualizar a página mantém o bloqueio.
+  await page.goto("/jogos");
+  await page.reload();
+  await expect(page.locator(".results-lock-notice")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Lançar resultado|Editar resultado/ })).toHaveCount(0);
+});
+
+test("admin abre e fecha o cadeado com confirmação, e o estado sobrevive ao refresh", async ({ page }) => {
+  await mockCoreApi(page, "admin");
+  const lock = await mockResultsLock(page, true);
+  await page.route("**/api/dashboard", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ totalPlayers: 20, totalTeams: 10, pendingApprovals: 0, approvedTeams: 10, drawStatus: "realizado", matchesPlayed: 0, matchesPending: 20, currentPhase: "Fase de Grupos", nextMatches: [], champion: null }) }));
+  await page.goto("/admin");
+  const control = page.getByRole("region", { name: "Lançamento de resultados" });
+  await expect(control.locator(".results-lock-state")).toHaveText("Bloqueado");
+
+  // Liberar pede confirmação; cancelar não muda nada.
+  await control.getByRole("button", { name: "Liberar resultados" }).click();
+  await expect(page.getByRole("heading", { name: "Liberar lançamento de resultados para todos os jogadores?" })).toBeVisible();
+  await page.getByRole("button", { name: "Cancelar" }).click();
+  await expect(control.locator(".results-lock-state")).toHaveText("Bloqueado");
+  expect(lock.updates).toEqual([]);
+
+  await control.getByRole("button", { name: "Liberar resultados" }).click();
+  await page.getByRole("button", { name: "Liberar", exact: true }).click();
+  await expect(page.getByText("Resultados liberados. Os jogadores já podem lançar placar.")).toBeVisible();
+  await expect(control.locator(".results-lock-state")).toHaveText("Liberado");
+  expect(lock.updates).toEqual([false]);
+
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Lançamento de resultados" }).locator(".results-lock-state")).toHaveText("Liberado");
+
+  // Bloquear de novo também pede confirmação.
+  await page.getByRole("region", { name: "Lançamento de resultados" }).getByRole("button", { name: "Bloquear resultados" }).click();
+  await expect(page.getByRole("heading", { name: "Bloquear o lançamento de resultados?" })).toBeVisible();
+  await page.getByRole("button", { name: "Bloquear", exact: true }).click();
+  await expect(page.getByText("Resultados bloqueados. Os jogadores não podem mais lançar placar.")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Lançamento de resultados" }).locator(".results-lock-state")).toHaveText("Bloqueado");
+  expect(lock.updates).toEqual([false, true]);
+});
+
+test("depois de liberado o jogador lança resultado; bloqueado de novo, a API recusa e a tela acompanha", async ({ page }) => {
+  await mockCoreApi(page, "jogador");
+  const lock = await mockResultsLock(page, false);
+  await page.goto("/jogos");
+  await expect(page.locator(".results-lock-notice")).toHaveCount(0);
+
+  // Liberado: o lançamento funciona.
+  await page.getByRole("button", { name: "Lançar resultado" }).first().click();
+  await page.getByRole("button", { name: "2x0" }).click();
+  await page.getByRole("button", { name: "Confirmar resultado" }).click();
+  await expect(page.getByText(/Resultado registrado!/)).toBeVisible();
+  expect(lock.rejected).toBe(0);
+
+  // O administrador fecha o cadeado enquanto a tela do jogador continua aberta, ainda
+  // mostrando os botões. A tentativa vai para a API, que recusa; a tela então se corrige.
+  lock.locked = true;
+  await page.getByRole("button", { name: "Lançar resultado" }).first().click();
+  await page.getByRole("button", { name: "2x1" }).click();
+  await page.getByRole("button", { name: "Confirmar resultado" }).click();
+  await expect(page.locator(".toast, [role='alert'], [role='status']").filter({ hasText: LOCKED_MESSAGE }).first()).toBeVisible();
+  expect(lock.rejected).toBe(1);
+  await expect(page.locator(".results-lock-notice")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Lançar resultado|Editar resultado/ })).toHaveCount(0);
+
+  // Refresh: continua bloqueado.
+  await page.reload();
+  await expect(page.locator(".results-lock-notice")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Lançar resultado|Editar resultado/ })).toHaveCount(0);
+});
+
+test("sem resposta sobre o cadeado a tela do jogador fica bloqueada, nunca liberada", async ({ page }) => {
+  await mockCoreApi(page, "jogador");
+  await page.route("**/api/matches/lock", (route) => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "falha" }) }));
+  await page.goto("/jogos");
+  await expect(page.locator(".match-card")).toHaveCount(4);
+  await expect(page.locator(".results-lock-notice")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Lançar resultado|Editar resultado/ })).toHaveCount(0);
 });

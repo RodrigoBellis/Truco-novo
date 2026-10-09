@@ -40,11 +40,12 @@ test("a simulação completa é aprovada sem erros", () => {
 
   assert.equal(report.status, "SIMULAÇÃO APROVADA");
   assert.deepEqual(report.errors, []);
-  assert.equal(report.approvedTeams, 12);
-  assert.equal(report.groupMatches, 30);
-  assert.equal(report.knockoutMatches, 9);
-  assert.equal(report.totalMatches, 39);
-  assert.match(report.warnings[0] ?? "", /12 duplas, seis por grupo/);
+  assert.equal(report.approvedTeams, 10);
+  assert.equal(report.groupMatches, 20);
+  assert.equal(report.knockoutMatches, 7);
+  assert.equal(report.totalMatches, 27);
+  assert.deepEqual(report.knockout.map((match) => match.key), ["R1", "R2", "Q1", "Q2", "S1", "S2", "F"]);
+  assert.ok(report.knockout.every((match) => match.played));
   assert.ok(report.final.championTeamName);
   assert.ok(report.final.runnerUpTeamName);
   assert.notEqual(report.final.championTeamName, report.final.runnerUpTeamName);
@@ -62,8 +63,8 @@ test("seeds diferentes continuam produzindo campeonatos válidos", () => {
   [1, 7, 99, 12345].forEach((seed) => {
     const report = runFullSimulation({ seed });
     assert.equal(report.status, "SIMULAÇÃO APROVADA", `seed ${seed} deveria ser aprovada`);
-    assert.equal(report.groups[0].teamNames.length, 6);
-    assert.equal(report.groups[1].teamNames.length, 6);
+    assert.equal(report.groups[0].teamNames.length, 5);
+    assert.equal(report.groups[1].teamNames.length, 5);
   });
 });
 
@@ -76,18 +77,18 @@ test("cabeças de chave nunca caem no mesmo grupo", () => {
   }
 });
 
-test("classificação numera de 1º a 6º em cada grupo", () => {
+test("classificação numera de 1º a 5º em cada grupo", () => {
   runFullSimulation({ seed: 2026 });
 
   (["A", "B"] as const).forEach((groupId) => {
     const rows = computeStandings(groupId);
     assert.deepEqual(
       rows.map((row) => row.position),
-      [1, 2, 3, 4, 5, 6],
+      [1, 2, 3, 4, 5],
     );
     rows.forEach((row) => {
-      assert.equal(row.jogos, 5);
-      assert.equal(row.vitorias + row.derrotas, 5);
+      assert.equal(row.jogos, 4);
+      assert.equal(row.vitorias + row.derrotas, 4);
     });
   });
 });

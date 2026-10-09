@@ -4,7 +4,7 @@ Este arquivo registra o escopo, as regras confirmadas e o estado de validação 
 
 ## Regras confirmadas
 
-- A 5ª edição de 2026 terá 12 duplas: seis no Grupo A e seis no Grupo B (regra definitiva de 07/10/2026; antes estava registrada como 10 duplas, cinco por grupo). Hoje o banco tem 10; as duas que faltam serão informadas pelo organizador.
+- A 5ª edição de 2026 tem 10 duplas: cinco no Grupo A e cinco no Grupo B. O formato de 12 duplas (6+6), registrado por engano em 07/10/2026, foi descartado pelo organizador no mesmo dia. Em cada grupo: 1º direto na semifinal, 2º direto nas quartas, 3º e 4º na repescagem, 5º eliminado. Classificação: pontos, vitórias, vitórias por 2x0, confronto direto e saldo de quedas; só o empate que sobrevive aos cinco fica pendente de decisão do administrador. Quartas: cada 2º colocado enfrenta, sempre que possível, um vencedor da repescagem vindo do outro grupo.
 - O administrador forma as duplas manualmente, escolhe os jogadores, o grupo e a força da dupla (1 a 5 estrelas).
 - Uma pessoa não pode estar em duas duplas da mesma edição. Pode ter outro parceiro em uma edição futura.
 - 1º lugar de cada grupo avança diretamente à semifinal; 2º a 5º disputam a repescagem; 6º é eliminado.
@@ -40,7 +40,7 @@ Este arquivo registra o escopo, as regras confirmadas e o estado de validação 
 
 1. Revisar e aplicar `supabase/migrations/202610050001_manual_edition_participation.sql` e `supabase/migrations/202610050002_player_avatars.sql` em um projeto Supabase de homologação e conferir o backfill e a visibilidade pública das fotos antes de produção.
 2. Verificar permissões com contas de teste: jogador A não pode alterar partidas da dupla B nem acessar administração; utilizador não autenticado não pode registrar resultados.
-3. Cadastrar as duas duplas que faltam (uma por grupo, informadas pelo organizador) depois de aplicar a migration `202610070001_edition_six_teams_per_group.sql`, e usar "Gerar jogos das duplas novas" na área Grupos.
+3. Não há duplas a cadastrar: os grupos já estão completos com 5 duplas cada. A migration `202610070001_edition_six_teams_per_group.sql` segue não aplicada (veja o aviso no topo do arquivo). Antes do lançamento falta um ensaio completo no banco: gerar o mata-mata, lançar e corrigir placares e decidir um empate nunca foram executados contra o Supabase real (só em memória e com API simulada).
 4. Validar com contas individuais reais que os dois integrantes veem os mesmos jogos e resultados após atualização.
 5. Definir os cruzamentos entre grupos na repescagem antes de liberar a geração do mata-mata.
 6. Confirmar configuração de Auth, tabelas, RLS, bucket de avatares e variáveis de ambiente no ambiente de homologação.

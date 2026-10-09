@@ -83,3 +83,29 @@ export function editionSuit(edition: number) {
 export function duoLabel(duo: [string, string]): string {
   return duo.every((name) => name === "—") ? "Dupla não registrada" : duo.join(" & ");
 }
+
+/** Um capítulo da linha do tempo do Hall da Fama: edição encerrada ou a edição em disputa. */
+export type EditionChapter =
+  | { kind: "closed"; edition: number; entry: HistoryEntry }
+  | { kind: "open"; edition: number };
+
+/**
+ * Capítulos em ordem cronológica (1ª → última encerrada). A edição em disputa vira o último
+ * capítulo quando ainda não está no histórico e vem depois de todas as encerradas; ela nunca
+ * carrega campeão. Nenhum número de edição é fixo: o histórico crescendo, a lista cresce.
+ */
+export function buildEditionChapters(editions: HistoryEntry[], currentEdition: number | null | undefined): EditionChapter[] {
+  const chapters: EditionChapter[] = [...editions]
+    .sort((a, b) => a.edition - b.edition)
+    .map((entry) => ({ kind: "closed", edition: entry.edition, entry }));
+  const last = chapters.at(-1)?.edition ?? 0;
+  if (typeof currentEdition === "number" && Number.isInteger(currentEdition) && currentEdition > last) {
+    chapters.push({ kind: "open", edition: currentEdition });
+  }
+  return chapters;
+}
+
+/** Há ao menos um integrante registrado na dupla? */
+export function hasRegisteredDuo(duo: [string, string]): boolean {
+  return duo.some((name) => name !== "—");
+}

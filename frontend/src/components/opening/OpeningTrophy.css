@@ -1,0 +1,38 @@
+/* Caneco em SVG (OpeningTrophy.tsx). Quem usa define a largura em --tw e, se quiser outro
+   tempo, o atraso do brilho em --trophy-shine-delay. Tudo aqui termina sozinho: nada em laço.
+   A flutuação da abertura mora no palco (OpeningStage), para não vazar para o mata-mata. */
+.opening-trophy-svg {
+  display: block;
+  width: var(--tw, 200px);
+  height: auto;
+  filter: drop-shadow(0 22px 26px rgb(4 10 24 / 0.28));
+}
+
+.opening-trophy-shine {
+  transform: translateX(-120px);
+  animation: opening-shine 760ms cubic-bezier(0.4, 0, 0.2, 1) var(--trophy-shine-delay, 1180ms) backwards;
+}
+
+/* Especular: desloca de leve com o ponteiro quando o palco define --px/--py (de -1 a 1).
+   Sem essas variáveis (mata-mata) o deslocamento é zero. */
+.opening-trophy-spec {
+  transform: translate(calc(var(--px, 0) * 9px), calc(var(--py, 0) * 5px));
+  transition: transform 620ms var(--ease-out);
+}
+
+.opening-trophy-spark {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: opening-spark 620ms var(--ease-out) calc(var(--trophy-shine-delay, 1180ms) + 120ms) backwards;
+}
+
+.opening-trophy-spark-late { animation-delay: calc(var(--trophy-shine-delay, 1180ms) + 300ms); }
+
+@keyframes opening-shine {
+  from { transform: translateX(-120px); }
+  to { transform: translateX(330px); }
+}
+
+@keyframes opening-spark {
+  from { opacity: 0; transform: scale(0) rotate(-60deg); }
+}

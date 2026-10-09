@@ -1,35 +1,493 @@
-.champions-podium-real{display:flex;flex-wrap:wrap;gap:18px;align-items:stretch}
-.champions-podium-place{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px 18px;padding:22px 24px;flex:1 1 260px;min-width:0;border:1px solid var(--color-border-strong);border-radius:20px;background:var(--color-surface);box-shadow:var(--shadow-md),var(--edge-light);transition:transform var(--motion-micro),border-color var(--transition-fast),box-shadow var(--transition-base)}
-.champions-podium-place:hover{transform:translateY(-3px);border-color:rgb(var(--rgb-accent) / .45);box-shadow:var(--shadow-lg),var(--edge-light)}
-.champions-podium-cup{display:grid;place-items:center;width:56px;height:56px;border-radius:16px;background:var(--color-orange-soft);color:var(--color-accent-500)}
-.champions-podium-body{min-width:0}
-.champions-podium-rank{display:inline-block;font-size:.75rem;font-weight:750;color:var(--color-tech-400)}
-.champions-podium-place h3{margin-top:4px;font-size:1.1rem;font-weight:800;line-height:1.3;overflow-wrap:anywhere;text-wrap:balance}
-.champions-podium-editions{list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 0;padding:0}
-.champions-podium-editions li{padding:3px 10px;border-radius:999px;border:1px solid var(--color-border-strong);background:var(--color-surface-alt);color:var(--color-text-muted);font-size:.72rem;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
-.champions-podium-titles{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:.75rem;font-weight:700;color:var(--color-text-muted);white-space:nowrap}
-.champions-podium-titles b{font-size:2.2rem;font-weight:850;line-height:1;letter-spacing:-.03em;color:var(--color-text);font-variant-numeric:tabular-nums}
+/* Pódio do ranking histórico (MajorChampionsPodium.tsx), usado em Maiores Campeões e, na
+   versão compacta, em "Quem já fez história" na abertura.
 
-/* 1º lugar: faixa azul da marca com brilho laranja, igual nos dois temas. */
-.champions-podium-place-1{--color-accent-300:#ffe2c7;--color-accent-500:#ff9a4f;--color-accent-700:#a64509;--color-bg:#080a10;flex-basis:100%;gap:10px 30px;padding:34px 40px;border-color:rgb(255 214 170 / .4);border-radius:24px;background:radial-gradient(42% 150% at 0% 50%,rgb(244 123 32 / .36),transparent 70%),linear-gradient(115deg,#051a3e,#0a47a0 66%,#0d57bd);color:#fff;box-shadow:0 26px 50px -30px rgb(7 62 128 / .95),inset 0 1px 0 rgb(255 255 255 / .16)}
-.champions-podium-place-1:hover{border-color:rgb(255 214 170 / .7);box-shadow:0 30px 56px -30px rgb(7 62 128 / 1),inset 0 1px 0 rgb(255 255 255 / .2)}
-.champions-podium-place-1 .champions-podium-cup{width:auto;height:auto;background:none;filter:drop-shadow(0 14px 18px rgb(4 6 11 / .5))}
-.champions-podium-place-1 .champions-podium-rank{padding:4px 12px;border-radius:999px;background:var(--color-action);color:var(--color-on-action);font-weight:800}
-.champions-podium-place-1 h3{margin-top:12px;font-size:clamp(1.5rem,1.1rem + 1.6vw,2.2rem);font-weight:850;letter-spacing:-.02em;line-height:1.12;color:#fff}
-.champions-podium-place-1 .champions-podium-editions{margin-top:16px}
-.champions-podium-place-1 .champions-podium-editions li{border-color:rgb(255 255 255 / .22);background:rgb(4 14 36 / .4);color:#d3e2ff}
-.champions-podium-place-1 .champions-podium-titles{color:#ffd09e;font-size:.85rem}
-.champions-podium-place-1 .champions-podium-titles b{font-size:clamp(3.4rem,2.4rem + 4vw,5.2rem);color:#fff}
-.champions-podium-place-1 .champions-podium-cup svg{animation:trophy-drop 720ms var(--ease-out) 200ms backwards}
-.champions-podium-place-1 .champions-podium-titles b{animation:pop-in var(--motion-move) 380ms backwards}
+   Cada posição é uma vitrine: o caneco da abertura (ouro no 1º, prata no 2º) sob um foco de
+   luz, com poça de luz e reflexo no tampo. O 3º lugar é neutro, sem metal.
+   Ouro e prata só existem aqui; por isso as tintas do metal são fixas. Todo o resto vem dos
+   tokens. As medidas seguem o container (o pódio e cada vitrine), não a janela. */
+.champions-podium-real {
+  container-type: inline-size;
+  display: grid;
+  gap: 16px;
+}
 
-@media(max-width:600px){
-  .champions-podium-real{gap:12px}
-  .champions-podium-place{padding:18px;gap:6px 14px}
-  .champions-podium-cup{width:46px;height:46px;border-radius:14px}
-  .champions-podium-titles b{font-size:1.8rem}
-  .champions-podium-place-1{grid-template-columns:auto minmax(0,1fr);padding:24px 22px;border-radius:20px}
-  .champions-podium-place-1 .champions-podium-cup svg{width:68px;height:68px}
-  .champions-podium-place-1 .champions-podium-body{grid-column:1 / -1;grid-row:2}
-  .champions-podium-place-1 .champions-podium-titles{grid-column:2;grid-row:1;align-items:flex-end}
+.champions-podium-tier {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+}
+
+.champions-podium-tier-1 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); }
+
+/* ---------- Vitrine ---------- */
+.champions-podium-place {
+  /* Tintas da vitrine; o padrão é o neutro do 3º lugar. */
+  --v-ink: var(--color-text);
+  --v-muted: var(--color-text-muted);
+  --v-count: var(--color-text);
+  --v-line: var(--color-border-strong);
+  --v-light: var(--rgb-white);
+  --v-shadow: var(--shadow-md);
+  --v-shadow-hover: var(--shadow-lg);
+  position: relative;
+  isolation: isolate;
+  container: vitrine / inline-size;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid var(--v-line);
+  background: var(--color-surface);
+  box-shadow: var(--v-shadow), var(--edge-light);
+  color: var(--v-ink);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+  animation: rise-in var(--motion-reveal) var(--place-delay, 0ms) backwards;
+}
+
+.champions-podium-case {
+  --cup: 70px;
+  --pad: 16px;
+  position: relative;
+  z-index: 1;
+  display: grid;
+  /* Estreita: caneco à esquerda; posição e contagem na mesma linha, nome e edições abaixo.
+     As linhas 1fr de cima e de baixo absorvem a sobra quando o caneco é mais alto que o texto. */
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: 1fr auto auto auto 1fr;
+  grid-template-areas:
+    "stage . ."
+    "stage head count"
+    "stage name name"
+    "stage plaques plaques"
+    "stage . .";
+  column-gap: 14px;
+  padding: var(--pad);
+}
+
+/* ---------- Palco do caneco ---------- */
+.champions-podium-stage {
+  grid-area: stage;
+  position: relative;
+  align-self: center;
+  justify-self: center;
+  width: calc(var(--cup) * 1.12);
+  /* O viewBox do caneco tem folga em cima; o palco a desconta. */
+  margin-top: calc(var(--cup) * -0.1);
+  padding-bottom: calc(var(--cup) * 0.1);
+}
+
+/* Foco de luz atrás da taça. */
+.champions-podium-glow {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  width: calc(var(--cup) * 3);
+  aspect-ratio: 1;
+  margin: calc(var(--cup) * -1.5) 0 0 calc(var(--cup) * -1.5);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(var(--v-light) / var(--v-glow-alpha, 0.3)), rgb(var(--v-light) / calc(var(--v-glow-alpha, 0.3) * 0.32)) 46%, transparent 74%);
+  animation: podium-light-in 900ms var(--ease-out) calc(var(--place-delay, 0ms) + 80ms) backwards;
+}
+
+/* Poça de luz no tampo, sob o pedestal. */
+.champions-podium-pool {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--cup) * 0.02);
+  width: calc(var(--cup) * 1.9);
+  height: calc(var(--cup) * 0.34);
+  margin-left: calc(var(--cup) * -0.95);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(var(--v-light) / var(--v-pool-alpha, 0.3)), transparent 100%);
+  animation: podium-light-in 760ms var(--ease-out) calc(var(--place-delay, 0ms) + 160ms) backwards;
+}
+
+.champions-podium-cup {
+  --tw: var(--cup);
+  --trophy-shine-delay: calc(var(--place-delay, 0ms) + 780ms);
+  position: relative;
+  width: var(--cup);
+  margin-inline: auto;
+  animation: podium-cup-in 760ms var(--ease-out) calc(var(--place-delay, 0ms) + 200ms) backwards;
+}
+
+.champions-podium-cup .opening-trophy-svg { filter: drop-shadow(0 calc(var(--cup) * 0.08) calc(var(--cup) * 0.1) rgb(0 0 0 / var(--v-cup-shadow, 0.5))); }
+
+/* Reflexo no tampo: o mesmo caneco espelhado, que some logo abaixo do pedestal. */
+.champions-podium-reflection {
+  position: absolute;
+  left: 0;
+  top: calc(100% - var(--cup) * 0.14);
+  width: 100%;
+  opacity: var(--v-reflection, 0.26);
+  transform: scaleY(-1);
+  -webkit-mask-image: linear-gradient(to top, #000 4%, transparent 30%);
+  mask-image: linear-gradient(to top, #000 4%, transparent 30%);
+  pointer-events: none;
+}
+
+.champions-podium-reflection .opening-trophy-svg { filter: none; }
+
+.champions-podium-reflection :is(.opening-trophy-shine, .opening-trophy-spark) { display: none; }
+
+/* 3º lugar: medalha neutra no lugar do caneco. */
+.champions-podium-medal {
+  grid-area: stage;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+}
+
+/* ---------- Texto ---------- */
+.champions-podium-head {
+  grid-area: head;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.champions-podium-rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--v-count);
+}
+
+/* Filete curto antes da posição, na tinta do metal. */
+.champions-podium-rank::before {
+  content: "";
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.75;
+}
+
+/* "Sua dupla": selo neutro, na cor do texto, para não disputar com o metal. */
+.champions-podium-mine {
+  padding: 2px 9px;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--v-ink) 42%, transparent);
+  font-size: 0.68rem;
+  font-weight: 750;
+  line-height: 1.4;
+  color: var(--v-ink);
+  white-space: nowrap;
+}
+
+.champions-podium-place h3 {
+  grid-area: name;
+  margin-top: 6px;
+  font-size: clamp(1.02rem, 0.9rem + 0.8cqi, 1.2rem);
+  font-weight: 850;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--v-ink);
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.champions-podium-titles {
+  grid-area: count;
+  display: flex;
+  align-items: baseline;
+  align-self: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--v-muted);
+  white-space: nowrap;
+}
+
+.champions-podium-titles b {
+  display: inline-block;
+  font-size: 1.5rem;
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--v-count);
+  font-variant-numeric: tabular-nums;
+  animation: pop-in var(--motion-move) calc(var(--place-delay, 0ms) + 420ms) backwards;
+}
+
+.champions-podium-editions {
+  --plaque-delay: calc(var(--place-delay, 0ms) + 520ms);
+  grid-area: plaques;
+  margin-top: 12px;
+}
+
+/* ---------- 1º lugar: vitrine dourada ----------
+   Placa quase preta com um toque quente, igual nos dois temas; o ouro fica no filete,
+   na luz, no caneco e na contagem. */
+.champions-podium-place-1 {
+  --v-ink: #fbf5e6;
+  --v-muted: #cfc3a4;
+  --v-count: #f6c93a;
+  --v-line: rgb(244 197 49 / 0.4);
+  --v-light: 255 200 72;
+  --v-glow-alpha: 0.34;
+  --v-pool-alpha: 0.34;
+  --v-edge: 255 232 150;
+  --v-shadow: 0 30px 56px -34px rgb(0 0 0 / 0.95), 0 18px 44px -30px rgb(214 160 20 / 0.55);
+  --v-shadow-hover: 0 36px 60px -32px rgb(0 0 0 / 1), 0 22px 52px -28px rgb(214 160 20 / 0.75);
+  --plaque-line: rgb(244 197 49 / 0.44);
+  --plaque-bg: linear-gradient(180deg, rgb(244 197 49 / 0.17), rgb(244 197 49 / 0.05));
+  --plaque-hi: rgb(255 240 190 / 0.2);
+  --plaque-ink: #e6d7a8;
+  --plaque-num: #ffdc68;
+  border-radius: 26px;
+  background:
+    radial-gradient(70% 120% at 100% 0%, rgb(255 214 110 / 0.07), transparent 62%),
+    linear-gradient(158deg, #1a150d 0%, #100d09 48%, #090806 100%);
+}
+
+:root:not([data-theme="dark"]) .champions-podium-place-1 {
+  --v-shadow: 0 30px 50px -32px rgb(40 28 4 / 0.7), 0 18px 40px -28px rgb(190 140 16 / 0.5);
+  --v-shadow-hover: 0 36px 56px -30px rgb(40 28 4 / 0.8), 0 22px 46px -26px rgb(190 140 16 / 0.65);
+}
+
+.champions-podium-place-1 .champions-podium-case {
+  --cup: 116px;
+  --pad: 18px 18px 20px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: none;
+  grid-template-areas: "stage" "head" "name" "plaques" "count";
+  justify-items: center;
+  text-align: center;
+}
+
+.champions-podium-place-1 .champions-podium-stage { margin-bottom: 12px; }
+.champions-podium-place-1 .champions-podium-head { justify-content: center; }
+
+.champions-podium-place-1 h3 {
+  margin-top: 10px;
+  font-size: clamp(1.45rem, 1.05rem + 2.2cqi, 2.3rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+/* Empilhada: a contagem fecha a vitrine, separada por um filete. */
+.champions-podium-place-1 .champions-podium-titles {
+  flex-direction: row;
+  align-items: baseline;
+  justify-self: stretch;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+  padding-left: 0;
+  border-left: 0;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgb(var(--v-light) / 0.2);
+  font-size: 0.9rem;
+}
+
+.champions-podium-place-1 .champions-podium-titles b { font-size: 2.8rem; }
+.champions-podium-place-1 .champions-podium-editions { justify-content: center; margin-top: 14px; }
+.champions-podium-place-1 .edition-plaque { padding: 6px 12px; font-size: 0.7rem; }
+
+/* ---------- 2º lugar: vitrines prateadas (todas as duplas empatadas) ---------- */
+.champions-podium-place-2 {
+  --v-ink: #f2f5fa;
+  --v-muted: #b9c3d1;
+  --v-count: #dfe5ee;
+  --v-line: rgb(196 204 217 / 0.34);
+  --v-light: 178 198 232;
+  --v-glow-alpha: 0.26;
+  --v-pool-alpha: 0.26;
+  --v-edge: 236 241 250;
+  --v-shadow: 0 24px 44px -30px rgb(0 0 0 / 0.9), 0 14px 34px -26px rgb(150 170 205 / 0.4);
+  --v-shadow-hover: 0 30px 50px -28px rgb(0 0 0 / 0.95), 0 18px 40px -24px rgb(150 170 205 / 0.55);
+  --plaque-line: rgb(196 204 217 / 0.38);
+  --plaque-bg: linear-gradient(180deg, rgb(196 204 217 / 0.15), rgb(196 204 217 / 0.04));
+  --plaque-hi: rgb(255 255 255 / 0.16);
+  --plaque-ink: #c5cedb;
+  --plaque-num: #ffffff;
+  background:
+    radial-gradient(70% 120% at 100% 0%, rgb(190 205 232 / 0.07), transparent 62%),
+    linear-gradient(158deg, #181c25 0%, #0f1218 52%, #0a0c11 100%);
+}
+
+/* ---------- Filete de metal e brilho que cruza a vitrine ---------- */
+.champions-podium-place-1::before,
+.champions-podium-place-2::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 2;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 2%, rgb(var(--v-edge) / 0.85) 22%, rgb(var(--v-edge) / 0.18) 62%, transparent 96%);
+  pointer-events: none;
+}
+
+.champions-podium-place-1::after,
+.champions-podium-place-2::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(104deg, transparent 38%, rgb(var(--v-edge) / 0.1) 47%, rgb(var(--v-edge) / 0.16) 50%, rgb(var(--v-edge) / 0.1) 53%, transparent 62%);
+  transform: translateX(-101%);
+  pointer-events: none;
+}
+
+@media (hover: hover) {
+  .champions-podium-place:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--v-shadow-hover), var(--edge-light);
+  }
+
+  .champions-podium-place:hover::after {
+    transform: translateX(101%);
+    transition: transform 900ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .champions-podium-place:hover .champions-podium-cup > .opening-trophy-svg .opening-trophy-shine {
+    transform: translateX(330px);
+    transition: transform 900ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+/* Vitrine muito estreita (celular de 320 px): posição e contagem não cabem na mesma linha;
+   a contagem desce para o fim, depois das edições. */
+@container vitrine (max-width: 299px) {
+  .champions-podium-place:not(.champions-podium-place-1) .champions-podium-case {
+    grid-template-rows: 1fr auto auto auto auto 1fr;
+    grid-template-areas:
+      "stage . ."
+      "stage head head"
+      "stage name name"
+      "stage plaques plaques"
+      "stage count count"
+      "stage . .";
+  }
+
+  .champions-podium-place:not(.champions-podium-place-1) .champions-podium-titles { margin-top: 10px; }
+  .champions-podium-place:not(.champions-podium-place-1) .champions-podium-editions { margin-top: 10px; }
+}
+
+/* ---------- Vitrines largas: caneco, texto e contagem lado a lado ---------- */
+@container vitrine (min-width: 380px) {
+  .champions-podium-case {
+    --cup: 92px;
+    --pad: 18px 24px 18px 18px;
+    grid-template-areas:
+      "stage . count"
+      "stage head count"
+      "stage name count"
+      "stage plaques count"
+      "stage . count";
+    column-gap: 18px;
+  }
+
+  .champions-podium-titles {
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 72px;
+    padding-left: 18px;
+    border-left: 1px solid rgb(var(--v-light) / 0.2);
+  }
+
+  .champions-podium-titles b { font-size: 2.5rem; }
+}
+
+@container vitrine (min-width: 480px) {
+  .champions-podium-place-1 .champions-podium-case {
+    --cup: clamp(116px, 21cqi, 152px);
+    --pad: 24px clamp(22px, 4.6cqi, 44px) 28px clamp(18px, 3.4cqi, 32px);
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: 1fr auto auto auto 1fr;
+    grid-template-areas:
+      "stage . count"
+      "stage head count"
+      "stage name count"
+      "stage plaques count"
+      "stage . count";
+    column-gap: clamp(18px, 3.6cqi, 36px);
+    justify-items: start;
+    text-align: left;
+  }
+
+  .champions-podium-place-1 .champions-podium-stage { margin-bottom: 0; }
+  .champions-podium-place-1 .champions-podium-head,
+  .champions-podium-place-1 .champions-podium-editions { justify-content: flex-start; }
+
+  .champions-podium-place-1 .champions-podium-titles {
+    flex-direction: column;
+    align-items: center;
+    justify-self: end;
+    justify-content: flex-start;
+    border-left: 1px solid rgb(var(--v-light) / 0.2);
+    gap: 6px;
+    min-width: 0;
+    margin-top: 0;
+    padding-top: 0;
+    padding-left: clamp(18px, 3.6cqi, 36px);
+    border-top: 0;
+    font-size: 0.95rem;
+  }
+
+  .champions-podium-place-1 .champions-podium-titles b { font-size: clamp(3rem, 1.4rem + 5.4cqi, 5.2rem); }
+}
+
+/* ---------- Compacto ("Quem já fez história", na abertura) ---------- */
+.champions-podium-compact,
+.champions-podium-compact .champions-podium-tier { gap: 14px; }
+
+.champions-podium-compact .champions-podium-case { --cup: 66px; --pad: 14px 16px; }
+.champions-podium-compact .champions-podium-place-1 .champions-podium-case { --cup: 108px; --pad: 18px 16px 20px; }
+
+@container vitrine (min-width: 380px) {
+  .champions-podium-compact .champions-podium-case { --cup: 78px; --pad: 14px 22px 14px 16px; }
+}
+
+@container vitrine (min-width: 480px) {
+  .champions-podium-compact .champions-podium-place-1 .champions-podium-case { --cup: clamp(104px, 18cqi, 126px); --pad: 18px clamp(20px, 4cqi, 40px) 22px clamp(16px, 3cqi, 28px); }
+  .champions-podium-compact .champions-podium-place-1 h3 { font-size: clamp(1.4rem, 1rem + 2cqi, 2.05rem); }
+  .champions-podium-compact .champions-podium-place-1 .champions-podium-titles b { font-size: clamp(2.8rem, 1.4rem + 4.6cqi, 4.6rem); }
+}
+
+/* ---------- Tema claro: a prata vira platina clara; o ouro continua na vitrine escura ---------- */
+:root:not([data-theme="dark"]) .champions-podium-place-2 {
+  --v-ink: var(--color-text);
+  --v-muted: var(--color-text-muted);
+  --v-count: #4f5b6d;
+  --v-line: rgb(120 132 152 / 0.5);
+  --v-light: 112 134 172;
+  --v-glow-alpha: 0.24;
+  --v-pool-alpha: 0.3;
+  --v-edge: 255 255 255;
+  --v-cup-shadow: 0.3;
+  --v-reflection: 0.3;
+  --v-shadow: 0 22px 40px -28px rgb(40 54 80 / 0.55), 0 2px 4px rgb(40 54 80 / 0.06);
+  --v-shadow-hover: 0 28px 46px -26px rgb(40 54 80 / 0.65), 0 2px 4px rgb(40 54 80 / 0.08);
+  --plaque-line: rgb(120 132 152 / 0.5);
+  --plaque-bg: linear-gradient(180deg, #ffffff, #e6ebf2);
+  --plaque-hi: rgb(255 255 255 / 0.9);
+  --plaque-ink: #4f5b6d;
+  --plaque-num: #1f2a3c;
+  background:
+    radial-gradient(70% 120% at 100% 0%, rgb(255 255 255 / 0.9), transparent 62%),
+    linear-gradient(158deg, #fbfcfd 0%, #edf0f5 52%, #dfe4ec 100%);
+}
+
+@keyframes podium-light-in {
+  from { opacity: 0; transform: scale(0.55); }
+}
+
+/* O caneco sobe e assenta no tampo. */
+@keyframes podium-cup-in {
+  from { opacity: 0; transform: translate3d(0, 16px, 0) scale(0.88); }
 }

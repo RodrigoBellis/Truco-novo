@@ -1,5 +1,10 @@
--- 5ª edição: formato definitivo de 12 duplas (6 no Grupo A e 6 no Grupo B) e grupo da dupla
--- com uma única fonte de verdade.
+-- 5ª edição: limite de duplas num helper único e grupo da dupla com uma única fonte de verdade.
+--
+-- ATENÇÃO (07/10/2026): esta migration foi escrita para 12 duplas (6 por grupo), formato que o
+-- organizador descartou no mesmo dia. O formato definitivo é 10 duplas, 5 por grupo; o helper
+-- abaixo foi corrigido para 5 e o nome do arquivo ficou por histórico. Continua NÃO aplicada no
+-- banco, e a validação em PostgreSQL local descrita em docs/ foi feita com o valor 6: revalide
+-- antes de aplicar.
 --
 -- O que NÃO faz: não cria, apaga nem altera duplas, jogadores, participações, partidas ou
 -- placares. As duas duplas que faltam serão cadastradas depois pelo administrador; os jogos
@@ -23,9 +28,9 @@ returns integer
 language sql
 immutable
 set search_path = ''
-as $$ select 6 $$;
+as $$ select 5 $$;
 
--- Limite de duplas aprovadas na 5ª edição: 12 no total, 6 por grupo.
+-- Limite de duplas aprovadas na 5ª edição: 10 no total, 5 por grupo.
 create or replace function public.truco_validate_manual_edition_team_capacity()
 returns trigger
 language plpgsql

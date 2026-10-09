@@ -25,6 +25,23 @@ adminRoutes.post(
   }),
 );
 
+// Cadeado global de resultados: só administradores abrem ou fecham.
+adminRoutes.post(
+  "/results-lock",
+  requireAuth,
+  requireRole("admin", "superadmin"),
+  asyncHandler(async (req, res) => {
+    const locked: unknown = req.body?.locked;
+    if (typeof locked !== "boolean") {
+      res.status(400).json({ message: "Informe locked: true para bloquear ou false para liberar." });
+      return;
+    }
+    const championship = await store.getCurrentChampionship();
+    await store.setResultsLocked(championship.truco_id, locked);
+    res.json({ locked });
+  }),
+);
+
 // Reserva o "reset" para o dono do banco (superadmin): limpa sorteio/jogos/mata-mata da
 // edição em andamento — nunca apaga duplas, histórico ou jogadores.
 adminRoutes.post(

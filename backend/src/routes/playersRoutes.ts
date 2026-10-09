@@ -3,6 +3,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { store } from "../data/store.js";
 import { requireAuth, requireRole } from "../middleware/requireAuth.js";
 import { AvatarError, uploadPlayerAvatar } from "../services/avatarService.js";
+import { loginRoster } from "../services/loginRoster.js";
 
 export const playersRoutes = Router();
 
@@ -22,18 +23,14 @@ playersRoutes.post(
 
 /**
  * Público — a tela de login precisa listar os jogadores antes de existir sessão.
- * Devolve apenas id e nome: o e-mail não sai daqui. Para entrar, o frontend manda o
+ * Só os participantes oficiais da edição atual (quem tem dupla nela); jogador que existe
+ * apenas no histórico fica de fora. Devolve apenas id e nome: o e-mail não sai daqui. Para entrar, o frontend manda o
  * playerId em /auth/login, então o e-mail nunca precisa trafegar sem autenticação.
  */
 playersRoutes.get(
   "/roster",
   asyncHandler(async (_req, res) => {
-    const players = await store.listPlayers();
-    res.json(
-      players
-        .filter((p) => p.role === "jogador")
-        .map((p) => ({ id: p.id, name: p.name })),
-    );
+    res.json(loginRoster(await store.listPlayers()));
   }),
 );
 

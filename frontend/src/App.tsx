@@ -26,6 +26,7 @@ const PlayerHomePage = lazy(() => import("./pages/player/PlayerHomePage").then((
 const MyTeamPage = lazy(() => import("./pages/player/MyTeamPage").then((module) => ({ default: module.MyTeamPage })));
 const GroupsPage = lazy(() => import("./pages/player/GroupsPage").then((module) => ({ default: module.GroupsPage })));
 const PlayerMatchesPage = lazy(() => import("./pages/player/PlayerMatchesPage").then((module) => ({ default: module.PlayerMatchesPage })));
+const KnockoutPage = lazy(() => import("./pages/player/KnockoutPage").then((module) => ({ default: module.KnockoutPage })));
 const ProfilePage = lazy(() => import("./pages/player/ProfilePage").then((module) => ({ default: module.ProfilePage })));
 const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage").then((module) => ({ default: module.AdminDashboardPage })));
 const AdminPlayersPage = lazy(() => import("./pages/admin/AdminPlayersPage").then((module) => ({ default: module.AdminPlayersPage })));
@@ -65,6 +66,7 @@ function App() {
           <Route path="/minha-dupla" element={<MyTeamPage />} />
           <Route path="/grupos" element={<GroupsPage />} />
           <Route path="/jogos" element={<PlayerMatchesPage />} />
+          <Route path="/mata-mata" element={<KnockoutPage />} />
           <Route path="/meu-grupo" element={<Navigate to="/grupos" replace />} />
           <Route path="/classificacao" element={<Navigate to="/grupos" replace />} />
           <Route path="/mesas-agora" element={<Navigate to="/jogos" replace />} />

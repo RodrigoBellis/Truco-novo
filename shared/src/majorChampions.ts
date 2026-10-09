@@ -26,6 +26,33 @@ function pairKey(player1Id: string, player2Id: string): string {
   return [player1Id, player2Id].sort((a, b) => a.localeCompare(b)).join("::");
 }
 
+export interface TeamPairSource {
+  teamId: string;
+  player1Id: string;
+  player2Id: string;
+}
+
+/**
+ * Decide qual par de jogadores representa cada dupla no ranking histórico.
+ *
+ * A participação da edição atual (currentEdition) normalmente vale no lugar do cadastro
+ * antigo (legacy). A exceção protege o Hall da Fama: se a dupla já foi campeã e a participação
+ * atual tem outro par, os títulos continuam com o par histórico, e o par atual entra como uma
+ * dupla separada, sem títulos. Trocar os integrantes de uma dupla campeã na edição atual nunca
+ * transfere conquistas antigas para outras pessoas.
+ */
+export function resolveRankingPairs(legacy: readonly TeamPairSource[], currentEdition: readonly TeamPairSource[], championTeamIds: ReadonlySet<string>): TeamPairSource[] {
+  const pairByTeam = new Map(legacy.map((pair) => [pair.teamId, pair]));
+  const separate: TeamPairSource[] = [];
+  for (const current of currentEdition) {
+    const historical = pairByTeam.get(current.teamId);
+    const changed = historical !== undefined && pairKey(historical.player1Id, historical.player2Id) !== pairKey(current.player1Id, current.player2Id);
+    if (changed && championTeamIds.has(current.teamId)) separate.push({ ...current, teamId: current.teamId + "::edicao-atual" });
+    else pairByTeam.set(current.teamId, current);
+  }
+  return [...pairByTeam.values(), ...separate];
+}
+
 /** Aggregate history by the two stable player IDs; team member order never changes identity. */
 export function buildMajorChampions(
   teamPairs: MajorChampionTeamPair[],

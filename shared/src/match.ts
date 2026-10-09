@@ -37,3 +37,10 @@ export function pointsForResult(result: MatchResult, isTeamA: boolean): number {
   if (!won && setsFor === 1 && setsAgainst === 2) return 1;
   return 0;
 }
+
+/** Mensagem única, usada pela API e pelas telas, enquanto o cadeado de resultados está fechado. */
+export const RESULTS_LOCKED_MESSAGE = "O lançamento de resultados será liberado pelo administrador no início do campeonato.";
+
+export interface ResultsLockState {
+  locked: boolean;
+}

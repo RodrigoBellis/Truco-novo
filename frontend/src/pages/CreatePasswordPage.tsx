@@ -24,8 +24,8 @@ export function CreatePasswordPage() {
     if (!user) return;
     setError(null);
 
-    if (newPassword.length < 4) {
-      setError("A senha deve ter pelo menos 4 caracteres.");
+    if (newPassword.length < 6) {
+      setError("A senha deve ter pelo menos 6 caracteres.");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -35,7 +35,7 @@ export function CreatePasswordPage() {
 
     setIsSubmitting(true);
     try {
-      await changePassword(user.email, newPassword);
+      await changePassword(newPassword);
       updateUser({ mustChangePassword: false });
       showToast("success", "Senha criada com sucesso!");
       navigate(homePathForRole(user.role), { replace: true });
@@ -64,7 +64,7 @@ export function CreatePasswordPage() {
               type="password"
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
-              placeholder="Mínimo 4 caracteres"
+              placeholder="Mínimo 6 caracteres"
               required
               autoFocus
             />

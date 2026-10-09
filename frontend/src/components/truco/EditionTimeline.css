@@ -1,0 +1,869 @@
+/* Linha do tempo do Hall da Fama (EditionTimeline.tsx), organizada só por edições.
+
+   Dois layouts, escolhidos aqui no CSS:
+   - "stacked" (padrão): trilho vertical, capítulos empilhados. Celular, tablet, histórico
+     curto e movimento reduzido. No container largo o trilho vai para o centro e os capítulos
+     alternam de lado.
+   - "pinned" (desktop largo, sem movimento reduzido): a seção prende na tela e a rolagem
+     vertical desliza a trilha na horizontal; capítulos alternam acima e abaixo da linha.
+     A seção expõe --hof-mode: pinned e o hook (useTimelineScroll) só lê.
+
+   Movimento: o hook marca a seção com data-live e cada capítulo com data-revealed. Sem
+   data-live (movimento reduzido ou sem JS) nada fica escondido e a linha já está desenhada.
+   Só transform e opacity, por transição; nada em laço. Cor fixa só nas faces das cartas. */
+.hof-timeline {
+  --hof-halo-alpha: 0.3;
+  --hof-ring-alpha: 0.2;
+  --hof-pool-alpha: 0.26;
+  --hof-beam-alpha: 0.12;
+  --hof-warm-alpha: 0.14;
+  --hof-shadow-rgb: 16 38 75;
+  --hof-shadow-alpha: 0.3;
+  --hof-gutter: 40px;
+  --tw: clamp(84px, 27cqi, 112px);
+  position: relative;
+  min-width: 0;
+}
+
+:root[data-theme="dark"] .hof-timeline {
+  --hof-halo-alpha: 0.34;
+  --hof-ring-alpha: 0.2;
+  --hof-pool-alpha: 0.3;
+  --hof-beam-alpha: 0.24;
+  --hof-warm-alpha: 0.14;
+  --hof-shadow-rgb: var(--rgb-void);
+  --hof-shadow-alpha: 0.6;
+}
+
+.hof-pin {
+  position: relative;
+  isolation: isolate;
+  /* Rede de segurança: a luz das cenas nunca cria rolagem lateral. */
+  overflow-x: clip;
+}
+
+/* Luz ambiente: a mesma da abertura, dissolvida no fundo. */
+.hof-backdrop {
+  position: absolute;
+  inset: -36px 0 auto;
+  height: 460px;
+  z-index: -1;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent), linear-gradient(180deg, transparent, #000 16%, #000 62%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent), linear-gradient(180deg, transparent, #000 16%, #000 62%, transparent);
+  mask-composite: intersect;
+}
+
+.hof-backdrop > span {
+  position: absolute;
+  inset: 0;
+}
+
+.hof-beam {
+  background: conic-gradient(from 98deg at -4% -30%, transparent 0deg, rgb(var(--rgb-tech) / var(--hof-beam-alpha)) 20deg, rgb(var(--rgb-tech) / calc(var(--hof-beam-alpha) * 0.45)) 32deg, transparent 50deg, transparent 360deg);
+}
+
+.hof-warmth {
+  background: radial-gradient(46% 60% at 80% 46%, rgb(var(--rgb-accent) / var(--hof-warm-alpha)), transparent 100%);
+}
+
+/* ---------- Trilho ---------- */
+.hof-story {
+  position: relative;
+  margin-top: 32px;
+}
+
+.hof-chapters {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hof-rail {
+  position: absolute;
+  left: 13px;
+  top: 14px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--color-border-strong);
+}
+
+/* Um ponto em cada ponta da linha. */
+.hof-rail::before,
+.hof-rail::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: var(--color-brand-orange);
+}
+
+.hof-rail::before { top: 0; }
+
+.hof-rail::after {
+  top: 100%;
+  background: var(--color-bg);
+  box-shadow: inset 0 0 0 2px var(--color-border-strong);
+}
+
+.hof-rail-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--color-brand-orange);
+  transform-origin: 50% 0;
+  transform: scaleY(var(--hof-fill, 1));
+}
+
+/* ---------- Capítulo ---------- */
+.hof-chapter {
+  position: relative;
+  min-width: 0;
+  padding-left: var(--hof-gutter);
+}
+
+.hof-dot {
+  position: absolute;
+  left: 0;
+  /* Na altura do número da edição, que fica centrado na cena. */
+  top: calc(var(--tw) * 0.71 - 14px);
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+}
+
+/* Aro do marco: sempre visível, mesmo antes de o capítulo acender. */
+.hof-dot::before {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-bg);
+  box-shadow: inset 0 0 0 2px var(--color-border-strong);
+}
+
+.hof-dot > span {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-brand-orange);
+  box-shadow: 0 0 0 4px rgb(var(--rgb-accent) / 0.2);
+}
+
+.hof-chapter-open .hof-dot > span {
+  background: var(--color-bg);
+  box-shadow: inset 0 0 0 2px var(--color-tech-400), 0 0 0 4px rgb(var(--rgb-tech) / 0.18);
+}
+
+.hof-chapter-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "title scene" "body body";
+  align-items: center;
+  gap: 4px 10px;
+  min-width: 0;
+}
+
+.hof-chapter-title {
+  grid-area: title;
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.hof-chapter-title .hof-mask > span {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+}
+
+.hof-chapter-title b {
+  font-size: clamp(2.9rem, 15cqi, 3.7rem);
+  font-weight: 850;
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.hof-chapter-title i {
+  font-style: normal;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.hof-chapter-open .hof-chapter-title b { color: var(--color-text-faint); }
+
+.hof-chapter-body {
+  grid-area: body;
+  min-width: 0;
+}
+
+.hof-chapter-body p { margin: 0; }
+
+.hof-chapter-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-accent-600);
+}
+
+.hof-duo {
+  display: grid;
+  gap: 2px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hof-duo > li > span {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.hof-duo strong {
+  min-width: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.hof-duo .player-avatar {
+  border-color: rgb(var(--rgb-accent) / 0.55);
+  box-shadow: 0 0 0 3px rgb(var(--rgb-accent) / 0.14);
+}
+
+.hof-duo-missing {
+  margin-top: 8px !important;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--color-text-muted);
+}
+
+.hof-chapter-details {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: 12px;
+  padding: 8px 14px;
+  border: 1px solid rgb(var(--rgb-tech) / 0.45);
+  border-radius: var(--radius-md);
+  background: transparent;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 750;
+  color: var(--color-tech-400);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), opacity 420ms ease-out;
+}
+
+.hof-chapter-details svg { transition: transform var(--motion-micro); }
+
+.hof-chapter-details:hover,
+.hof-chapter-details:focus-visible {
+  background: rgb(var(--rgb-tech) / 0.14);
+  border-color: var(--color-tech-400);
+}
+
+.hof-chapter-details:hover svg,
+.hof-chapter-details:focus-visible svg { transform: translateX(3px); }
+
+.hof-chapter-details:focus-visible,
+.hof-dot:focus-visible,
+.hof-step:focus-visible {
+  outline: 2px solid var(--color-tech-400);
+  outline-offset: 3px;
+}
+
+/* Edição com o detalhe aberto. */
+.hof-chapter-details[aria-current="true"] {
+  border-color: rgb(var(--rgb-accent) / 0.7);
+  color: var(--color-accent-600);
+}
+
+.hof-chapter-status {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgb(var(--rgb-tech) / 0.4);
+  background: rgb(var(--rgb-tech) / 0.1);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-tech-400);
+}
+
+.hof-chapter-next {
+  margin-top: 10px !important;
+  max-width: 17ch;
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--color-text);
+  text-wrap: balance;
+}
+
+/* ---------- Cena: caneco, cartas e luz ---------- */
+.hof-scene {
+  --trophy-shine-delay: calc(var(--hof-delay, 0ms) + 640ms);
+  grid-area: scene;
+  position: relative;
+  flex: none;
+  width: calc(var(--tw) * 1.2);
+  height: calc(var(--tw) * 1.42);
+  /* Folga para o halo, que é maior que a cena. */
+  margin-right: calc(var(--tw) * 0.2);
+  pointer-events: none;
+}
+
+.hof-scene-halo {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: calc(var(--tw) * 1.6);
+  aspect-ratio: 1;
+  margin: calc(var(--tw) * -0.8) 0 0 calc(var(--tw) * -0.8);
+  border-radius: 50%;
+  background:
+    radial-gradient(closest-side, rgb(var(--rgb-accent) / var(--hof-halo-alpha)), rgb(var(--rgb-accent) / calc(var(--hof-halo-alpha) * 0.3)) 50%, transparent 72%),
+    radial-gradient(closest-side, transparent 54%, rgb(var(--rgb-tech) / var(--hof-ring-alpha)) 74%, transparent 100%);
+}
+
+.hof-chapter-open .hof-scene-halo {
+  background: radial-gradient(closest-side, rgb(var(--rgb-tech) / calc(var(--hof-ring-alpha) * 0.9)), transparent 76%);
+}
+
+.hof-scene-pool {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--tw) * -0.04);
+  width: calc(var(--tw) * 1.3);
+  height: calc(var(--tw) * 0.24);
+  margin-left: calc(var(--tw) * -0.65);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(var(--rgb-accent) / var(--hof-pool-alpha)), rgb(var(--rgb-tech) / calc(var(--hof-pool-alpha) * 0.4)) 60%, transparent 100%);
+}
+
+.hof-chapter-open .hof-scene-pool {
+  background: radial-gradient(closest-side, rgb(var(--rgb-tech) / calc(var(--hof-pool-alpha) * 0.6)), transparent 100%);
+}
+
+.hof-scene-trophy {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--tw) * 0.04);
+  width: var(--tw);
+  margin-left: calc(var(--tw) * -0.5);
+}
+
+.hof-scene-trophy .opening-trophy-svg {
+  filter: drop-shadow(0 10px 12px rgb(var(--hof-shadow-rgb) / var(--hof-shadow-alpha)));
+}
+
+.hof-trophy-outline {
+  display: block;
+  width: var(--tw);
+  height: auto;
+  color: var(--color-text-faint);
+  stroke-dasharray: 9 8;
+  opacity: 0.7;
+}
+
+/* Cartas em leque atrás da boca da taça. O pivô fica abaixo da carta, dentro da taça. */
+.hof-card {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--tw) * 0.05);
+  display: grid;
+  place-items: center;
+  width: calc(var(--tw) * 0.4);
+  aspect-ratio: 5 / 7;
+  margin-left: calc(var(--tw) * -0.2);
+  border-radius: calc(var(--tw) * 0.045);
+  border: 1px solid rgb(255 196 122 / 0.72);
+  font-size: calc(var(--tw) * 0.1);
+  box-shadow: 0 calc(var(--tw) * 0.05) calc(var(--tw) * 0.09) calc(var(--tw) * -0.03) rgb(var(--hof-shadow-rgb) / var(--hof-shadow-alpha));
+  transform-origin: 50% 150%;
+  transform: rotate(-27deg);
+}
+
+.hof-card-second { transform: rotate(27deg); }
+
+.hof-card-back {
+  background:
+    linear-gradient(118deg, rgb(255 255 255 / 0.14) 0%, transparent 42%),
+    linear-gradient(158deg, #17386d 0%, #0c2145 52%, #06122a 100%);
+  color: #ff9a4f;
+}
+
+.hof-card-back svg {
+  width: 38%;
+  height: auto;
+  opacity: 0.85;
+}
+
+.hof-card-face {
+  background:
+    linear-gradient(118deg, rgb(255 255 255 / 0.16) 0%, rgb(255 255 255 / 0.03) 30%, transparent 46%),
+    linear-gradient(158deg, #1f4686 0%, #112c58 46%, #08162f 100%);
+  color: #8fb4ff;
+}
+
+.hof-card-warm { color: #ff9a4f; }
+
+.hof-card-corner {
+  position: absolute;
+  top: 7%;
+  right: 10%;
+  display: grid;
+  justify-items: center;
+  gap: 0.08em;
+  font-size: 1.15em;
+  font-weight: 850;
+  line-height: 1;
+  color: #f4f7fd;
+}
+
+.hof-card-corner svg {
+  width: 0.74em;
+  height: auto;
+  color: inherit;
+}
+
+.hof-card-face .hof-card-corner svg { color: #8fb4ff; }
+.hof-card-warm .hof-card-corner svg { color: #ff9a4f; }
+
+.hof-card-pip {
+  width: 34%;
+  height: auto;
+  margin-right: 22%;
+  opacity: 0.9;
+}
+
+/* Na edição em disputa as cartas ainda estão viradas e a mesa, fria. */
+.hof-chapter-open .hof-card { border-color: rgb(143 180 255 / 0.5); }
+.hof-chapter-open .hof-card-back { color: #8fb4ff; }
+
+/* ---------- Máscaras de texto ---------- */
+.hof-mask {
+  display: block;
+  overflow: hidden;
+  padding: 0.14em 0;
+  margin: -0.14em 0;
+}
+
+.hof-duo > .hof-mask {
+  padding: 4px;
+  margin: -1px -4px;
+}
+
+.hof-mask > span { display: block; }
+
+.hof-chapter-status .hof-mask { display: inline-block; vertical-align: top; }
+
+/* ---------- Revelação (só com o hook ligado) ---------- */
+.hof-timeline[data-live] .hof-mask > span {
+  transition: transform 720ms var(--ease-out);
+  transition-delay: calc(var(--hof-delay, 0ms) + 180ms);
+}
+
+.hof-timeline[data-live] .hof-chapter-label .hof-mask > span,
+.hof-timeline[data-live] .hof-chapter-status .hof-mask > span { transition-delay: calc(var(--hof-delay, 0ms) + 250ms); }
+
+.hof-timeline[data-live] .hof-duo > :nth-child(1) > span,
+.hof-timeline[data-live] .hof-duo-missing .hof-mask > span,
+.hof-timeline[data-live] .hof-chapter-next .hof-mask > span { transition-delay: calc(var(--hof-delay, 0ms) + 320ms); }
+
+.hof-timeline[data-live] .hof-duo > :nth-child(2) > span { transition-delay: calc(var(--hof-delay, 0ms) + 390ms); }
+
+.hof-timeline[data-live] .hof-chapter:not([data-revealed]) .hof-mask > span { transform: translate3d(0, 115%, 0); }
+
+.hof-timeline[data-live] .hof-dot > span {
+  transition: transform 520ms var(--ease-spring);
+  transition-delay: var(--hof-delay, 0ms);
+}
+
+.hof-timeline[data-live] .hof-chapter:not([data-revealed]) .hof-dot > span { transform: scale(0); }
+
+.hof-timeline[data-live] :is(.hof-scene-halo, .hof-scene-pool) {
+  transition: opacity 700ms ease-out;
+  transition-delay: var(--hof-delay, 0ms);
+}
+
+.hof-timeline[data-live] .hof-scene-trophy {
+  transition: opacity 480ms ease-out, transform 780ms var(--ease-out);
+  transition-delay: calc(var(--hof-delay, 0ms) + 120ms);
+}
+
+.hof-timeline[data-live] .hof-card {
+  transition: opacity 360ms ease-out, transform 760ms var(--ease-out);
+  transition-delay: calc(var(--hof-delay, 0ms) + 300ms);
+}
+
+.hof-timeline[data-live] .hof-card-second { transition-delay: calc(var(--hof-delay, 0ms) + 380ms); }
+
+.hof-timeline[data-live] .hof-chapter-details { transition-delay: 0s, 0s, calc(var(--hof-delay, 0ms) + 560ms); }
+
+.hof-timeline[data-live] .hof-chapter:not([data-revealed]) :is(.hof-scene-halo, .hof-scene-pool, .hof-card, .hof-chapter-details) { opacity: 0; }
+.hof-timeline[data-live] .hof-chapter:not([data-revealed]) .hof-card { transform: rotate(0deg) translate3d(0, 18%, 0); }
+
+.hof-timeline[data-live] .hof-chapter:not([data-revealed]) .hof-scene-trophy {
+  opacity: 0;
+  transform: translate3d(0, 16px, 0) scale(0.93);
+}
+
+/* O brilho do metal só passa quando o capítulo acende. */
+.hof-timeline[data-live] .hof-chapter:not([data-revealed]) :is(.opening-trophy-shine, .opening-trophy-spark) { animation: none; }
+
+/* ---------- Controles (só existem no modo preso) ---------- */
+.hof-controls { display: none; }
+
+/* ---------- Empilhado com espaço: cena ao lado do texto ---------- */
+@container hof (min-width: 520px) {
+  .hof-timeline { --tw: 124px; }
+
+  .hof-chapter-card {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "scene title" "scene body";
+    gap: 8px 22px;
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .hof-chapter-title { align-self: end; }
+  .hof-chapter-body { align-self: start; }
+  .hof-scene { width: calc(var(--tw) * 1.3); margin-right: 0; }
+  .hof-dot { top: calc(var(--tw) * 0.4); }
+  .hof-chapters { gap: 30px; }
+}
+
+/* Tablet e desktop estreito: os capítulos crescem para ocupar a coluna. */
+@container hof (min-width: 640px) {
+  .hof-timeline { --tw: 156px; --hof-gutter: 52px; }
+  .hof-chapter-card { gap: 10px 30px; }
+  .hof-chapter-title b { font-size: 4.4rem; }
+  .hof-chapter-title i { font-size: 0.86rem; }
+  .hof-chapter-label { font-size: 0.76rem; }
+  .hof-duo { gap: 6px; }
+  .hof-duo strong { font-size: 1.45rem; }
+  .hof-duo-missing { font-size: 1.2rem; }
+  .hof-chapter-next { font-size: 1.45rem; }
+  .hof-chapters { gap: 44px; }
+}
+
+/* ---------- Empilhado largo: trilho no centro, capítulos alternando de lado ---------- */
+@container hof (min-width: 900px) {
+  .hof-timeline { --tw: 132px; }
+  .hof-chapter-title b { font-size: 3.7rem; }
+  .hof-duo strong { font-size: 1.25rem; }
+  .hof-chapter-next { font-size: 1.25rem; }
+  .hof-story { margin-top: 44px; }
+  .hof-rail { left: 50%; margin-left: -1px; top: 0; bottom: 0; }
+  .hof-chapters { gap: 0; }
+
+  .hof-chapter {
+    width: calc(50% - 46px);
+    padding-left: 0;
+  }
+
+  .hof-chapter:nth-child(even) { margin-left: auto; }
+  .hof-chapter:nth-child(odd) .hof-chapter-card { margin-left: auto; }
+  .hof-chapter + .hof-chapter { margin-top: -64px; }
+  .hof-chapter:nth-child(odd) .hof-dot { left: auto; right: -60px; }
+  .hof-chapter:nth-child(even) .hof-dot { left: -60px; }
+}
+
+/* ---------- Preso: trilha horizontal dirigida pela rolagem ---------- */
+@media (min-width: 961px) and (min-height: 700px) and (prefers-reduced-motion: no-preference) {
+  @container hof (min-width: 900px) {
+    .hof-timeline[data-pinnable] {
+      --hof-mode: pinned;
+      --hof-h: calc(100dvh - 32px);
+      --hof-bar: 60px;
+      --hof-pitch: clamp(290px, 29cqi, 345px);
+      --hof-cw: clamp(396px, 43.5cqi, 500px);
+      --hof-stem: clamp(28px, 5dvh, 52px);
+      --tw: clamp(104px, 16.4dvh, 148px);
+      /* A seção é mais alta que a tela presa exatamente o quanto a trilha anda. */
+      height: calc(var(--hof-h) + var(--hof-travel, 0px));
+    }
+
+    .hof-timeline[data-pinnable] .hof-pin {
+      position: sticky;
+      top: 16px;
+      height: var(--hof-h);
+      margin-inline: -24px;
+      /* A trilha é mais larga que a página: recortada, nunca vira rolagem lateral. */
+      overflow: clip;
+    }
+
+    .hof-timeline[data-pinnable] .hof-backdrop {
+      inset: 0;
+      height: auto;
+    }
+
+    .hof-timeline[data-pinnable] .hof-viewport {
+      position: absolute;
+      inset: 0 0 var(--hof-bar);
+    }
+
+    /* Bordas que dissolvem a trilha no fundo da página. */
+    .hof-timeline[data-pinnable] .hof-viewport::before,
+    .hof-timeline[data-pinnable] .hof-viewport::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      z-index: 2;
+      width: 24px;
+      pointer-events: none;
+    }
+
+    .hof-timeline[data-pinnable] .hof-viewport::before {
+      left: 0;
+      background: linear-gradient(90deg, var(--color-bg), transparent);
+    }
+
+    .hof-timeline[data-pinnable] .hof-viewport::after {
+      right: 0;
+      width: 56px;
+      background: linear-gradient(270deg, var(--color-bg), transparent);
+    }
+
+    .hof-timeline[data-pinnable] .hof-track {
+      position: absolute;
+      inset: 0 auto 0 0;
+      display: flex;
+      width: max-content;
+      padding-left: 24px;
+      will-change: transform;
+    }
+
+    .hof-timeline[data-pinnable] .hof-intro {
+      flex: 0 0 clamp(410px, 43cqi, 500px);
+      align-self: center;
+      padding: 0 72px 0 0;
+    }
+
+    .hof-timeline[data-pinnable] .hof-intro-title {
+      font-size: clamp(2.9rem, 5.5cqi, 4.3rem);
+      white-space: nowrap;
+    }
+
+    .hof-timeline[data-pinnable] .hof-intro-meta {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .hof-timeline[data-pinnable] .hof-intro-hint {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 26px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--color-text-faint);
+    }
+
+    .hof-timeline[data-pinnable] .hof-intro-hint svg { color: var(--color-brand-orange); }
+
+    .hof-timeline[data-pinnable] .hof-story {
+      flex: none;
+      height: 100%;
+      margin: 0;
+      padding-right: calc(var(--hof-cw) - var(--hof-pitch) + 76px);
+    }
+
+    .hof-timeline[data-pinnable] .hof-chapters {
+      flex-direction: row;
+      gap: 0;
+      height: 100%;
+    }
+
+    .hof-timeline[data-pinnable] .hof-rail {
+      left: -30px;
+      right: 40px;
+      top: 50%;
+      bottom: auto;
+      width: auto;
+      height: 2px;
+      margin: -1px 0 0;
+    }
+
+    .hof-timeline[data-pinnable] .hof-rail::before,
+    .hof-timeline[data-pinnable] .hof-rail::after { top: 50%; }
+
+    .hof-timeline[data-pinnable] .hof-rail::before { left: 0; }
+    .hof-timeline[data-pinnable] .hof-rail::after { left: 100%; }
+
+    .hof-timeline[data-pinnable] .hof-rail-fill {
+      transform-origin: 0 50%;
+      transform: scaleX(var(--hof-fill, 1));
+    }
+
+    .hof-timeline[data-pinnable] .hof-chapter {
+      flex: 0 0 var(--hof-pitch);
+      width: auto;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    .hof-timeline[data-pinnable] .hof-chapter .hof-dot {
+      left: 0;
+      right: auto;
+      top: calc(50% - 22px);
+      width: 44px;
+      height: 44px;
+      cursor: pointer;
+    }
+
+    .hof-timeline[data-pinnable] .hof-dot:hover > span { box-shadow: 0 0 0 6px rgb(var(--rgb-accent) / 0.26); }
+
+    .hof-timeline[data-pinnable] .hof-chapter .hof-chapter-card {
+      position: absolute;
+      left: 22px;
+      width: var(--hof-cw);
+      max-width: none;
+      margin: 0;
+      padding-left: 22px;
+      gap: 6px 18px;
+    }
+
+    .hof-timeline[data-pinnable] .hof-chapter-above .hof-chapter-card {
+      bottom: 50%;
+      padding-bottom: var(--hof-stem);
+    }
+
+    .hof-timeline[data-pinnable] .hof-chapter-below .hof-chapter-card {
+      top: 50%;
+      padding-top: var(--hof-stem);
+    }
+
+    /* Haste: nasce na linha e cresce até o fim do capítulo. */
+    .hof-timeline[data-pinnable] .hof-chapter-card::before {
+      content: "";
+      position: absolute;
+      left: -0.5px;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: linear-gradient(0deg, rgb(var(--rgb-accent) / 0.95), rgb(var(--rgb-accent) / 0.12));
+      transform-origin: 50% 100%;
+    }
+
+    .hof-timeline[data-pinnable] .hof-chapter-below .hof-chapter-card::before {
+      background: linear-gradient(180deg, rgb(var(--rgb-accent) / 0.95), rgb(var(--rgb-accent) / 0.12));
+      transform-origin: 50% 0;
+    }
+
+    .hof-timeline[data-pinnable] .hof-chapter-open .hof-chapter-card::before {
+      background: linear-gradient(0deg, rgb(var(--rgb-tech) / 0.9), rgb(var(--rgb-tech) / 0.1));
+    }
+
+    .hof-timeline[data-pinnable] .hof-chapter-open.hof-chapter-below .hof-chapter-card::before {
+      background: linear-gradient(180deg, rgb(var(--rgb-tech) / 0.9), rgb(var(--rgb-tech) / 0.1));
+    }
+
+    .hof-timeline[data-pinnable][data-live] .hof-chapter-card::before {
+      transition: transform 680ms var(--ease-out);
+      transition-delay: calc(var(--hof-delay, 0ms) + 60ms);
+    }
+
+    .hof-timeline[data-pinnable][data-live] .hof-chapter:not([data-revealed]) .hof-chapter-card::before { transform: scaleY(0); }
+
+    .hof-timeline[data-pinnable] .hof-scene { width: calc(var(--tw) * 1.26); }
+    .hof-timeline[data-pinnable] .hof-chapter-title b { font-size: clamp(3rem, 8.4dvh, 4.6rem); }
+    .hof-timeline[data-pinnable] :is(.hof-duo strong, .hof-chapter-next) { font-size: clamp(1.12rem, 2.5dvh, 1.34rem); }
+
+    /* Controles */
+    .hof-timeline[data-pinnable] .hof-controls {
+      position: absolute;
+      inset: auto 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      height: var(--hof-bar);
+    }
+
+    .hof-step {
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      border-radius: 50%;
+      border: 1px solid var(--color-border-strong);
+      background: var(--color-surface);
+      color: var(--color-text);
+      cursor: pointer;
+      transition: transform var(--motion-micro), background-color var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
+    }
+
+    .hof-step:first-child svg { transform: rotate(180deg); }
+
+    .hof-step:hover:not(:disabled) {
+      background: var(--color-surface-hover);
+      border-color: rgb(var(--rgb-accent) / 0.6);
+    }
+
+    .hof-step:active:not(:disabled) { transform: scale(0.94); }
+
+    .hof-step:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
+    .hof-progress {
+      min-width: 132px;
+      margin: 0;
+      text-align: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--color-text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hof-progress b {
+      font-size: 1.15rem;
+      font-weight: 850;
+      color: var(--color-text);
+    }
+  }
+}

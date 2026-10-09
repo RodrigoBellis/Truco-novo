@@ -2,7 +2,7 @@
 
 ## Frontend and visual direction
 
-Before changing player screens, read [`DESIGN.md`](DESIGN.md) and the implementation/validation report in [`docs/frontend-redesign-5th-edition.md`](docs/frontend-redesign-5th-edition.md). Preserve the seven player menu items, old-route redirects, shared team ownership, central scoring/qualification rules, real historical data, tied rankings, and mobile layouts. Frontend work does not authorize changing Supabase data. The opening screen uses the real cumulative ranking; it must remain skippable even if ranking data is unavailable.
+Before changing player screens, read [`DESIGN.md`](DESIGN.md) and the implementation/validation report in [`docs/frontend-redesign-5th-edition.md`](docs/frontend-redesign-5th-edition.md). Preserve the eight player menu items (Mata-mata was added at the user's request on 2026-10-07), old-route redirects, shared team ownership, central scoring/qualification rules, real historical data, tied rankings, and mobile layouts. Frontend work does not authorize changing Supabase data. The opening screen uses the real cumulative ranking; it must remain skippable even if ranking data is unavailable.
 
 ## Supabase and tournament data
 

@@ -7,6 +7,7 @@ export const PLAYER_NAV_ITEMS: NavItem[] = [
   { to: "/minha-dupla", label: "Minha Dupla", icon: "team" },
   { to: "/grupos", label: "Grupos", icon: "group" },
   { to: "/jogos", label: "Jogos", icon: "matches" },
+  { to: "/mata-mata", label: "Mata-mata", icon: "bracket" },
   { to: "/perfil", label: "Perfil", icon: "profile" },
 ];
 

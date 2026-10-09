@@ -5,6 +5,7 @@ dist/
 *.log
 .DS_Store
 *.local.mjs
+*.local.csv
 login.json
 tok.txt
 matches.json

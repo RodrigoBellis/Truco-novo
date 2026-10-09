@@ -90,6 +90,11 @@ teamsRoutes.post(
       res.status(404).json({ message: "Dupla não encontrada." });
       return;
     }
+    // Apagar uma dupla campeã deixaria a edição dela sem campeão no Hall da Fama.
+    if (await store.isTeamInHistory(teamId)) {
+      res.status(409).json({ message: "Esta dupla está registrada no Hall da Fama e não pode ser excluída. Para tirá-la da edição atual, retire a participação." });
+      return;
+    }
     await store.rejectTeam(teamId);
     res.status(204).send();
   }),

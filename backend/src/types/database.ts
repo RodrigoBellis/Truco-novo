@@ -75,6 +75,8 @@ export type Database = {
           draw_status: Database["public"]["Enums"]["truco_draw_status"];
           edition: number;
           name: string;
+          /** Cadeado global de resultados (migration 202610070002). Ausente até a migração ser aplicada. */
+          results_locked: boolean;
           status: Database["public"]["Enums"]["truco_championship_status"];
           truco_id: string;
           updated_at: string;

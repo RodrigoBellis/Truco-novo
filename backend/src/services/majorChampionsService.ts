@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "../data/supabaseClient.js";
-import { buildMajorChampions, type MajorChampionEntry } from "@truco/shared";
+import { buildMajorChampions, resolveRankingPairs, type MajorChampionEntry, type TeamPairSource } from "@truco/shared";
 
 export type { MajorChampionEntry } from "@truco/shared";
 
@@ -65,7 +65,6 @@ export async function getMajorChampions(): Promise<MajorChampionEntry[]> {
     .filter((team) => !team.is_placeholder && (team.status === "aprovada" || championTeamIds.has(team.truco_id)))
     .map((team) => team.truco_id));
   const namesByPlayer = new Map((playersResult.data ?? []).map((player) => [player.truco_id, player.name]));
-  const pairByTeam = new Map<string, [string, string]>();
   const legacyMembersByTeam = new Map<string, MemberRow[]>();
 
   for (const member of membersResult.data ?? []) {
@@ -74,22 +73,22 @@ export async function getMajorChampions(): Promise<MajorChampionEntry[]> {
     rows.push(member);
     legacyMembersByTeam.set(member.truco_team_id, rows);
   }
+  const legacyPairs: TeamPairSource[] = [];
   for (const [teamId, members] of legacyMembersByTeam) {
-    const ordered = [...members].sort((a, b) => a.position - b.position);
-    const first = ordered.find((member) => member.position === 1);
-    const second = ordered.find((member) => member.position === 2);
+    const first = members.find((member) => member.position === 1);
+    const second = members.find((member) => member.position === 2);
     if (first && second && first.truco_player_id !== second.truco_player_id) {
-      pairByTeam.set(teamId, [first.truco_player_id, second.truco_player_id]);
+      legacyPairs.push({ teamId, player1Id: first.truco_player_id, player2Id: second.truco_player_id });
     }
   }
 
-  // A edição atual e edições futuras usam a tabela de participações por edição.
-  for (const membership of membershipsResult.data ?? []) {
-    if (!eligibleTeamIds.has(membership.truco_team_id) || membership.truco_player_1_id === membership.truco_player_2_id) continue;
-    pairByTeam.set(membership.truco_team_id, [membership.truco_player_1_id, membership.truco_player_2_id]);
-  }
+  // A edição atual usa a tabela de participações por edição. Se a dupla já foi campeã e a
+  // participação atual tem outro par, resolveRankingPairs mantém os títulos com o par histórico.
+  const currentPairs: TeamPairSource[] = (membershipsResult.data ?? [])
+    .filter((membership) => eligibleTeamIds.has(membership.truco_team_id) && membership.truco_player_1_id !== membership.truco_player_2_id)
+    .map((membership) => ({ teamId: membership.truco_team_id, player1Id: membership.truco_player_1_id, player2Id: membership.truco_player_2_id }));
 
-  const teamPairs = [...pairByTeam].flatMap(([teamId, [player1Id, player2Id]]) => {
+  const teamPairs = resolveRankingPairs(legacyPairs, currentPairs, championTeamIds).flatMap(({ teamId, player1Id, player2Id }) => {
     const player1Name = namesByPlayer.get(player1Id);
     const player2Name = namesByPlayer.get(player2Id);
     if (!player1Name || !player2Name) return [];

@@ -1,0 +1,38 @@
+/* Plaquinha de edição (EditionPlaques.tsx): placa gravada, como a do pedestal do caneco.
+   Quem usa pode trocar as tintas por --plaque-line/-bg/-ink/-num/-hi; o padrão é neutro. */
+.edition-plaques {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.edition-plaque {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.42em;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--plaque-line, var(--color-border-strong));
+  background: var(--plaque-bg, var(--color-surface-alt));
+  box-shadow: inset 0 1px 0 var(--plaque-hi, rgb(var(--rgb-white) / 0.06));
+  color: var(--plaque-ink, var(--color-text-muted));
+  font-size: 0.66rem;
+  font-weight: 750;
+  line-height: 1.2;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  /* Entram uma a uma, depois do card que as contém (--plaque-delay). */
+  animation: rise-in var(--motion-enter) calc(var(--plaque-delay, 0ms) + var(--plaque-index, 0) * 70ms) backwards;
+}
+
+.edition-plaque b {
+  font-size: 1.14em;
+  font-weight: 850;
+  letter-spacing: 0;
+  color: var(--plaque-num, var(--color-text));
+}

@@ -1,67 +1,36 @@
-import type { BracketMatch, BracketSlotSource } from "@truco/shared";
+import { BRACKET_ROUND_LABEL, buildKnockoutBracket, settleQuarterfinals, type BracketMatch, type BracketSlotSource, type GroupId } from "@truco/shared";
 import { store } from "../data/store.js";
 import { computeStandings, isGroupComplete } from "./standingsService.js";
 
 export class BracketError extends Error {}
 
-function direct(teamId: string): BracketSlotSource {
-  return { type: "direct", teamId };
-}
-
-function winnerOf(bracketMatchId: string): BracketSlotSource {
-  return { type: "winner", bracketMatchId };
-}
-
+/**
+ * Gera o mata-mata da edição a partir das classificações finais, seguindo KNOCKOUT_PLAN
+ * (@truco/shared): repescagem, quartas de final, semifinais e final.
+ */
 export async function generateBracket(championshipId: string): Promise<void> {
-  const championship = await store.getCurrentChampionship();
-  if (championship.truco_id === championshipId && championship.edition === 5) {
-    throw new BracketError("A regra dos cruzamentos da repescagem da 5ª edição ainda não foi definida; o chaveamento automático está bloqueado.");
-  }
   if (!(await isGroupComplete(championshipId, "A")) || !(await isGroupComplete(championshipId, "B"))) {
     throw new BracketError("A fase de grupos precisa estar concluída em ambos os grupos.");
   }
+  if ((await store.listBracketMatches(championshipId)).length > 0) {
+    throw new BracketError("O mata-mata desta edição já foi gerado.");
+  }
 
-  const standingsA = await computeStandings(championshipId, "A");
-  const standingsB = await computeStandings(championshipId, "B");
-  const byPosition = (rows: typeof standingsA, position: number) => {
-    const row = rows.find((r) => r.position === position);
-    if (!row) throw new BracketError(`Posição ${position} não encontrada.`);
-    return row.teamId;
+  const standings: Record<GroupId, Awaited<ReturnType<typeof computeStandings>>> = {
+    A: await computeStandings(championshipId, "A"),
+    B: await computeStandings(championshipId, "B"),
   };
-  const teamOf = (group: "A" | "B", position: number) => byPosition(group === "A" ? standingsA : standingsB, position);
+  const pending = (["A", "B"] as const).filter((groupId) => standings[groupId].some((row) => row.tiePending));
+  if (pending.length > 0) {
+    throw new BracketError(`Há empate sem critério de desempate no Grupo ${pending.join(" e no Grupo ")}: o administrador precisa decidir as posições antes de gerar o mata-mata.`);
+  }
 
-  const id = () => store.newId();
-  const o1 = id();
-  const o2 = id();
-  const q1 = id();
-  const q2 = id();
-  const s1 = id();
-  const s2 = id();
-  const f1 = id();
-
-  /**
-   * Grupos de 5 duplas: 1º avança direto à semifinal, 5º é eliminado (não joga mais nada) e
-   * 2º/3º/4º disputam a repescagem pelas 2 vagas restantes na semifinal. Como só restam 3
-   * disputantes por grupo (6 no total, não 8), o 2º colocado de cada grupo entra com um "bye"
-   * na repescagem — só o 3º e o 4º se enfrentam na primeira rodada. O cruzamento A/B evita que
-   * duplas do mesmo grupo se encontrem antes da semifinal.
-   */
-  const rows: Array<{
-    id: string;
-    round: BracketMatch["round"];
-    label: string;
-    order: number;
-    slotA: BracketSlotSource;
-    slotB: BracketSlotSource;
-  }> = [
-    { id: o1, round: "oitavas", order: 0, label: "3ºA x 4ºB", slotA: direct(teamOf("A", 3)), slotB: direct(teamOf("B", 4)) },
-    { id: o2, round: "oitavas", order: 1, label: "4ºA x 3ºB", slotA: direct(teamOf("A", 4)), slotB: direct(teamOf("B", 3)) },
-    { id: q1, round: "quartas", order: 0, label: "2ºB x Vencedor 3ºAx4ºB", slotA: direct(teamOf("B", 2)), slotB: winnerOf(o1) },
-    { id: q2, round: "quartas", order: 1, label: "2ºA x Vencedor 4ºAx3ºB", slotA: direct(teamOf("A", 2)), slotB: winnerOf(o2) },
-    { id: s1, round: "semifinal", order: 0, label: "1ºA x Vencedor Quartas 1", slotA: direct(teamOf("A", 1)), slotB: winnerOf(q1) },
-    { id: s2, round: "semifinal", order: 1, label: "1ºB x Vencedor Quartas 2", slotA: direct(teamOf("B", 1)), slotB: winnerOf(q2) },
-    { id: f1, round: "final", order: 0, label: "Final", slotA: winnerOf(s1), slotB: winnerOf(s2) },
-  ];
+  let rows: BracketMatch[];
+  try {
+    rows = buildKnockoutBracket((group, position) => standings[group].find((row) => row.position === position)?.teamId, () => store.newId());
+  } catch (error) {
+    throw new BracketError(error instanceof Error ? error.message : "Classificação incompleta.");
+  }
 
   await store.createBracketMatches(championshipId, rows);
   await store.setCurrentPhase(championshipId, "Mata-mata");
@@ -85,19 +54,31 @@ async function loadMatches(championshipId: string) {
   return [...(await store.listMatches(championshipId, { stage: "grupos" })), ...(await store.listMatches(championshipId, { stage: "mata-mata" }))];
 }
 
-const ROUND_LABEL: Record<BracketMatch["round"], string> = {
-  oitavas: "Mata-mata — Oitavas",
-  quartas: "Mata-mata — Quartas",
-  semifinal: "Semifinal",
-  final: "Final",
-};
-
 export async function resolveBracketProgression(championshipId: string): Promise<void> {
   const bracketMatches = await store.listBracketMatches(championshipId);
   const matches = await loadMatches(championshipId);
 
+  // Quartas: só são montadas com as DUAS repescagens encerradas, porque o cruzamento depende
+  // de quem venceu — cada 2º colocado pega, se possível, um vencedor do outro grupo.
+  const quartersCreated = bracketMatches.some((item) => item.round === "quartas" && item.matchId);
+  let quartersReady = quartersCreated;
+  if (!quartersCreated) {
+    const teams = await store.listTeams(championshipId);
+    const settlement = settleQuarterfinals(bracketMatches, matches, (teamId) => teams.find((team) => team.id === teamId)?.groupId);
+    if (settlement) {
+      for (const { bracketMatchId, slotB } of settlement.slots) {
+        const item = bracketMatches.find((candidate) => candidate.id === bracketMatchId)!;
+        const changed = item.slotB.type !== "winner" || slotB.type !== "winner" || item.slotB.bracketMatchId !== slotB.bracketMatchId;
+        if (changed && slotB.type === "winner") await store.setBracketSlotBSource(bracketMatchId, slotB.bracketMatchId);
+        item.slotB = slotB;
+      }
+      quartersReady = true;
+    }
+  }
+
   for (const bracketMatch of bracketMatches) {
     if (bracketMatch.matchId) continue;
+    if (bracketMatch.round === "quartas" && !quartersReady) continue;
 
     const teamAId = resolveSlot(bracketMatch.slotA, bracketMatches, matches);
     const teamBId = resolveSlot(bracketMatch.slotB, bracketMatches, matches);
@@ -106,7 +87,7 @@ export async function resolveBracketProgression(championshipId: string): Promise
     const match = await store.createMatch({
       championshipId,
       stage: "mata-mata",
-      round: ROUND_LABEL[bracketMatch.round],
+      round: BRACKET_ROUND_LABEL[bracketMatch.round],
       order: bracketMatch.order,
       teamAId,
       teamBId,

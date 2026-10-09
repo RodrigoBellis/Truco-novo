@@ -14,6 +14,7 @@ const PLAYER_CHUNKS: ChunkLoader[] = [
   () => import("../pages/player/MyTeamPage"),
   () => import("../pages/player/GroupsPage"),
   () => import("../pages/player/PlayerMatchesPage"),
+  () => import("../pages/player/KnockoutPage"),
   () => import("../pages/player/ProfilePage"),
 ];
 

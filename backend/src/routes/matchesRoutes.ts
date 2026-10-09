@@ -3,7 +3,8 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { store } from "../data/store.js";
 import { recordResult } from "../services/matchService.js";
 import { requireAuth, requireRole } from "../middleware/requireAuth.js";
-import { canRecordEditionResult } from "../services/matchAuthorization.js";
+import { RESULTS_LOCKED_MESSAGE } from "@truco/shared";
+import { canRecordEditionResult, resultsLockBlocks } from "../services/matchAuthorization.js";
 
 export const matchesRoutes = Router();
 
@@ -14,6 +15,16 @@ matchesRoutes.get(
   asyncHandler(async (_req, res) => {
     const championship = await store.getCurrentChampionship();
     res.json(await store.listMatchResultAudit(championship.truco_id));
+  }),
+);
+
+// Estado do cadeado de resultados: qualquer usuário autenticado pode consultar.
+matchesRoutes.get(
+  "/lock",
+  requireAuth,
+  asyncHandler(async (_req, res) => {
+    const championship = await store.getCurrentChampionship();
+    res.json({ locked: store.isResultsLocked(championship) });
   }),
 );
 
@@ -45,6 +56,13 @@ matchesRoutes.post(
     const { setsA, setsB } = req.body ?? {};
     const matchId = String(req.params.id);
     const championship = await store.getCurrentChampionship();
+
+    // Cadeado global: esconder o botão na tela não basta, a recusa é aqui. Vale para criar e
+    // para editar, e vem antes de qualquer outra checagem.
+    if (resultsLockBlocks(req.authUser!.role, store.isResultsLocked(championship))) {
+      res.status(403).json({ message: RESULTS_LOCKED_MESSAGE, code: "results_locked" });
+      return;
+    }
 
     const match = await store.getMatch(matchId);
     if (!match) {

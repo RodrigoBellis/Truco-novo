@@ -9,7 +9,6 @@ import { useRealtimeMatches } from "../../hooks/useRealtimeMatches";
 import { getTeams } from "../../services/teamsService";
 import { getStandings } from "../../services/groupsService";
 import "./StandingsPage.css";
-import { TEAMS_PER_GROUP } from "@truco/shared";
 
 interface Data {
   teams: Team[];
@@ -44,7 +43,7 @@ export function StandingsPage() {
 
   return (
     <div className="page-enter">
-      <PageHeader title="Classificação" subtitle={`1º vai direto à semifinal · 2º ao ${TEAMS_PER_GROUP - 1}º disputam a repescagem · ${TEAMS_PER_GROUP}º é eliminado`} />
+      <PageHeader title="Classificação" subtitle="1º direto na semifinal · 2º direto nas quartas · 3º e 4º na repescagem · 5º eliminado" />
 
       <div className="standings-page-groups">
         <section>

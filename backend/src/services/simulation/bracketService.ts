@@ -1,52 +1,32 @@
-import type { BracketMatch, BracketSlotSource, Match } from "@truco/shared";
+import { BRACKET_ROUND_LABEL, buildKnockoutBracket, settleQuarterfinals, type BracketSlotSource, type GroupId, type Match, type QuarterfinalPairing } from "@truco/shared";
 import { store } from "../../data/simulationStore.js";
 import { nextId } from "../../utils/id.js";
 import { computeStandings, isGroupComplete } from "./standingsService.js";
 
 export class BracketError extends Error {}
 
-function direct(teamId: string): BracketSlotSource {
-  return { type: "direct", teamId };
-}
-
-function winnerOf(bracketMatchId: string): BracketSlotSource {
-  return { type: "winner", bracketMatchId };
-}
-
-function positionLabel(position: number): string {
-  return `${position}º`;
-}
-
+/** Gera o mata-mata do simulador pelo mesmo plano oficial do campeonato real (KNOCKOUT_PLAN). */
 export function generateBracket(): void {
   if (!isGroupComplete("A") || !isGroupComplete("B")) {
     throw new BracketError("A fase de grupos precisa estar concluída em ambos os grupos.");
   }
 
-  const standingsA = computeStandings("A");
-  const standingsB = computeStandings("B");
-  const byPosition = (rows: typeof standingsA, position: number) => {
-    const row = rows.find((r) => r.position === position);
-    if (!row) throw new BracketError(`Posição ${position} não encontrada.`);
-    return row.teamId;
-  };
+  const standings = { A: computeStandings("A"), B: computeStandings("B") };
+  const pending = (["A", "B"] as const).filter((groupId) => standings[groupId].some((row) => row.tiePending));
+  if (pending.length > 0) {
+    throw new BracketError(`Há empate sem critério de desempate no Grupo ${pending.join(" e no Grupo ")}.`);
+  }
 
-  const teamOf = (group: "A" | "B", position: number) => byPosition(group === "A" ? standingsA : standingsB, position);
-
-  const o1: BracketMatch = { id: nextId("bracket"), round: "oitavas", order: 0, label: "2ºA x 5ºB", slotA: direct(teamOf("A", 2)), slotB: direct(teamOf("B", 5)), matchId: null };
-  const o2: BracketMatch = { id: nextId("bracket"), round: "oitavas", order: 1, label: "3ºA x 4ºB", slotA: direct(teamOf("A", 3)), slotB: direct(teamOf("B", 4)), matchId: null };
-  const o3: BracketMatch = { id: nextId("bracket"), round: "oitavas", order: 2, label: "4ºA x 3ºB", slotA: direct(teamOf("A", 4)), slotB: direct(teamOf("B", 3)), matchId: null };
-  const o4: BracketMatch = { id: nextId("bracket"), round: "oitavas", order: 3, label: "5ºA x 2ºB", slotA: direct(teamOf("A", 5)), slotB: direct(teamOf("B", 2)), matchId: null };
-
-  const q1: BracketMatch = { id: nextId("bracket"), round: "quartas", order: 0, label: "Vencedor 2ºAx5ºB x Vencedor 3ºAx4ºB", slotA: winnerOf(o1.id), slotB: winnerOf(o2.id), matchId: null };
-  const q2: BracketMatch = { id: nextId("bracket"), round: "quartas", order: 1, label: "Vencedor 4ºAx3ºB x Vencedor 5ºAx2ºB", slotA: winnerOf(o3.id), slotB: winnerOf(o4.id), matchId: null };
-
-  const s1: BracketMatch = { id: nextId("bracket"), round: "semifinal", order: 0, label: `${positionLabel(1)}A x Vencedor Quartas 2`, slotA: direct(teamOf("A", 1)), slotB: winnerOf(q2.id), matchId: null };
-  const s2: BracketMatch = { id: nextId("bracket"), round: "semifinal", order: 1, label: `${positionLabel(1)}B x Vencedor Quartas 1`, slotA: direct(teamOf("B", 1)), slotB: winnerOf(q1.id), matchId: null };
-
-  const f1: BracketMatch = { id: nextId("bracket"), round: "final", order: 0, label: "Final", slotA: winnerOf(s1.id), slotB: winnerOf(s2.id), matchId: null };
-
-  store.bracketMatches = [o1, o2, o3, o4, q1, q2, s1, s2, f1];
+  try {
+    store.bracketMatches = buildKnockoutBracket(
+      (group: GroupId, position: number) => standings[group].find((row) => row.position === position)?.teamId,
+      () => nextId("bracket"),
+    );
+  } catch (error) {
+    throw new BracketError(error instanceof Error ? error.message : "Classificação incompleta.");
+  }
   store.currentPhase = "Mata-mata";
+  quarterfinalPairing = null;
   resolveBracketProgression();
 }
 
@@ -63,26 +43,37 @@ function resolveSlot(slot: BracketSlotSource): string | null {
   return match.result.setsA > match.result.setsB ? match.teamAId : match.teamBId;
 }
 
+/** Cruzamento escolhido para as quartas na simulação em curso (null até as repescagens terminarem). */
+export let quarterfinalPairing: QuarterfinalPairing | null = null;
+
 export function resolveBracketProgression(): void {
+  // Mesma regra do campeonato real: quartas só com as duas repescagens encerradas.
+  const quartersCreated = store.bracketMatches.some((item) => item.round === "quartas" && item.matchId);
+  let quartersReady = quartersCreated;
+  if (!quartersCreated) {
+    const settlement = settleQuarterfinals(store.bracketMatches, store.matches, (teamId) => store.getTeam(teamId)?.groupId);
+    if (settlement) {
+      settlement.slots.forEach(({ bracketMatchId, slotB }) => {
+        store.bracketMatches.find((item) => item.id === bracketMatchId)!.slotB = slotB;
+      });
+      quarterfinalPairing = settlement.pairing;
+      quartersReady = true;
+    }
+  }
+
   store.bracketMatches.forEach((bracketMatch) => {
     if (bracketMatch.matchId) return;
+    if (bracketMatch.round === "quartas" && !quartersReady) return;
 
     const teamAId = resolveSlot(bracketMatch.slotA);
     const teamBId = resolveSlot(bracketMatch.slotB);
     if (!teamAId || !teamBId) return;
 
-    const roundLabel: Record<BracketMatch["round"], string> = {
-      oitavas: "Mata-mata — Oitavas",
-      quartas: "Mata-mata — Quartas",
-      semifinal: "Semifinal",
-      final: "Final",
-    };
-
     const match: Match = {
       id: nextId("match"),
       championshipId: "simulation",
       stage: "mata-mata",
-      round: roundLabel[bracketMatch.round],
+      round: BRACKET_ROUND_LABEL[bracketMatch.round],
       order: bracketMatch.order,
       groupId: null,
       teamAId,

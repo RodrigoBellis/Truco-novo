@@ -56,3 +56,40 @@ test("logins de jogadores isolam suas sessões e preservam a conexão administra
   assert.ok(serviceHeaders.every((header) => header === "Bearer test-service-role-key"));
   assert.equal((await supabaseAdmin.auth.getSession()).data.session, null);
 });
+
+test("troca de senha só mexe na conta do token, exige 6 caracteres e encerra o primeiro acesso", async (t) => {
+  process.env.SUPABASE_URL = "https://auth-test.example.invalid";
+  process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
+  const calls: Array<{ method: string; path: string; search: string; body: unknown }> = [];
+
+  t.mock.method(globalThis, "fetch", async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    const request = new Request(input, init);
+    const url = new URL(request.url);
+    const text = await request.text();
+    calls.push({ method: request.method, path: url.pathname, search: url.search, body: text ? JSON.parse(text) : null });
+    let payload: unknown = null;
+    if (url.pathname.includes("/auth/v1/admin/users/")) payload = { id: "7b1d6c0e-52a4-4f0b-9a57-0c1f4e2d9a31", email: "rafael@example.invalid" };
+    else if (url.pathname.endsWith("/truco_profiles") && request.method === "GET") payload = { truco_id: "7b1d6c0e-52a4-4f0b-9a57-0c1f4e2d9a31", truco_player_id: "player-rafael", email: "rafael@example.invalid", role: "jogador", must_change_password: false };
+    else if (url.pathname.endsWith("/truco_players")) payload = { name: "Rafael", avatar_url: null };
+    return new Response(JSON.stringify(payload), { status: 200, headers: { "Content-Type": "application/json" } });
+  });
+
+  const { changePassword, passwordProblem, AuthError } = await import("./authService.js");
+
+  assert.match(passwordProblem("12345") ?? "", /pelo menos 6/);
+  assert.match(passwordProblem(" abcdef") ?? "", /espaço/);
+  assert.equal(passwordProblem("abcdef"), null);
+
+  // Senha curta é recusada antes de qualquer chamada ao Supabase.
+  await assert.rejects(() => changePassword("7b1d6c0e-52a4-4f0b-9a57-0c1f4e2d9a31", "12345"), AuthError);
+  assert.equal(calls.length, 0);
+
+  const user = await changePassword("7b1d6c0e-52a4-4f0b-9a57-0c1f4e2d9a31", "nova-senha-1");
+  assert.equal(user.mustChangePassword, false);
+  const passwordUpdates = calls.filter((call) => call.path.includes("/auth/v1/admin/users/"));
+  assert.deepEqual(passwordUpdates.map((call) => [call.method, call.path.split("/").pop(), call.body]), [["PUT", "7b1d6c0e-52a4-4f0b-9a57-0c1f4e2d9a31", { password: "nova-senha-1" }]]);
+  const profileUpdates = calls.filter((call) => call.path.endsWith("/truco_profiles") && call.method === "PATCH");
+  assert.deepEqual(profileUpdates.map((call) => [call.search, call.body]), [["?truco_id=eq.7b1d6c0e-52a4-4f0b-9a57-0c1f4e2d9a31", { must_change_password: false }]]);
+  // Nenhuma busca de usuário por e-mail: a conta vem do token, não de um dado enviado pelo cliente.
+  assert.equal(calls.some((call) => call.path.endsWith("/auth/v1/admin/users")), false);
+});

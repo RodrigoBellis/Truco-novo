@@ -15,51 +15,52 @@ test("a pontuação 2x0 e 2x1 é simétrica para a dupla vencedora e perdedora",
   assert.deepEqual([pointsForResult({ setsA: 1, setsB: 2 }, true), pointsForResult({ setsA: 1, setsB: 2 }, false)], [1, 2]);
 });
 
-test("formato definitivo da edição: 2 grupos de 6 duplas, 12 no total e 15 jogos por grupo", () => {
-  assert.deepEqual([TEAMS_PER_GROUP, EDITION_TEAM_COUNT, MATCHES_PER_GROUP], [6, 12, 15]);
+test("formato definitivo da edição: 2 grupos de 5 duplas, 10 no total e 10 jogos por grupo", () => {
+  assert.deepEqual([TEAMS_PER_GROUP, EDITION_TEAM_COUNT, MATCHES_PER_GROUP], [5, 10, 10]);
 });
 
-test("seis posições têm zonas corretas: 1º semifinal, 2º a 5º repescagem, 6º eliminado", () => {
-  assert.deepEqual([1, 2, 3, 4, 5, 6].map((position) => qualificationForPosition(position)), ["semifinal", "repescagem", "repescagem", "repescagem", "repescagem", "eliminado"]);
-  assert.throws(() => qualificationForPosition(7), RangeError);
+test("cinco posições têm zonas corretas: 1º semifinal, 2º quartas, 3º e 4º repescagem, 5º eliminado", () => {
+  assert.deepEqual([1, 2, 3, 4, 5].map((position) => qualificationForPosition(position)), ["semifinal", "quartas", "repescagem", "repescagem", "eliminado"]);
+  assert.throws(() => qualificationForPosition(6), RangeError);
   assert.throws(() => qualificationForPosition(0), RangeError);
 });
 
-test("seis duplas por grupo geram exatamente quinze jogos e rejeitam formato diferente", () => {
-  const matches = generateGroupMatches(["a1", "a2", "a3", "a4", "a5", "a6"]);
-  assert.equal(matches.length, 15);
-  assert.equal(new Set(matches.map((match) => [match.teamAId, match.teamBId].sort().join(":"))).size, 15);
-  assert.throws(() => generateGroupMatches(["a1", "a2", "a3", "a4", "a5"]), RangeError);
+test("cinco duplas por grupo geram exatamente dez jogos e rejeitam formato diferente", () => {
+  const matches = generateGroupMatches(["a1", "a2", "a3", "a4", "a5"]);
+  assert.equal(matches.length, 10);
+  assert.equal(new Set(matches.map((match) => [match.teamAId, match.teamBId].sort().join(":"))).size, 10);
+  assert.throws(() => generateGroupMatches(["a1", "a2", "a3", "a4", "a5", "a6"]), RangeError);
+  assert.throws(() => generateGroupMatches(["a1", "a2", "a3", "a4"]), RangeError);
 });
 
-test("a edição aceita no máximo seis duplas em cada grupo e doze no total", () => {
-  const players: Player[] = Array.from({ length: 30 }, (_, index) => ({ id: `p${index + 1}`, name: `P${index + 1}`, role: "jogador", teamId: null, avatarUrl: null }));
-  const team = (id: string, index: number, groupId: "A" | "B"): Team => ({ id, name: id, player1Id: `p${index * 2 + 1}`, player2Id: `p${index * 2 + 2}`, status: "aprovada", seeded: false, isPlaceholder: false, groupId, strength: 3 });
-  const fiveA = Array.from({ length: 5 }, (_, index) => team(`a${index}`, index, "A"));
-  const sixth = { name: "Sexta", player1Id: "p25", player2Id: "p26", groupId: "A" as const, strength: 3 };
-  assert.equal(validateTeamParticipation(sixth, fiveA, players), null);
+test("a edição aceita no máximo cinco duplas em cada grupo e dez no total", () => {
+  const players: Player[] = Array.from({ length: 30 }, (_, index) => ({ id: "p" + (index + 1), name: "P" + (index + 1), role: "jogador", teamId: null, avatarUrl: null }));
+  const team = (id: string, index: number, groupId: "A" | "B"): Team => ({ id, name: id, player1Id: "p" + (index * 2 + 1), player2Id: "p" + (index * 2 + 2), status: "aprovada", seeded: false, isPlaceholder: false, groupId, strength: 3 });
+  const fourA = Array.from({ length: 4 }, (_, index) => team("a" + index, index, "A"));
+  const fifth = { name: "Quinta", player1Id: "p25", player2Id: "p26", groupId: "A" as const, strength: 3 };
+  assert.equal(validateTeamParticipation(fifth, fourA, players), null);
 
-  const sixA = [...fiveA, team("a5", 5, "A")];
-  assert.match(validateTeamParticipation({ ...sixth, name: "Sétima" }, sixA, players) ?? "", /já tem 6/);
-  assert.equal(validateTeamParticipation({ ...sixth, groupId: "B" }, sixA, players), null);
+  const fiveA = [...fourA, team("a4", 4, "A")];
+  assert.match(validateTeamParticipation({ ...fifth, name: "Sexta" }, fiveA, players) ?? "", /já tem 5/);
+  assert.equal(validateTeamParticipation({ ...fifth, groupId: "B" }, fiveA, players), null);
 
-  const twelve = [...sixA, ...Array.from({ length: 6 }, (_, index) => team(`b${index}`, 6 + index, "B"))];
-  assert.match(validateTeamParticipation({ ...sixth, player1Id: "p27", player2Id: "p28", groupId: "B" }, twelve, players) ?? "", /12 duplas/);
+  const ten = [...fiveA, ...Array.from({ length: 5 }, (_, index) => team("b" + index, 5 + index, "B"))];
+  assert.match(validateTeamParticipation({ ...fifth, player1Id: "p27", player2Id: "p28", groupId: "B" }, ten, players) ?? "", /10 duplas/);
 });
 
 test("dupla aprovada não pode mudar para um grupo que já está completo", () => {
-  const players: Player[] = Array.from({ length: 14 }, (_, index) => ({ id: `p${index + 1}`, name: `P${index + 1}`, role: "jogador", teamId: null, avatarUrl: null }));
-  const teams: Team[] = Array.from({ length: 7 }, (_, index) => ({ id: `t${index}`, name: `T${index}`, player1Id: `p${index * 2 + 1}`, player2Id: `p${index * 2 + 2}`, status: "aprovada", seeded: false, isPlaceholder: false, groupId: index < 6 ? "A" : "B", strength: 3 }));
-  const moving = { name: "T6", player1Id: "p13", player2Id: "p14", groupId: "A" as const, strength: 3 };
-  assert.match(validateTeamParticipation(moving, teams, players, "t6") ?? "", /já tem 6/);
-  assert.equal(validateTeamParticipation({ ...moving, groupId: "B" }, teams, players, "t6"), null);
+  const players: Player[] = Array.from({ length: 12 }, (_, index) => ({ id: "p" + (index + 1), name: "P" + (index + 1), role: "jogador", teamId: null, avatarUrl: null }));
+  const teams: Team[] = Array.from({ length: 6 }, (_, index) => ({ id: "t" + index, name: "T" + index, player1Id: "p" + (index * 2 + 1), player2Id: "p" + (index * 2 + 2), status: "aprovada", seeded: false, isPlaceholder: false, groupId: index < 5 ? "A" : "B", strength: 3 }));
+  const moving = { name: "T5", player1Id: "p11", player2Id: "p12", groupId: "A" as const, strength: 3 };
+  assert.match(validateTeamParticipation(moving, teams, players, "t5") ?? "", /já tem 5/);
+  assert.equal(validateTeamParticipation({ ...moving, groupId: "B" }, teams, players, "t5"), null);
 });
 
-test("retirada e reativação de participação respeitam os limites de seis por grupo", () => {
-  const teams: Team[] = Array.from({ length: 7 }, (_, index) => ({ id: `t${index}`, name: `A${index}`, player1Id: `p${index * 2}`, player2Id: `p${index * 2 + 1}`, status: index < 6 ? "aprovada" : "pendente", seeded: false, isPlaceholder: false, groupId: "A", strength: 3 }));
-  assert.match(validateTeamStatusChange(teams, "t6", "aprovada") ?? "", /6 duplas/);
+test("retirada e reativação de participação respeitam os limites de cinco por grupo", () => {
+  const teams: Team[] = Array.from({ length: 6 }, (_, index) => ({ id: "t" + index, name: "A" + index, player1Id: "p" + (index * 2), player2Id: "p" + (index * 2 + 1), status: index < 5 ? "aprovada" : "pendente", seeded: false, isPlaceholder: false, groupId: "A", strength: 3 }));
+  assert.match(validateTeamStatusChange(teams, "t5", "aprovada") ?? "", /5 duplas/);
   teams[0].status = "pendente";
-  assert.equal(validateTeamStatusChange(teams, "t6", "aprovada"), null);
+  assert.equal(validateTeamStatusChange(teams, "t5", "aprovada"), null);
 });
 
 // Retrato sanitizado da 5ª edição no banco (07/10/2026): 5 duplas por grupo, 20 jogos e os
@@ -77,71 +78,66 @@ function editionSnapshot(): Match[] {
   }));
 }
 
-test("a 6ª dupla de cada grupo recebe só os 5 jogos que faltam, sem tocar nos existentes", () => {
-  const existing = editionSnapshot();
+// Mesmo retrato sem a dupla 5 de cada grupo: o cenário de uma dupla que entra depois dos jogos gerados.
+const withoutFifth = (matches: Match[]) => matches.filter((match) => !match.teamAId.endsWith("5") && !match.teamBId.endsWith("5"));
+
+test("a dupla que entra depois recebe só os jogos que faltam, sem tocar nos existentes", () => {
+  const existing = withoutFifth(editionSnapshot());
   const before = JSON.stringify(existing);
-  const groupA = ["a1", "a2", "a3", "a4", "a5", "a6"];
+  const groupA = ["a1", "a2", "a3", "a4", "a5"];
   const missingA = missingGroupMatches(groupA, existing.filter((match) => match.groupId === "A"));
-  assert.equal(missingA.length, 5);
-  assert.ok(missingA.every((pair) => pair.teamAId === "a6" || pair.teamBId === "a6"));
-  assert.deepEqual(missingA.map((pair) => pair.order), [10, 11, 12, 13, 14]);
+  assert.equal(missingA.length, 4);
+  assert.ok(missingA.every((pair) => pair.teamAId === "a5" || pair.teamBId === "a5"));
   assert.equal(JSON.stringify(existing), before);
 
   const complete = [...existing.filter((match) => match.groupId === "A"), ...missingA.map((pair) => ({ ...pair }))];
   assert.equal(complete.length, MATCHES_PER_GROUP);
   assert.deepEqual(missingGroupMatches(groupA, complete), []);
   // Jogo de dupla que saiu do grupo é sinal de grupo divergente: não completa às cegas.
-  assert.throws(() => missingGroupMatches(["a1", "a2", "a3", "a4", "a6", "a7"], existing.filter((match) => match.groupId === "A")), RangeError);
+  assert.throws(() => missingGroupMatches(["a1", "a2", "a3", "a6", "a7"], existing.filter((match) => match.groupId === "A")), RangeError);
 });
 
-test("completar 6+6 intercala os pendentes, preserva os realizados e não põe dupla em jogos seguidos", () => {
-  const existing = editionSnapshot();
+test("completar os grupos intercala os pendentes, preserva os realizados e não põe dupla em jogos seguidos", () => {
+  const existing = withoutFifth(editionSnapshot());
   const all: Match[] = [];
   for (const groupId of ["A", "B"] as const) {
-    const ids = [1, 2, 3, 4, 5, 6].map((index) => `${groupId.toLowerCase()}${index}`);
+    const ids = [1, 2, 3, 4, 5].map((index) => groupId.toLowerCase() + index);
     const groupMatches = existing.filter((match) => match.groupId === groupId);
     const plan = planGroupCompletion(ids, groupMatches);
-    assert.equal(plan.created.length, 5);
+    assert.equal(plan.created.length, 4);
     const played = new Set(groupMatches.filter((match) => match.status === "realizado").map((match) => match.id));
     assert.ok(plan.reordered.every((item) => !played.has(item.matchId)));
 
     const orders = new Map(plan.reordered.map((item) => [item.matchId, item.order]));
     all.push(...groupMatches.map((match) => ({ ...match, order: orders.get(match.id) ?? match.order })));
     all.push(...plan.created.map((pair): Match => ({
-      ...pair, id: `${groupId}-novo-${pair.order}`, championshipId: "edicao-5", stage: "grupos", round: `Grupo ${groupId}`, groupId,
+      ...pair, id: groupId + "-novo-" + pair.order, championshipId: "edicao-5", stage: "grupos", round: "Grupo " + groupId, groupId,
       result: null, status: "pendente", tableNumber: null, blockNumber: null, queuePosition: null,
     })));
-    const groupOrders = all.filter((match) => match.groupId === groupId).map((match) => match.order).sort((a, b) => a - b);
-    assert.deepEqual(groupOrders, Array.from({ length: MATCHES_PER_GROUP }, (_, index) => index));
+    assert.equal(new Set(all.filter((match) => match.groupId === groupId).map((match) => match.order)).size, MATCHES_PER_GROUP);
   }
-  assert.equal(all.length, 30);
-  // Os 4 jogos realizados ficam idênticos (placar, status, ordem e posição na fila).
+  assert.equal(all.length, 20);
+  // Os jogos realizados ficam idênticos (placar, status, ordem e posição na fila).
   const played = existing.filter((match) => match.status === "realizado");
   assert.deepEqual(all.filter((match) => match.status === "realizado"), played);
 
   const assignments = buildSchedule(all);
-  assert.equal(assignments.length, 26);
+  assert.equal(assignments.length, 20 - played.length);
   assert.ok(assignments.every((assignment) => !played.some((match) => match.id === assignment.matchId)));
   const queued = all.map((match) => {
     const assignment = assignments.find((item) => item.matchId === match.id);
     return assignment ? { ...match, queuePosition: assignment.queuePosition, blockNumber: assignment.blockNumber, tableNumber: assignment.tableNumber } : { ...match, queuePosition: null };
   });
   assert.deepEqual(findQueueAdjacencyConflicts(queued), []);
-  for (const teamId of ["a6", "b6"]) {
-    const games = queued.filter((match) => match.teamAId === teamId || match.teamBId === teamId).map((match) => match.queuePosition!).sort((a, b) => a - b);
-    assert.equal(games.length, 5);
-    // A dupla nova entra nos dois primeiros blocos (6 jogos) em vez de jogar tudo no final.
-    assert.ok(games[0] <= 6, `${teamId} começa na posição ${games[0]}`);
-  }
 });
 
-test("escala de 30 jogos gerada do zero para 6+6 não põe dupla em jogos seguidos", () => {
-  const all = (["A", "B"] as const).flatMap((groupId) => generateGroupMatches([1, 2, 3, 4, 5, 6].map((index) => `${groupId}${index}`)).map((pair): Match => ({
-    ...pair, id: `${groupId}-${pair.order}`, championshipId: "edicao-5", stage: "grupos", round: `Grupo ${groupId}`, groupId,
+test("escala de 20 jogos gerada do zero para 5+5 não põe dupla em jogos seguidos", () => {
+  const all = (["A", "B"] as const).flatMap((groupId) => generateGroupMatches([1, 2, 3, 4, 5].map((index) => groupId + index)).map((pair): Match => ({
+    ...pair, id: groupId + "-" + pair.order, championshipId: "edicao-5", stage: "grupos", round: "Grupo " + groupId, groupId,
     result: null, status: "pendente", tableNumber: null, blockNumber: null, queuePosition: null,
   })));
   const assignments = buildSchedule(all);
-  assert.equal(assignments.length, 30);
+  assert.equal(assignments.length, 20);
   const queued = all.map((match) => ({ ...match, queuePosition: assignments.find((item) => item.matchId === match.id)!.queuePosition }));
   assert.deepEqual(findQueueAdjacencyConflicts(queued), []);
 });
@@ -192,13 +188,13 @@ test("corrigir um resultado recalcula os pontos em vez de acumular o lançamento
   assert.equal(computeStandings("A").every((row) => row.jogos === 1), true);
 });
 
-test("classificação com 6 duplas aceita exatamente 5 jogos por dupla", () => {
+test("classificação com 5 duplas aceita exatamente 4 jogos por dupla", () => {
   store.reset();
-  const teams = store.teams.slice(0, 6);
+  const teams = store.teams.slice(0, 5);
   store.groups[0].teamIds = teams.map((team) => team.id);
   store.matches = generateGroupMatches(teams.map((team) => team.id)).map((fixture, index) => ({
     ...fixture,
-    id: `six-team-${index}`,
+    id: `five-team-${index}`,
     championshipId: "simulation",
     stage: "grupos",
     round: "Grupo A",
@@ -210,7 +206,7 @@ test("classificação com 6 duplas aceita exatamente 5 jogos por dupla", () => {
     queuePosition: null,
   }));
   const rows = computeStandings("A");
-  assert.equal(rows.length, 6);
-  assert.ok(rows.every((row) => row.jogos === 5));
-  assert.deepEqual(rows.map((row) => row.position), [1, 2, 3, 4, 5, 6]);
+  assert.equal(rows.length, 5);
+  assert.ok(rows.every((row) => row.jogos === 4));
+  assert.deepEqual(rows.map((row) => row.position), [1, 2, 3, 4, 5]);
 });

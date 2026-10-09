@@ -40,12 +40,19 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("truco_profiles")
-    .select("truco_id, truco_player_id, role")
+    .select("truco_id, truco_player_id, role, must_change_password")
     .eq("truco_id", data.user.id)
     .maybeSingle();
 
   if (profileError || !profile) {
     res.status(403).json({ message: "Perfil não encontrado para este usuário." });
+    return;
+  }
+
+  // Primeiro acesso: com a senha temporária a conta só pode fazer uma coisa — trocar a senha.
+  // A tela já impede o resto; esta trava vale para quem chamar a API direto.
+  if (profile.must_change_password && !req.originalUrl.split("?")[0].endsWith("/auth/change-password")) {
+    res.status(403).json({ message: "Crie sua senha antes de continuar.", code: "password_change_required" });
     return;
   }
 

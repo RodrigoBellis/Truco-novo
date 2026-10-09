@@ -22,6 +22,10 @@ const STEP_DEG = 24;
 const RADIUS_FACTOR = 2.35;
 /** Pixels de arrasto por carta, relativos à largura da carta (bate com a distância visual). */
 const DRAG_FACTOR = 0.95;
+/** Mesma distância de `perspective` em .deck-viewport (PlayerCardDeck.css). */
+const PERSPECTIVE_PX = 1300;
+/** Quanto a carta escolhida cresce ao vir para a frente, em relação às do arco. */
+const CHOSEN_SCALE = 1.28;
 
 interface MotionState {
   position: number;
@@ -114,6 +118,10 @@ export function PlayerCardDeck({ players, initialPlayerId, onConfirm }: PlayerCa
     const visible = currentMode === "full" ? 4 : 2;
     const radius = width * RADIUS_FACTOR;
     const centered = Math.round(m.position);
+    // Carta escolhida: ela fica à frente e as outras na mesa, mesmo que o laço rode de novo
+    // (mouse saindo da carta, tela redimensionada).
+    const focused = phaseRef.current === "focus";
+    const chosen = activeRef.current;
 
     for (let index = 0; index < countRef.current; index += 1) {
       const slot = slotRefs.current[index];
@@ -126,6 +134,20 @@ export function PlayerCardDeck({ players, initialPlayerId, onConfirm }: PlayerCa
         continue;
       }
       slot.style.visibility = "visible";
+
+      if (focused && index === chosen) {
+        // Avança no eixo Z até ficar CHOSEN_SCALE vezes maior na perspectiva da cena.
+        const forward = PERSPECTIVE_PX * (1 - 1 / CHOSEN_SCALE);
+        slot.style.transform = currentMode === "reduced"
+          ? `translate3d(0, 0, 0) scale(${CHOSEN_SCALE})`
+          : `translate3d(0, -3%, ${forward.toFixed(1)}px) rotateY(0deg)`;
+        card.style.transform = "";
+        slot.style.zIndex = "200";
+        slot.style.opacity = "1";
+        slot.style.setProperty("--shade", "0");
+        slot.style.setProperty("--glare", "0.5");
+        continue;
+      }
 
       if (currentMode === "reduced") {
         slot.style.transform = `translate3d(${(offset * width * 1.08).toFixed(1)}px, 0, 0) scale(${(1 - Math.min(distance, 1) * 0.12).toFixed(3)})`;
@@ -141,6 +163,12 @@ export function PlayerCardDeck({ players, initialPlayerId, onConfirm }: PlayerCa
       }
 
       slot.style.zIndex = String(100 - Math.round(distance * 10));
+      if (focused) {
+        slot.style.transform += " translateY(26%)";
+        card.style.transform = "";
+        slot.style.opacity = "0";
+        continue;
+      }
       slot.style.opacity = clamp(visible + 0.6 - distance, 0, 1).toFixed(3);
       slot.style.setProperty("--shade", Math.min(distance * 0.24, 0.72).toFixed(3));
       slot.style.setProperty("--glare", clamp(0.5 - offset * 0.32 + m.tiltY * 0.025, -0.4, 1.4).toFixed(3));
@@ -300,28 +328,11 @@ export function PlayerCardDeck({ players, initialPlayerId, onConfirm }: PlayerCa
   // Carta escolhida: vem para a frente girando; as outras descem para a mesa.
   useEffect(() => {
     if (phase !== "focus") return;
-    const m = motion.current;
-    const chosen = activeRef.current;
-    slotRefs.current.forEach((slot, index) => {
-      const card = cardRefs.current[index];
-      if (!slot) return;
-      if (card) card.style.transform = "";
-      if (index === chosen) {
-        slot.style.transform = modeRef.current === "reduced"
-          ? "translate3d(0, 0, 0) scale(1.06)"
-          : `translate3d(0, -3%, ${(m.cardWidth * 0.55).toFixed(1)}px) rotateY(0deg)`;
-        slot.style.opacity = "1";
-        slot.style.setProperty("--shade", "0");
-        slot.style.setProperty("--glare", "0.5");
-      } else if (slot.style.visibility !== "hidden") {
-        slot.style.transform += " translateY(26%)";
-        slot.style.opacity = "0";
-      }
-    });
+    layout();
     lightRef.current?.setIntensity(1.5);
     const timer = window.setTimeout(() => confirmRef.current?.focus({ preventScroll: true }), modeRef.current === "reduced" ? 0 : 650);
     return () => window.clearTimeout(timer);
-  }, [phase]);
+  }, [phase, layout]);
 
   function choose(index: number) {
     const m = motion.current;

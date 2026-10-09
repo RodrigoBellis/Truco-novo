@@ -1,4 +1,4 @@
-import type { Player, Team, Group, Match, BracketMatch, RankingEntry, HistoryEntry, GroupId, DrawStatus } from "@truco/shared";
+import type { Player, Team, Group, Match, BracketMatch, RankingEntry, HistoryEntry, GroupId, DrawStatus, StandingOverride } from "@truco/shared";
 import { SEED_PLAYERS, SEED_TEAMS, SEED_RANKING, SEED_HISTORY } from "./seed.js";
 import { DEFAULT_PASSWORD, type Credential } from "./credentials.js";
 
@@ -23,6 +23,8 @@ class TrucoStore {
   ];
   matches: Match[] = [];
   bracketMatches: BracketMatch[] = [];
+  /** Decisões de empate exato tomadas na simulação (o papel do administrador). */
+  standingOverrides: Record<GroupId, StandingOverride[]> = { A: [], B: [] };
   ranking: RankingEntry[] = clone(SEED_RANKING);
   history: HistoryEntry[] = clone(SEED_HISTORY);
   drawStatus: DrawStatus = "pendente";
@@ -38,6 +40,7 @@ class TrucoStore {
     ];
     this.matches = [];
     this.bracketMatches = [];
+    this.standingOverrides = { A: [], B: [] };
     this.ranking = clone(SEED_RANKING);
     this.history = clone(SEED_HISTORY);
     this.drawStatus = "pendente";

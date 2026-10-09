@@ -10,3 +10,11 @@ export function canRecordEditionResult(role: UserRole | null, actorPlayerId: str
   if (role === "admin" || role === "superadmin") return true;
   return role === "jogador" && actorPlayerId !== null && matchPlayerIds.includes(actorPlayerId);
 }
+
+/**
+ * Cadeado global de resultados: com ele fechado só administradores gravam placar. Jogador não
+ * cria nem corrige resultado, mesmo sendo integrante da partida.
+ */
+export function resultsLockBlocks(role: UserRole | null, locked: boolean): boolean {
+  return locked && role !== "admin" && role !== "superadmin";
+}

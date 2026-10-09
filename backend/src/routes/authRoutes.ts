@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { login, changePassword } from "../services/authService.js";
+import { requireAuth } from "../middleware/requireAuth.js";
 
 export const authRoutes = Router();
 
@@ -16,11 +17,14 @@ authRoutes.post(
   }),
 );
 
+// Só troca a senha de quem está autenticado, e só a própria: a conta vem do token validado
+// por requireAuth, nunca de um e-mail enviado no corpo da requisição.
 authRoutes.post(
   "/change-password",
+  requireAuth,
   asyncHandler(async (req, res) => {
-    const { email, newPassword } = req.body ?? {};
-    const user = await changePassword(String(email ?? ""), String(newPassword ?? ""));
+    const { newPassword } = req.body ?? {};
+    const user = await changePassword(req.authUser!.id, String(newPassword ?? ""));
     res.json({ user });
   }),
 );

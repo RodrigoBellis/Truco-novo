@@ -1,0 +1,228 @@
+/* Faixa "Rumo ao campeonato" (EditionCountdown.tsx): uma composição só, secundária ao card da
+   dupla. Data + situação, contagem (ou o estado, depois do horário) e frase + cadeado.
+   Os números só trocam de texto: nenhuma animação nem transição. */
+.home-road {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "head" "main" "foot";
+  gap: 16px;
+  padding: 18px clamp(16px, 5.5cqi, 26px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--elev-1-bg);
+  box-shadow: var(--shadow-sm), var(--edge-light);
+}
+
+.home-road-head {
+  grid-area: head;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 14px;
+  min-width: 0;
+}
+
+.home-road h2 {
+  flex: 1 0 100%;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.home-road-date {
+  font-size: 1.3rem;
+  font-weight: 850;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Situação ---------- */
+.home-road-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 0.8rem;
+  font-weight: 750;
+  line-height: 1.3;
+  color: var(--road-status-color, var(--color-text-muted));
+}
+
+.home-road-status i {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.home-road-status-aguardando-inicio { --road-status-color: var(--color-tech-400); }
+.home-road-status-aguardando-liberacao,
+.home-road-status-em-andamento { --road-status-color: var(--color-accent-500); }
+.home-road-status-encerrado { --road-status-color: var(--color-text); }
+
+/* Depois do horário a situação ocupa o lugar da contagem. */
+.home-road-state {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.home-road-state .home-road-status {
+  align-items: flex-start;
+  font-size: 1.15rem;
+  font-weight: 850;
+  letter-spacing: -0.01em;
+}
+
+.home-road-state .home-road-status i { margin-top: 0.45em; }
+
+.home-road-champion {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.home-road-champion svg { flex: 0 0 auto; color: var(--color-brand-orange); }
+
+/* ---------- Contagem ---------- */
+.home-road-clock {
+  grid-area: main;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 12px 0;
+  border-block: 1px solid var(--color-border);
+}
+
+.home-road-clock > span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.home-road-clock > span + span { border-left: 1px solid var(--color-border); }
+
+.home-road-clock b {
+  font-size: clamp(1.5rem, 8cqi, 2rem);
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.home-road-clock small {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* ---------- Frase e cadeado ---------- */
+.home-road-foot {
+  grid-area: foot;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.home-road-phrase {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+  text-wrap: pretty;
+}
+
+.home-road-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.78rem;
+  font-weight: 750;
+  color: var(--color-text-muted);
+}
+
+.home-road-lock svg { flex: 0 0 auto; }
+.home-road-lock.is-open { color: var(--color-tech-400); }
+
+/* Container médio: data e contagem na primeira linha, frase e cadeado na segunda. */
+@container (min-width: 620px) {
+  .home-road {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "head main" "foot foot";
+    align-items: center;
+    gap: 16px clamp(18px, 3cqi, 36px);
+    padding: 18px clamp(22px, 3cqi, 32px);
+  }
+
+  .home-road-head {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 5px;
+  }
+
+  .home-road h2 { flex: none; }
+
+  .home-road-clock {
+    grid-template-columns: repeat(4, minmax(64px, auto));
+    justify-content: start;
+    padding: 0 0 0 clamp(18px, 3cqi, 36px);
+    border-block: 0;
+    border-left: 1px solid var(--color-border);
+  }
+
+  .home-road-clock > span + span { border-left: 0; }
+  .home-road-clock b { font-size: clamp(1.7rem, 3.2cqi, 2.2rem); }
+
+  .home-road-state {
+    padding-left: clamp(18px, 3cqi, 36px);
+    border-left: 1px solid var(--color-border);
+  }
+
+  .home-road-foot {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 24px;
+    padding-top: 14px;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .home-road-lock { flex: 0 0 auto; }
+}
+
+/* Container largo: uma linha só — data | contagem ou situação | frase e cadeado. */
+@container (min-width: 900px) {
+  .home-road {
+    grid-template-columns: auto auto minmax(0, 1fr);
+    grid-template-areas: "head main foot";
+  }
+
+  .home-road-foot {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 0 0 clamp(18px, 3cqi, 36px);
+    border-top: 0;
+    border-left: 1px solid var(--color-border);
+  }
+}

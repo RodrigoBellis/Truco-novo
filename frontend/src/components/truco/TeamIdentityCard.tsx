@@ -18,8 +18,8 @@ interface TeamIdentityCardProps {
   showMembers?: boolean;
 }
 
-const ZONE_LABEL = { semifinal: "Zona de semifinal", repescagem: "Zona de repescagem", eliminado: "Zona de eliminação" } as const;
-const ZONE_TONE = { semifinal: "green", repescagem: "gold", eliminado: "danger" } as const;
+const ZONE_LABEL = { semifinal: "Zona de semifinal", quartas: "Zona de quartas de final", repescagem: "Zona de repescagem", eliminado: "Zona de eliminação" } as const;
+const ZONE_TONE = { semifinal: "green", quartas: "info", repescagem: "gold", eliminado: "danger" } as const;
 
 export function TeamIdentityCard({ team, players, teams, standing, playerId, showMembers = true }: TeamIdentityCardProps) {
   const members = [team.player1Id, team.player2Id].map(id => players.find(player => player.id === id)).filter((player): player is Player => Boolean(player));

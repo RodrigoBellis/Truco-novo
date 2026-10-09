@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { GroupId, Match, MatchResult, Player, StandingRow, Team } from "@truco/shared";
+import { RESULTS_LOCKED_MESSAGE, type GroupId, type Match, type MatchResult, type Player, type StandingRow, type Team } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Loading } from "../../components/ui/Loading";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -14,6 +14,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useFetchData } from "../../hooks/useFetchData";
 import { useRealtimeMatches } from "../../hooks/useRealtimeMatches";
 import { useToast } from "../../hooks/useToast";
+import { useResultsLock } from "../../hooks/useResultsLock";
 import { getTeams } from "../../services/teamsService";
 import { getMatches, recordMatchResult } from "../../services/matchesService";
 import { getPlayers } from "../../services/playersService";
@@ -23,6 +24,7 @@ import { teamHue } from "../../utils/teamColor";
 import { groupToneClass } from "../../utils/groupColor";
 import { ApiError } from "../../services/api";
 import "./PlayerMatchesPage.css";
+import "../../components/truco/ResultsLockControl.css";
 
 interface Data {
   teams: Team[];
@@ -51,6 +53,8 @@ export function PlayerMatchesPage() {
   }, [myTeamId]);
 
   useRealtimeMatches(refetch);
+  // Cadeado global: fechado, o jogador vê tudo mas não lança nem edita placar.
+  const resultsLock = useResultsLock();
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [groupFilter, setGroupFilter] = useState<GroupFilter>("mine");
@@ -74,6 +78,13 @@ export function PlayerMatchesPage() {
       refetch();
     } catch (err) {
       showToast("error", err instanceof ApiError ? err.message : "Não foi possível registrar o resultado.");
+      // Recusa da API (403): o administrador pode ter fechado o cadeado com esta tela aberta.
+      // A tela fecha o formulário e passa a mostrar o estado real.
+      if (err instanceof ApiError && err.status === 403) {
+        setExpandedId(null);
+        setPendingEdit(null);
+        resultsLock.refetch();
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -148,6 +159,10 @@ export function PlayerMatchesPage() {
         />
       )}
 
+      {resultsLock.locked && !resultsLock.isLoading && (
+        <p className="results-lock-notice" role="status"><Icon name="lock" size={20} />{RESULTS_LOCKED_MESSAGE}</p>
+      )}
+
       <div className="matches-filter-section">
         <div className="matches-group-filters" role="tablist" aria-label="Filtrar jogos por grupo">
           {([{ value: "mine", label: "Meus Jogos" }, { value: "A", label: "Grupo A" }, { value: "B", label: "Grupo B" }, { value: "all", label: "Todos" }] as const).map((filter) => <button key={filter.value} type="button" role="tab" aria-selected={groupFilter === filter.value} className={`matches-filter-chip${groupFilter === filter.value ? " matches-filter-chip-active" : ""}`} onClick={() => setGroupFilter(filter.value)}>{(filter.value === "A" || filter.value === "B") && <span className={`matches-filter-dot ${groupToneClass(filter.value)}`} aria-hidden="true" />}{filter.label}</button>)}
@@ -175,6 +190,8 @@ export function PlayerMatchesPage() {
             // Só a própria dupla lança/corrige o placar. Jogos realizados de outras duplas
             // podem aparecer na lista (classificação do grupo), mas sem ação disponível.
             if (!isMineMatch(match)) return null;
+            // Com o cadeado fechado não há ação: o aviso no topo da tela explica o motivo.
+            if (resultsLock.locked) return null;
 
             return (
               <div>

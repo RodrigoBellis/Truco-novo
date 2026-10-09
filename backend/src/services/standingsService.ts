@@ -1,26 +1,23 @@
-import type { GroupId, StandingRow } from "@truco/shared";
+import { computeGroupStandings, type GroupId, type StandingRow } from "@truco/shared";
 import { store } from "../data/store.js";
-import { supabaseAdmin } from "../data/supabaseClient.js";
 
-/** Delega o cálculo (pontos 3/2/1/0, saldo de sets, vitórias) para truco_rpc_standings —
- * a mesma regra já validada em SQL, com suporte a desempate manual (truco_standings_overrides). */
+/**
+ * Classificação de um grupo pela regra única de @truco/shared: pontos 3/2/1/0, vitórias,
+ * vitórias por 2x0, confronto direto e saldo de quedas. Empate que sobreviva aos cinco usa a
+ * decisão manual do administrador registrada em truco_standings_overrides; sem decisão, fica
+ * pendente.
+ *
+ * O cálculo não é delegado a truco_rpc_standings: aquela função do banco usa outra ordem de
+ * critérios (saldo antes das vitórias, sem 2x0 nem confronto direto).
+ */
 export async function computeStandings(championshipId: string, groupId: GroupId): Promise<StandingRow[]> {
-  const groupRowId = await store.getGroupRowId(championshipId, groupId);
-  const { data, error } = await supabaseAdmin.rpc("truco_rpc_standings", {
-    p_championship_id: championshipId,
-    p_group_id: groupRowId,
-  });
-  if (error) throw new Error(`Falha ao calcular a classificação: ${error.message}`);
-
-  return (data ?? []).map((row) => ({
-    position: row.team_position,
-    teamId: row.team_id,
-    jogos: row.jogos,
-    vitorias: row.vitorias,
-    derrotas: row.derrotas,
-    pontos: row.pontos,
-    saldoSets: row.saldo_sets,
-  }));
+  const [group, groupRowId, matches] = await Promise.all([
+    store.getGroup(championshipId, groupId),
+    store.getGroupRowId(championshipId, groupId),
+    store.listMatches(championshipId, { stage: "grupos", groupLabel: groupId }),
+  ]);
+  const overrides = await store.listStandingOverrides(championshipId, groupRowId);
+  return computeGroupStandings(group.teamIds, matches, overrides);
 }
 
 export async function isGroupComplete(championshipId: string, groupId: GroupId): Promise<boolean> {

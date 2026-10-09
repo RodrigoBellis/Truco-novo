@@ -70,35 +70,31 @@ export async function login(identifier: { email?: string; playerId?: string }, p
   };
 }
 
-async function findAuthUserByEmail(email: string) {
-  let page = 1;
-  const perPage = 200;
-  for (;;) {
-    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
-    if (error) throw new AuthError(error.message);
-    const found = data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
-    if (found) return found;
-    if (data.users.length < perPage) return null;
-    page += 1;
-  }
+/** Mínimo exigido pela política de senhas do Supabase Auth deste projeto. */
+export const MIN_PASSWORD_LENGTH = 6;
+
+export function passwordProblem(newPassword: string): string | null {
+  if (newPassword.length < MIN_PASSWORD_LENGTH) return "A senha deve ter pelo menos " + MIN_PASSWORD_LENGTH + " caracteres.";
+  if (newPassword !== newPassword.trim()) return "A senha não pode começar nem terminar com espaço.";
+  return null;
 }
 
-export async function changePassword(email: string, newPassword: string): Promise<AuthUser> {
-  if (newPassword.trim().length < 4) {
-    throw new AuthError("A senha deve ter pelo menos 4 caracteres.");
-  }
+/**
+ * Troca a senha da conta autenticada (authUserId vem do token já validado) e encerra a
+ * obrigação de troca do primeiro acesso.
+ */
+export async function changePassword(authUserId: string, newPassword: string): Promise<AuthUser> {
+  const problem = passwordProblem(newPassword);
+  if (problem) throw new AuthError(problem);
 
-  const authUser = await findAuthUserByEmail(email.trim().toLowerCase());
-  if (!authUser) throw new AuthError("Usuário não encontrado.");
-
-  const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(authUser.id, { password: newPassword.trim() });
-  if (updateError) throw new AuthError(updateError.message);
+  const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(authUserId, { password: newPassword });
+  if (updateError) throw new AuthError(updateError.code === "weak_password" ? "Senha fraca demais. Escolha outra com pelo menos " + MIN_PASSWORD_LENGTH + " caracteres." : "Não foi possível salvar a nova senha.");
 
   const { error: profileError } = await supabaseAdmin
     .from("truco_profiles")
     .update({ must_change_password: false })
-    .eq("truco_id", authUser.id);
-  if (profileError) throw new AuthError(profileError.message);
+    .eq("truco_id", authUserId);
+  if (profileError) throw new AuthError("A senha foi trocada, mas não foi possível atualizar o perfil. Avise o administrador.");
 
-  return toAuthUser(authUser.id);
+  return toAuthUser(authUserId);
 }

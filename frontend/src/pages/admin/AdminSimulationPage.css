@@ -224,3 +224,6 @@
   background: var(--color-warning-bg);
   color: var(--color-accent-300);
 }
+
+.simulation-group-stats { display: block; font-size: 0.72rem; font-weight: 400; }
+.simulation-group-note { margin-top: 10px; font-size: 0.8rem; line-height: 1.5; }

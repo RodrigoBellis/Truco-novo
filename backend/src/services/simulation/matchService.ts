@@ -24,6 +24,7 @@ export function recordResult(matchId: string, result: MatchResult): void {
       try {
         generateBracket();
       } catch (error) {
+        // Empate exato pendente: o chaveamento espera a decisão do administrador.
         if (!(error instanceof BracketError)) throw error;
       }
     }
