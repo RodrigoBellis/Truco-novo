@@ -1,3 +1,4 @@
+import { groupDisplayName } from "@truco/shared";
 import type { GroupId, StandingRow, Team } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Loading } from "../../components/ui/Loading";
@@ -42,7 +43,7 @@ export function MyGroupPage() {
 
   return (
     <div className="page-enter">
-      <PageHeader title="Meu Grupo" subtitle={`Grupo ${data.groupId} · 5ª Edição 2026`} />
+      <PageHeader title="Meu Grupo" subtitle={`${groupDisplayName(data.groupId)} · 5ª Edição 2026`} />
       <StandingsTable rows={data.standings} teams={data.teams} highlightTeamId={user?.teamId} />
     </div>
   );

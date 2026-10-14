@@ -18,10 +18,9 @@ groupsRoutes.post(
   asyncHandler(async (_req, res) => {
     const championship = await store.getCurrentChampionship();
     const teams = (await store.listTeams(championship.truco_id)).filter((team) => team.status === "aprovada");
-    const groupA = teams.filter((team) => team.groupId === "A");
-    const groupB = teams.filter((team) => team.groupId === "B");
-    if (teams.length !== EDITION_TEAM_COUNT || groupA.length !== TEAMS_PER_GROUP || groupB.length !== TEAMS_PER_GROUP) {
-      res.status(409).json({ message: `Defina exatamente ${EDITION_TEAM_COUNT} duplas aprovadas, com ${TEAMS_PER_GROUP} no Grupo A e ${TEAMS_PER_GROUP} no Grupo B.` });
+    const byGroup = Object.fromEntries(EDITION_GROUP_IDS.map((groupId) => [groupId, teams.filter((team) => team.groupId === groupId)])) as Record<GroupId, typeof teams>;
+    if (teams.length !== EDITION_TEAM_COUNT || EDITION_GROUP_IDS.some((groupId) => byGroup[groupId].length !== TEAMS_PER_GROUP)) {
+      res.status(409).json({ message: `Defina exatamente ${EDITION_TEAM_COUNT} duplas aprovadas no grupo único da edição.` });
       return;
     }
     const teamIds = new Set(teams.map((team) => team.id));
@@ -34,10 +33,9 @@ groupsRoutes.post(
       res.status(409).json({ message: "Já existem jogos nesta edição; a geração não pode duplicá-los." });
       return;
     }
-    await store.createAllGroupMatches(championship.truco_id, {
-      A: generateGroupMatches(groupA.map((team) => team.id)),
-      B: generateGroupMatches(groupB.map((team) => team.id)),
-    });
+    await store.createAllGroupMatches(championship.truco_id, Object.fromEntries(
+      EDITION_GROUP_IDS.map((groupId) => [groupId, generateGroupMatches(byGroup[groupId].map((team) => team.id))]),
+    ) as Record<GroupId, ReturnType<typeof generateGroupMatches>>);
     await store.setDrawStatus(championship.truco_id, "realizado");
     await store.setCurrentPhase(championship.truco_id, "Fase de Grupos");
     res.status(201).json({ matchesCreated: MATCHES_PER_GROUP * EDITION_GROUP_IDS.length });
@@ -63,7 +61,7 @@ groupsRoutes.post(
     }
     const groupTeams = Object.fromEntries(EDITION_GROUP_IDS.map((groupId) => [groupId, teams.filter((team) => team.groupId === groupId).map((team) => team.id)])) as Record<GroupId, string[]>;
     if (EDITION_GROUP_IDS.some((groupId) => groupTeams[groupId].length !== TEAMS_PER_GROUP)) {
-      res.status(409).json({ message: `Complete os grupos antes: são ${TEAMS_PER_GROUP} duplas aprovadas no Grupo A e ${TEAMS_PER_GROUP} no Grupo B.` });
+      res.status(409).json({ message: `Complete o grupo antes: são ${TEAMS_PER_GROUP} duplas aprovadas no grupo único.` });
       return;
     }
     let plans: Record<GroupId, GroupCompletionPlan>;
@@ -101,7 +99,7 @@ groupsRoutes.post(
   asyncHandler(async (req, res) => {
     const groupId = String(req.params.id).toUpperCase() as GroupId;
     const orderedTeamIds: unknown = req.body?.orderedTeamIds;
-    if ((groupId !== "A" && groupId !== "B") || !Array.isArray(orderedTeamIds) || orderedTeamIds.some((teamId) => typeof teamId !== "string")) {
+    if (!(EDITION_GROUP_IDS as readonly unknown[]).includes(groupId) || !Array.isArray(orderedTeamIds) || orderedTeamIds.some((teamId) => typeof teamId !== "string")) {
       res.status(400).json({ message: "Informe o grupo e as duplas empatadas na ordem final." });
       return;
     }
@@ -154,7 +152,7 @@ groupsRoutes.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const groupId = String(req.params.id).toUpperCase() as GroupId;
-    if (groupId !== "A" && groupId !== "B") {
+    if (!(EDITION_GROUP_IDS as readonly unknown[]).includes(groupId)) {
       res.status(400).json({ message: "Grupo inválido." });
       return;
     }

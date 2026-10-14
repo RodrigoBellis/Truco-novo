@@ -1,3 +1,4 @@
+import { groupDisplayName } from "@truco/shared";
 import type { Team } from "@truco/shared";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Card } from "../components/ui/Card";
@@ -45,7 +46,7 @@ export function TablesLivePage() {
             <li key={item.matchId}>
               <Card className={`queue-item${item.order === 1 ? " queue-item-next" : ""}`}>
                 <span className="queue-item-order">Jogo {item.order}</span>
-                <Badge tone={item.groupId === "A" ? "green" : "info"}>Grupo {item.groupId}</Badge>
+                <Badge tone="green">{groupDisplayName(item.groupId)}</Badge>
                 <span className="queue-item-teams">
                   {teamLabel(data.teams, item.teamAId)} <span className="text-faint">x</span> {teamLabel(data.teams, item.teamBId)}
                 </span>

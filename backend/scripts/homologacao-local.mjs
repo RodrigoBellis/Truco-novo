@@ -28,6 +28,8 @@ const MIGRATIONS = [
   "202610070002_results_lock.sql",
   "202610090001_knockout_uniqueness.sql",
   "202610090002_transactional_progression.sql",
+  "202610140001_edition5_single_group_seven_teams.sql",
+  "202610140002_first_access_setup.sql",
 ];
 
 function findBin() {
@@ -78,6 +80,7 @@ function up() {
       console.log(`aplicada sem alteração: supabase/migrations/${file}`);
     }
     psql(["-f", join(root, "supabase", "homologacao", "02_seed_ficticio.sql")]);
+    psql(["-f", join(root, "supabase", "homologacao", "03_retrato_oficial.sql")]);
     psql(["-c", "select homologacao.reset()"]);
     console.log("seed fictício aplicado");
     const password = randomBytes(24).toString("base64url");

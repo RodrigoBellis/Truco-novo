@@ -1,4 +1,4 @@
-import { EDITION_TEAM_COUNT, TEAMS_PER_GROUP, isValidTeamStrength, type GroupId, type Player, type Team } from "@truco/shared";
+import { EDITION_GROUP_IDS, EDITION_TEAM_COUNT, TEAMS_PER_GROUP, isValidTeamStrength, type GroupId, type Player, type Team } from "@truco/shared";
 
 export interface TeamParticipationInput {
   name: string;
@@ -11,7 +11,7 @@ export interface TeamParticipationInput {
 export function validateTeamParticipation(input: TeamParticipationInput, teams: Team[], players: Player[], editingTeamId?: string): string | null {
   if (!input.name.trim()) return "Informe o nome da dupla.";
   if (!input.player1Id || !input.player2Id || input.player1Id === input.player2Id) return "Escolha dois jogadores diferentes.";
-  if (input.groupId !== "A" && input.groupId !== "B") return "Escolha o Grupo A ou B.";
+  if (!(EDITION_GROUP_IDS as readonly unknown[]).includes(input.groupId)) return "A dupla precisa estar no grupo único da edição.";
   if (!isValidTeamStrength(input.strength)) return "A força deve ser de 1 a 5 estrelas.";
   if (!players.some((player) => player.id === input.player1Id) || !players.some((player) => player.id === input.player2Id)) {
     return "Selecione dois jogadores cadastrados.";
@@ -22,7 +22,7 @@ export function validateTeamParticipation(input: TeamParticipationInput, teams: 
   const activeTeamsInGroup = activeTeams.filter((team) => team.groupId === input.groupId);
   if (!editingApprovedTeam && activeTeams.length >= EDITION_TEAM_COUNT) return `A edição comporta ${EDITION_TEAM_COUNT} duplas aprovadas.`;
   // Vale também para dupla já aprovada que muda de grupo: activeTeams não conta a própria dupla.
-  if (activeTeamsInGroup.length >= TEAMS_PER_GROUP) return `O Grupo ${input.groupId} já tem ${TEAMS_PER_GROUP} duplas.`;
+  if (activeTeamsInGroup.length >= TEAMS_PER_GROUP) return `O grupo único já tem ${TEAMS_PER_GROUP} duplas.`;
   const otherTeams = teams.filter((team) => team.id !== editingTeamId);
   if (otherTeams.some((team) => [team.player1Id, team.player2Id].includes(input.player1Id) || [team.player1Id, team.player2Id].includes(input.player2Id))) {
     return "Cada jogador só pode participar de uma dupla nesta edição.";
@@ -37,7 +37,7 @@ export function validateTeamStatusChange(teams: Team[], teamId: string, status: 
   if (status === "aprovada") {
     const active = teams.filter((candidate) => candidate.status === "aprovada");
     if (active.length >= EDITION_TEAM_COUNT) return `A edição comporta ${EDITION_TEAM_COUNT} duplas aprovadas.`;
-    if (!team.groupId || active.filter((candidate) => candidate.groupId === team.groupId).length >= TEAMS_PER_GROUP) return `Cada grupo comporta ${TEAMS_PER_GROUP} duplas aprovadas.`;
+    if (!team.groupId || active.filter((candidate) => candidate.groupId === team.groupId).length >= TEAMS_PER_GROUP) return `O grupo único comporta ${TEAMS_PER_GROUP} duplas aprovadas.`;
   }
   return null;
 }

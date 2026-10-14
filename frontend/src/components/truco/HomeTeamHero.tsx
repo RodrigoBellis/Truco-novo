@@ -1,3 +1,4 @@
+import { groupDisplayName } from "@truco/shared";
 import { Fragment, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import type { Player, Team } from "@truco/shared";
@@ -61,7 +62,7 @@ export function HomeTeamHero({ team, players, teams, playerId }: HomeTeamHeroPro
           <span className={`home-hero-strength-label${strength == null ? " is-pending" : ""}`}>{strength != null ? `Força ${strength} de 5` : "Força a definir"}</span>
         </div>
         {team.groupId
-          ? <p className={`home-hero-group ${groupToneClass(team.groupId)}`}><span>Grupo</span> <strong>{team.groupId}</strong></p>
+          ? <p className={`home-hero-group ${groupToneClass(team.groupId)}`}><span>Grupo</span> <strong>{groupDisplayName(team.groupId).replace(/^Grupo /, "")}</strong></p>
           : <p className="home-hero-group is-pending">Grupo a definir</p>}
       </div>
 

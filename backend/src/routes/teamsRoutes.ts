@@ -2,7 +2,7 @@ import { Router } from "express";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { store } from "../data/store.js";
 import { requireAuth, requireRole } from "../middleware/requireAuth.js";
-import { EDITION_TEAM_COUNT, TEAMS_PER_GROUP, isValidTeamStrength, type GroupId } from "@truco/shared";
+import { EDITION_GROUP_IDS, EDITION_TEAM_COUNT, TEAMS_PER_GROUP, isValidTeamStrength, type GroupId } from "@truco/shared";
 import { validateTeamParticipation, validateTeamStatusChange } from "../services/teamParticipationService.js";
 
 export const teamsRoutes = Router();
@@ -16,9 +16,9 @@ function parseParticipation(body: unknown): { name: string; player1Id: string; p
   const value = body as Record<string, unknown>;
   if (typeof value.name !== "string" || !value.name.trim()) return null;
   if (typeof value.player1Id !== "string" || typeof value.player2Id !== "string" || value.player1Id === value.player2Id) return null;
-  if (value.groupId !== "A" && value.groupId !== "B") return null;
+  if (!(EDITION_GROUP_IDS as readonly unknown[]).includes(value.groupId)) return null;
   if (typeof value.strength !== "number" || !isValidTeamStrength(value.strength)) return null;
-  return { name: value.name, player1Id: value.player1Id, player2Id: value.player2Id, groupId: value.groupId, strength: value.strength };
+  return { name: value.name, player1Id: value.player1Id, player2Id: value.player2Id, groupId: value.groupId as GroupId, strength: value.strength };
 }
 
 teamsRoutes.post(

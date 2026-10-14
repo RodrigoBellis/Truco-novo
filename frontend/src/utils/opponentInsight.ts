@@ -1,4 +1,5 @@
-import type { StandingRow } from "@truco/shared";
+import { groupDisplayName } from "@truco/shared";
+import type { GroupId, StandingRow } from "@truco/shared";
 
 /** Situação do confronto, derivada só da classificação real do grupo. */
 export type InsightTone = "abertura" | "lider" | "acima" | "colado" | "logo-atras" | "atras";
@@ -101,7 +102,7 @@ export function buildOpponentInsight(params: {
   return {
     tone,
     message: pickStable(PHRASES[tone], matchId),
-    positionLabel: `${theirs.position}º lugar do Grupo ${groupId}`,
+    positionLabel: `${theirs.position}º lugar do ${groupDisplayName(groupId as GroupId)}`,
     medal: MEDALS[theirs.position] ?? "▪",
   };
 }

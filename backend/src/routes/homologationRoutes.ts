@@ -1,9 +1,10 @@
 import { Router, type Express } from "express";
-import type { GroupId } from "@truco/shared";
+import { EDITION_GROUP_IDS, type GroupId } from "@truco/shared";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { store } from "../data/store.js";
 import { generateGroupMatches } from "../services/groupMatchesService.js";
 import { buildSchedule } from "../services/scheduleBuilder.js";
+import { resetAccessRateLimits } from "../services/accessService.js";
 import { withChampionshipLock } from "../utils/championshipLock.js";
 import { homologationQuery, homologationQueryAsBrowser } from "../data/homologation/pgSupabaseShim.js";
 import { FICTITIOUS_PASSWORD, issueFictitiousSession, resetFictitiousPasswords, userFromAccessToken, userFromRefreshToken } from "../data/homologation/fictitiousAuth.js";
@@ -18,9 +19,10 @@ const seedOrder = (name: string) => Number(/\d+/.exec(name)?.[0] ?? 0);
 async function resetHomologation(): Promise<void> {
   await homologationQuery("select homologacao.reset()");
   resetFictitiousPasswords();
+  resetAccessRateLimits();
   const championship = await store.getCurrentChampionship();
   const teams = (await store.listTeams(championship.truco_id)).sort((a, b) => seedOrder(a.name) - seedOrder(b.name));
-  const fixtures = Object.fromEntries((["A", "B"] as const).map((groupId) => [groupId, generateGroupMatches(teams.filter((team) => team.groupId === groupId).map((team) => team.id))])) as Record<GroupId, ReturnType<typeof generateGroupMatches>>;
+  const fixtures = Object.fromEntries(EDITION_GROUP_IDS.map((groupId) => [groupId, generateGroupMatches(teams.filter((team) => team.groupId === groupId).map((team) => team.id))])) as Record<GroupId, ReturnType<typeof generateGroupMatches>>;
   await store.createAllGroupMatches(championship.truco_id, fixtures);
   await store.applyScheduleAssignments(buildSchedule(await store.listMatches(championship.truco_id, { stage: "grupos" })));
 }
@@ -81,7 +83,7 @@ homologationSupabaseRoutes.post("/auth/v1/token", (req, res) => {
     res.status(400).json({ code: 400, error_code: "refresh_token_not_found", msg: "Invalid Refresh Token" });
     return;
   }
-  res.json(issueFictitiousSession(user));
+  res.json(issueFictitiousSession({ id: user.id, email: user.email }, user.authTime));
 });
 
 homologationSupabaseRoutes.post("/auth/v1/logout", (_req, res) => {

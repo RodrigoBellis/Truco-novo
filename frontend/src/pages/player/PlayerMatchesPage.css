@@ -1,9 +1,123 @@
-.matches-filter-section{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);margin-bottom:var(--space-5)}
-.matches-group-filters{display:flex;gap:4px;max-width:100%;overflow-x:auto;padding:4px;border:1px solid var(--color-border);border-radius:var(--radius-full);background:var(--color-bg-elevated);scrollbar-width:thin}
-.matches-filter-chip{min-height:40px;padding:0 var(--space-4);border:0;border-radius:var(--radius-full);background:transparent;color:var(--color-text-muted);font:inherit;font-size:var(--text-sm);font-weight:650;white-space:nowrap;cursor:pointer}
-.matches-filter-chip-active{background:var(--color-action);color:var(--color-on-action);box-shadow:0 1px 4px rgb(var(--rgb-accent) / .12)}
-.matches-status-filter{display:flex;align-items:center;gap:var(--space-2);color:var(--color-text-faint);font-size:var(--text-sm);white-space:nowrap}
-.matches-status-filter select{min-height:40px;padding:0 32px 0 12px;border:1px solid var(--color-border);border-radius:var(--radius-full);background:var(--color-bg-elevated);color:var(--color-text);font:inherit;font-weight:600}
-@media(max-width:640px){.matches-filter-section{align-items:stretch;flex-direction:column}.matches-group-filters{width:100%;box-sizing:border-box}.matches-filter-chip{flex:0 0 auto;padding:0 10px;gap:5px}.matches-status-filter{justify-content:space-between}.matches-status-filter select{flex:1;max-width:65%}}
-.matches-filter-chip{display:inline-flex;align-items:center;gap:7px}
-.matches-filter-dot{width:9px;height:9px;border-radius:50%;background:var(--group-color);box-shadow:0 0 0 3px var(--group-soft)}
+/* Jogos: progresso, abas, rodadas (referência visual) e classificação ao vivo.
+   Celular primeiro: cartões compactos, rodadas expansíveis, nada de rolagem lateral. */
+.matches-page { display: grid; gap: var(--space-5); }
+.matches-page > .page-header { margin-bottom: 0; }
+
+/* Progresso da fase de grupos */
+.matches-progress { display: grid; gap: 8px; }
+.matches-progress p { margin: 0; font-size: var(--text-sm); color: var(--color-text-muted); }
+.matches-progress strong { color: var(--color-text); font-size: 1.05rem; font-weight: 850; }
+.matches-progress progress { width: 100%; height: 8px; accent-color: var(--color-action); }
+
+/* Abas */
+.matches-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-elevated);
+  scrollbar-width: none;
+}
+.matches-tab {
+  flex: 1 0 auto;
+  min-height: 42px;
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.matches-tab.is-active { background: var(--color-action); color: var(--color-on-action); }
+.matches-tab:focus-visible { outline: 2px solid var(--color-tech-400); outline-offset: 2px; }
+
+/* Confrontos */
+.round-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.round-match {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  min-width: 0;
+}
+.round-match-mine { border-color: rgb(var(--rgb-accent) / 0.55); box-shadow: inset 3px 0 0 var(--color-action); }
+.round-match-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.round-table {
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.round-status { font-size: 0.72rem; font-weight: 750; color: var(--color-star); }
+.round-status.is-done { color: var(--color-text-faint); }
+
+.round-match-teams {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+.round-team { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.round-team:last-child { flex-direction: row-reverse; text-align: right; }
+.round-team-name { min-width: 0; font-size: 0.9rem; font-weight: 650; line-height: 1.25; color: var(--color-text); overflow-wrap: anywhere; }
+.round-team.is-mine .round-team-name { font-weight: 850; }
+.round-team-sets { font-size: 1.15rem; font-weight: 850; font-variant-numeric: tabular-nums; color: var(--color-text-faint); }
+.round-team.is-winner .round-team-sets { color: var(--color-accent-500); }
+.round-match.is-done .round-team:not(.is-winner) .round-team-name { color: var(--color-text-muted); }
+.round-versus { color: var(--color-text-faint); font-weight: 700; }
+.round-match-action > .btn { width: 100%; min-height: 44px; }
+.matches-hint { margin: 10px 2px 0; font-size: 0.78rem; color: var(--color-text-faint); }
+
+/* Rodadas expansíveis */
+.rounds { display: grid; gap: 12px; }
+.round {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  padding: 4px 12px 12px;
+}
+.round > summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+}
+.round > summary::-webkit-details-marker { display: none; }
+.round > summary::after { content: "▾"; color: var(--color-text-faint); transition: transform var(--motion-fast, 150ms) ease; }
+.round:not([open]) > summary::after { transform: rotate(-90deg); }
+.round-title { font-weight: 850; letter-spacing: 0.02em; text-transform: uppercase; font-size: 0.82rem; color: var(--color-text); }
+.round-has-mine .round-title::after { content: " · sua dupla joga"; text-transform: none; font-weight: 650; color: var(--color-accent-500); }
+.round-count { margin-left: auto; font-size: 0.75rem; color: var(--color-text-faint); }
+.round-rest { margin: 10px 2px 0; font-size: 0.82rem; color: var(--color-text-muted); }
+.round-rest.is-mine strong { color: var(--color-accent-500); }
+
+/* Classificação ao vivo */
+.matches-standings { display: grid; gap: 10px; }
+.matches-standings h2 { margin: 0; font-size: 1rem; font-weight: 850; }
+
+@media (min-width: 900px) {
+  .round-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .round-match-action > .btn { width: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .round > summary::after { transition: none; }
+}

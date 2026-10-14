@@ -6,12 +6,27 @@ export interface GroupMatchPair {
   order: number;
 }
 
-/** Gera os confrontos em turno único para um grupo completo (10 jogos com 5 duplas). */
+/**
+ * Gera os confrontos em turno único para o grupo completo (21 jogos com 7 duplas), em rodadas
+ * pelo método do círculo: com 7 duplas são 7 rodadas de 3 jogos e cada dupla folga em uma. A
+ * ordem não é obrigatória para os jogadores; ela só alimenta a escala das 3 mesas.
+ */
 export function generateGroupMatches(teamIds: string[]): GroupMatchPair[] {
   if (teamIds.length !== TEAMS_PER_GROUP) {
     throw new RangeError(`A fase de grupos exige exatamente ${TEAMS_PER_GROUP} duplas por grupo.`);
   }
-  return missingGroupMatches(teamIds, []);
+  const slots: Array<string | null> = teamIds.length % 2 === 0 ? [...teamIds] : [...teamIds, null];
+  const pairs: GroupMatchPair[] = [];
+  for (let round = 0; round < slots.length - 1; round += 1) {
+    for (let index = 0; index < slots.length / 2; index += 1) {
+      const first = slots[index];
+      const second = slots[slots.length - 1 - index];
+      if (first && second) pairs.push({ teamAId: first, teamBId: second, order: pairs.length });
+    }
+    // Gira todos menos o primeiro.
+    slots.splice(1, 0, slots.pop()!);
+  }
+  return pairs;
 }
 
 const pairKey = (first: string, second: string) => [first, second].sort().join("::");

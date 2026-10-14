@@ -4,6 +4,7 @@ import { store } from "../data/store.js";
 import { performDraw } from "../services/drawService.js";
 import { requireAuth, requireRole } from "../middleware/requireAuth.js";
 import { withChampionshipLock } from "../utils/championshipLock.js";
+import { AccessError, listAccessStatus, resetPlayerAccess, restartEditionAccess } from "../services/accessService.js";
 
 export const adminRoutes = Router();
 
@@ -59,5 +60,48 @@ adminRoutes.post(
       await store.setCurrentPhase(championship.truco_id, "Aguardando sorteio");
     });
     res.status(204).send();
+  }),
+);
+
+// Acesso dos jogadores: situação de cada conta (nunca a senha), "Redefinir acesso" e o reinício
+// do acesso de todos os participantes da edição.
+const accessFailure = (res: import("express").Response, error: unknown): boolean => {
+  if (!(error instanceof AccessError)) return false;
+  res.status(error.status).json({ message: error.message, code: error.code });
+  return true;
+};
+
+adminRoutes.get(
+  "/players/access",
+  requireAuth,
+  requireRole("admin", "superadmin"),
+  asyncHandler(async (_req, res) => {
+    res.json(await listAccessStatus());
+  }),
+);
+
+adminRoutes.post(
+  "/players/:playerId/reset-access",
+  requireAuth,
+  requireRole("admin", "superadmin"),
+  asyncHandler(async (req, res) => {
+    try {
+      res.json(await resetPlayerAccess(req.authUser!, String(req.params.playerId)));
+    } catch (error) {
+      if (!accessFailure(res, error)) throw error;
+    }
+  }),
+);
+
+adminRoutes.post(
+  "/access/restart",
+  requireAuth,
+  requireRole("admin", "superadmin"),
+  asyncHandler(async (req, res) => {
+    try {
+      res.json(await restartEditionAccess(req.authUser!));
+    } catch (error) {
+      if (!accessFailure(res, error)) throw error;
+    }
   }),
 );

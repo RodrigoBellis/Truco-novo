@@ -1,8 +1,9 @@
+import { randomUUID } from "node:crypto";
 import pg from "pg";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../../types/database.js";
 import { homologationDatabaseUrl } from "../../utils/homologationMode.js";
-import { changeFictitiousPassword, signInFictitious, userFromAccessToken } from "./fictitiousAuth.js";
+import { changeFictitiousPassword, hashPassword, issueFictitiousSession, signInFictitious, userFromAccessToken, verifyPasswordHash } from "./fictitiousAuth.js";
 
 // Cliente do MODO HOMOLOGAÇÃO: o subconjunto do supabase-js que o backend usa, executado em
 // SQL direto no PostgreSQL local. Existe para que o repositório real (store.ts), as RPCs e os
@@ -293,16 +294,36 @@ export function createHomologationClient(): SupabaseClient<Database> {
       },
       getSession: async () => ({ data: { session: null }, error: null }),
       signInWithPassword: async (credentials: { email: string; password: string }) => {
-        const { rows } = await run("select truco_id from public.truco_profiles where lower(email) = lower($1)", [credentials.email]);
-        const session = rows.length === 1 ? signInFictitious({ id: rows[0].truco_id, email: credentials.email }, credentials.password) : null;
+        const { rows } = await run(
+          "select pr.truco_id, c.hash from public.truco_profiles pr left join homologacao.credencial c on c.truco_id = pr.truco_id where lower(pr.email) = lower($1)",
+          [credentials.email],
+        );
+        // Conta com senha individual (hash no banco local) só entra com ela; as demais usam a de ensaio.
+        const session = rows.length !== 1 ? null
+          : rows[0].hash ? (verifyPasswordHash(credentials.password, rows[0].hash) ? issueFictitiousSession({ id: rows[0].truco_id, email: credentials.email }) : null)
+          : signInFictitious({ id: rows[0].truco_id, email: credentials.email }, credentials.password);
         return session
           ? { data: { user: session.user, session }, error: null }
           : { data: { user: null, session: null }, error: { message: "Invalid login credentials", code: "invalid_credentials" } };
       },
       admin: {
+        createUser: async (attributes: { email: string; password: string }) => {
+          if (attributes.password.length < 6) return { data: { user: null }, error: { message: "Password should be at least 6 characters.", code: "weak_password" } };
+          const id = randomUUID();
+          await run("insert into auth.users (id, email) values ($1, $2)", [id, attributes.email]);
+          changeFictitiousPassword(id, attributes.password);
+          await run("insert into homologacao.credencial (truco_id, hash) values ($1, $2)", [id, hashPassword(attributes.password)]);
+          return { data: { user: { id, email: attributes.email } }, error: null };
+        },
         updateUserById: async (id: string, attributes: { password?: string }) => {
           if (attributes.password !== undefined && attributes.password.length < 6) return { data: { user: null }, error: { message: "Password should be at least 6 characters.", code: "weak_password" } };
-          if (attributes.password !== undefined) changeFictitiousPassword(id, attributes.password);
+          if (attributes.password !== undefined) {
+            changeFictitiousPassword(id, attributes.password);
+            await run(
+              "insert into homologacao.credencial (truco_id, hash) values ($1, $2) on conflict (truco_id) do update set hash = excluded.hash, atualizado_em = now()",
+              [id, hashPassword(attributes.password)],
+            );
+          }
           return { data: { user: { id } }, error: null };
         },
       },

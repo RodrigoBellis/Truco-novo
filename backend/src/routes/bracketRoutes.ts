@@ -28,8 +28,10 @@ bracketRoutes.get(
       store.listBracketMatches(championship.truco_id),
       store.getEditionChampion(championship.truco_id),
     ]);
-    const finished = isEditionFinished(championship.current_phase) && champion !== null
-      && !plan.steps.some((step) => step.type === "record-champion") && plan.anomalies.length === 0;
+    // Campeão registrado: a final tem placar e o histórico já corresponde a ela. A edição só está
+    // encerrada quando, além disso, a disputa de 3º lugar também tem placar (fase "Campeonato Finalizado").
+    const recorded = champion !== null && !plan.steps.some((step) => step.type === "record-champion") && plan.anomalies.length === 0;
+    const finished = recorded && isEditionFinished(championship.current_phase);
     const team = async (teamId: string | null | undefined) => {
       const row = teamId ? await store.getTeam(teamId) : undefined;
       return row ? { teamId: row.id, teamName: row.name } : null;
@@ -40,9 +42,9 @@ bracketRoutes.get(
       pendingTieGroups: plan.pendingTieGroups,
       bracketGenerated: bracket.length > 0,
       editionFinished: finished,
-      champion: finished ? await team(champion?.championTeamId) : null,
-      runnerUp: finished ? await team(champion?.runnerUpTeamId) : null,
-      finalResult: finished ? (champion?.finalResult ?? null) : null,
+      champion: recorded ? await team(champion?.championTeamId) : null,
+      runnerUp: recorded ? await team(champion?.runnerUpTeamId) : null,
+      finalResult: recorded ? (champion?.finalResult ?? null) : null,
       syncPending: plan.steps.length > 0 || championship.progression_pending === true,
       anomalies: plan.anomalies,
     };

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Team } from "@truco/shared";
+import { SINGLE_GROUP_NAME, type Team } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
@@ -42,13 +42,12 @@ export function AdminDrawPage() {
   const approved = teams.filter((t) => t.status === "aprovada");
   const drawDone = approved.some((t) => t.groupId);
   const groupA = approved.filter((t) => t.groupId === "A");
-  const groupB = approved.filter((t) => t.groupId === "B");
 
   return (
     <div className="page-enter">
       <PageHeader
         title="Sorteio"
-        subtitle="Distribua automaticamente as duplas aprovadas entre os Grupos A e B"
+        subtitle="Coloque as 7 duplas aprovadas no grupo único e gere os 21 jogos"
         actions={
           drawDone ? (
             <Button onClick={() => setShowConfirm(true)} isLoading={isDrawing}>
@@ -66,8 +65,7 @@ export function AdminDrawPage() {
 
       <Card className="admin-draw-info">
         <p className="text-muted">
-          <strong>{approved.length}</strong> duplas aprovadas aguardando distribuição. As duplas cabeças de chave (★) nunca ficam no
-          mesmo grupo.
+          <strong>{approved.length}</strong> duplas aprovadas. Todas jogam entre si no grupo único (todos contra todos).
         </p>
       </Card>
 
@@ -80,17 +78,9 @@ export function AdminDrawPage() {
       ) : (
         <div className="admin-draw-groups">
           <section>
-            <h2 className="admin-draw-group-title">Grupo A</h2>
+            <h2 className="admin-draw-group-title">{SINGLE_GROUP_NAME}</h2>
             <div className="admin-draw-pending-grid">
               {groupA.map((team) => (
-                <TeamCard key={team.id} team={team} highlight={team.seeded} />
-              ))}
-            </div>
-          </section>
-          <section>
-            <h2 className="admin-draw-group-title">Grupo B</h2>
-            <div className="admin-draw-pending-grid">
-              {groupB.map((team) => (
                 <TeamCard key={team.id} team={team} highlight={team.seeded} />
               ))}
             </div>

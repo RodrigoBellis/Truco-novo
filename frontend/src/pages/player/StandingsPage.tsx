@@ -1,4 +1,4 @@
-import type { GroupId, StandingRow, Team } from "@truco/shared";
+import { groupDisplayName, type GroupId, type StandingRow, type Team } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Loading } from "../../components/ui/Loading";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -43,11 +43,11 @@ export function StandingsPage() {
 
   return (
     <div className="page-enter">
-      <PageHeader title="Classificação" subtitle="1º direto na semifinal · 2º direto nas quartas · 3º e 4º na repescagem · 5º eliminado" />
+      <PageHeader title="Classificação" subtitle="1º e 2º direto na semifinal · 3º a 6º nas quartas · 7º eliminado" />
 
       <div className="standings-page-groups">
         <section>
-          <h2 className="section-title section-title-gold">Grupo {data.myGroupId}</h2>
+          <h2 className="section-title section-title-gold">{groupDisplayName(data.myGroupId)}</h2>
           <StandingsTable rows={data.standings} teams={data.teams} highlightTeamId={user?.teamId} />
         </section>
       </div>

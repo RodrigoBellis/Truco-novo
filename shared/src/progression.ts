@@ -1,4 +1,4 @@
-import { BRACKET_ROUND_LABEL, KNOCKOUT_PLAN, buildKnockoutBracket, settleQuarterfinals, type BracketMatch, type BracketSlotSource, type KnockoutKey } from "./bracket.js";
+import { BRACKET_ROUND_LABEL, KNOCKOUT_PLAN, buildKnockoutBracket, type BracketMatch, type BracketSlotSource, type KnockoutKey } from "./bracket.js";
 import type { StandingRow } from "./group.js";
 import type { Match, MatchResult } from "./match.js";
 import { EDITION_GROUP_IDS, TEAMS_PER_GROUP, type GroupId } from "./team.js";
@@ -13,7 +13,7 @@ export const PHASE_FINISHED = "Campeonato Finalizado";
 /** Mensagem única para o jogador que tenta lançar ou editar placar com a edição encerrada. */
 export const EDITION_FINISHED_MESSAGE = "O campeonato foi encerrado. Só o administrador pode corrigir resultados.";
 
-/** A edição está encerrada quando a final tem placar e o campeão foi registrado. */
+/** A edição está encerrada quando a final e a disputa de 3º lugar têm placar (e o campeão foi registrado). */
 export function isEditionFinished(phase: string | null | undefined): boolean {
   return phase === PHASE_FINISHED;
 }
@@ -22,7 +22,7 @@ const winnerOf = (match: Pick<Match, "teamAId" | "teamBId">, result: MatchResult
 
 // ---------- Fim da fase de grupos ----------
 
-/** Grupo encerrado: as cinco duplas com os quatro jogos disputados. */
+/** Grupo encerrado: todas as duplas com todos os jogos disputados (7 duplas, 6 jogos cada). */
 export function isGroupFinished(rows: readonly StandingRow[]): boolean {
   return rows.length === TEAMS_PER_GROUP && rows.every((row) => row.jogos === TEAMS_PER_GROUP - 1);
 }
@@ -36,7 +36,7 @@ export interface GroupStageOutcome {
 }
 
 /**
- * O mata-mata só pode nascer com a classificação "definida": os dois grupos encerrados e
+ * O mata-mata só pode nascer com a classificação "definida": o grupo encerrado e
  * nenhum empate absoluto pendente. Empate absoluto nunca é resolvido aqui.
  */
 export function groupStageOutcome(standings: Record<GroupId, readonly StandingRow[]>): GroupStageOutcome {
@@ -50,16 +50,14 @@ export function groupStageOutcome(standings: Record<GroupId, readonly StandingRo
 export interface ResultChangePlan {
   /** Motivo para recusar o lançamento/correção; null quando pode gravar. */
   blocked: string | null;
-  /** Jogo seguinte, ainda sem placar, que precisa trocar a dupla porque o vencedor mudou. */
-  repair: { matchId: string; side: "A" | "B"; teamId: string } | null;
   /**
-   * Jogos das quartas, ainda sem placar, a desfazer porque mudou um vencedor da repescagem:
-   * o cruzamento das quartas depende dos dois vencedores e precisa ser decidido de novo.
+   * Jogos seguintes, ainda sem placar, que precisam trocar a dupla porque o vencedor mudou.
+   * Uma semifinal alimenta dois jogos: a final (vencedor) e a disputa de 3º (perdedor).
    */
-  rebuildQuarterfinals: string[];
+  repairs: Array<{ matchId: string; side: "A" | "B"; teamId: string }>;
 }
 
-const allowed: ResultChangePlan = { blocked: null, repair: null, rebuildQuarterfinals: [] };
+const allowed: ResultChangePlan = { blocked: null, repairs: [] };
 
 /**
  * Decide se um placar pode ser gravado sem deixar o mata-mata incoerente. Função pura.
@@ -69,9 +67,7 @@ const allowed: ResultChangePlan = { blocked: null, repair: null, rebuildQuarterf
  *   já existe, ele é desfeito e refeito pela nova classificação (planKnockoutSync). Depois do
  *   primeiro placar de mata-mata, nenhum placar de grupo muda mais, para ninguém.
  * - Mata-mata: corrigir o placar mantendo o vencedor é sempre possível. Trocar o vencedor só
- *   é possível enquanto a fase seguinte não tiver placar: nas quartas, semifinais e final a
- *   dupla do jogo seguinte é trocada; na repescagem as quartas são desfeitas e remontadas
- *   (e basta UMA das quartas ter placar para a troca ser recusada).
+ *   é possível enquanto nenhum jogo alimentado por ele (vencedor ou perdedor) tiver placar.
  */
 export function planResultChange(match: Match, result: MatchResult, bracket: readonly BracketMatch[], matches: readonly Match[]): ResultChangePlan {
   if (match.stage === "grupos") {
@@ -84,25 +80,22 @@ export function planResultChange(match: Match, result: MatchResult, bracket: rea
   const own = bracket.find((item) => item.matchId === match.id);
   if (!own || !match.result || winnerOf(match, match.result) === winnerOf(match, result)) return allowed;
 
-  if (own.round === "repescagem") {
-    const quarters = bracket.filter((item) => item.round === "quartas" && item.matchId)
-      .map((item) => ({ item, match: matches.find((candidate) => candidate.id === item.matchId) }));
-    const played = quarters.find((quarter) => quarter.match?.result);
-    if (played) return { ...allowed, blocked: `Não é possível trocar o vencedor: ${played.item.label} já foi disputada com o cruzamento definido por esta repescagem.` };
-    return { ...allowed, rebuildQuarterfinals: quarters.flatMap((quarter) => (quarter.match ? [quarter.match.id] : [])) };
-  }
-
+  const newWinner = winnerOf(match, result);
+  const newLoser = newWinner === match.teamAId ? match.teamBId : match.teamAId;
+  const repairs: ResultChangePlan["repairs"] = [];
   for (const next of bracket) {
-    const side = next.slotA.type === "winner" && next.slotA.bracketMatchId === own.id ? "A" : next.slotB.type === "winner" && next.slotB.bracketMatchId === own.id ? "B" : null;
-    if (!side || !next.matchId) continue;
-    const nextMatch = matches.find((item) => item.id === next.matchId);
-    if (!nextMatch) continue;
-    if (nextMatch.result) {
-      return { ...allowed, blocked: `Não é possível trocar o vencedor: ${next.label} já foi disputada com a dupla que venceu este confronto.` };
+    for (const side of ["A", "B"] as const) {
+      const slot = side === "A" ? next.slotA : next.slotB;
+      if ((slot.type !== "winner" && slot.type !== "loser") || slot.bracketMatchId !== own.id || !next.matchId) continue;
+      const nextMatch = matches.find((item) => item.id === next.matchId);
+      if (!nextMatch) continue;
+      if (nextMatch.result) {
+        return { ...allowed, blocked: `Não é possível trocar o vencedor: ${next.label} já foi disputada com as duplas definidas por este confronto.` };
+      }
+      repairs.push({ matchId: nextMatch.id, side, teamId: slot.type === "winner" ? newWinner : newLoser });
     }
-    return { ...allowed, repair: { matchId: nextMatch.id, side, teamId: winnerOf(match, result) } };
   }
-  return allowed;
+  return { ...allowed, repairs };
 }
 
 // ---------- Plano de sincronização do mata-mata ----------
@@ -115,7 +108,7 @@ export interface EditionChampionRecord {
 }
 
 export interface KnockoutSnapshot {
-  /** Classificação atual dos dois grupos, já com as decisões de empate do administrador. */
+  /** Classificação atual do grupo, já com as decisões de empate do administrador. */
   standings: Record<GroupId, readonly StandingRow[]>;
   bracket: readonly BracketMatch[];
   /** Todos os jogos do mata-mata da edição, vinculados ou não ao chaveamento. */
@@ -129,7 +122,6 @@ export type KnockoutStep =
   /** Apaga o chaveamento inteiro e os jogos de mata-mata ainda sem placar. */
   | { type: "clear-knockout"; reason: string }
   | { type: "create-bracket"; rows: BracketMatch[] }
-  | { type: "set-quarter-source"; bracketMatchId: string; sourceBracketMatchId: string }
   /** Cria o jogo e vincula ao confronto. */
   | { type: "create-match"; bracketMatchId: string; round: string; order: number; teamAId: string; teamBId: string }
   /** Jogo que já existe para o confronto, mas ficou sem vínculo. */
@@ -156,11 +148,12 @@ const fixtureOf = (item: Pick<BracketMatch, "round" | "order">) => KNOCKOUT_PLAN
  * parou no meio: nunca cria um segundo chaveamento nem um segundo jogo para o mesmo confronto.
  *
  * 1. Classificação não definida (falta jogo ou há empate absoluto): não existe mata-mata.
- * 2. Classificação definida: sete confrontos de KNOCKOUT_PLAN com as duplas das posições.
+ * 2. Classificação definida: os seis confrontos de KNOCKOUT_PLAN com as duplas das posições.
  *    Chaveamento divergente só é refeito enquanto nenhum jogo do mata-mata tem placar.
- * 3. Quartas: cruzamento de settleQuarterfinals, só com as duas repescagens encerradas.
- * 4. Um jogo só existe quando as duas duplas são conhecidas.
- * 5. Final com placar: campeão e vice no histórico e edição encerrada.
+ * 3. Um jogo só existe quando as duas duplas são conhecidas (a final e o 3º lugar nascem
+ *    juntos, quando as duas semifinais terminam).
+ * 4. Final com placar: campeão e vice no histórico na mesma hora.
+ * 5. Edição encerrada só com final E disputa de 3º lugar com placar.
  */
 export function planKnockoutSync(snapshot: KnockoutSnapshot, newId: () => string): KnockoutPlan {
   const { standings, bracket, knockoutMatches, phase, champion } = snapshot;
@@ -185,7 +178,7 @@ export function planKnockoutSync(snapshot: KnockoutSnapshot, newId: () => string
     return plan;
   }
 
-  // Estrutura: exatamente os sete confrontos do plano, com as duplas das posições atuais.
+  // Estrutura: exatamente os seis confrontos do plano, com as duplas das posições atuais.
   const entries = new Map<KnockoutKey, BracketMatch>();
   let coherent = bracket.length === KNOCKOUT_PLAN.length;
   for (const item of bracket) {
@@ -201,13 +194,10 @@ export function planKnockoutSync(snapshot: KnockoutSnapshot, newId: () => string
       const expected = fixture[side];
       const actual: BracketSlotSource = entries.get(key)![side];
       if (expected.type === "position") return actual.type === "direct" && actual.teamId === seedAt(expected.group, expected.position);
-      if (actual.type !== "winner") return false;
-      const source = bracket.find((item) => item.id === actual.bracketMatchId);
-      // Nas quartas a origem pode ser qualquer uma das repescagens (o cruzamento é decidido depois).
-      return fixture.round === "quartas" ? source?.round === "repescagem" : source === entries.get(expected.of);
+      if (actual.type !== expected.type) return false;
+      return bracket.find((item) => item.id === actual.bracketMatchId) === entries.get(expected.of);
     };
-    coherent = KNOCKOUT_PLAN.every((fixture) => sideOk(fixture.key, "slotA") && sideOk(fixture.key, "slotB"))
-      && (entries.get("Q1")!.slotB as { bracketMatchId: string }).bracketMatchId !== (entries.get("Q2")!.slotB as { bracketMatchId: string }).bracketMatchId;
+    coherent = KNOCKOUT_PLAN.every((fixture) => sideOk(fixture.key, "slotA") && sideOk(fixture.key, "slotB"));
   }
   if (!coherent) {
     if (scored) plan.anomalies.push("O chaveamento não corresponde à classificação final, mas o mata-mata já tem placar lançado.");
@@ -218,28 +208,16 @@ export function planKnockoutSync(snapshot: KnockoutSnapshot, newId: () => string
   const linked = (item: BracketMatch) => (item.matchId ? matchById.get(item.matchId) : undefined);
   const ordered = KNOCKOUT_PLAN.map((fixture) => entries.get(fixture.key)!);
 
-  // Quartas: o cruzamento só existe com as duas repescagens encerradas.
-  const settlement = settleQuarterfinals(bracket, knockoutMatches, snapshot.groupOf);
-  if (settlement) {
-    const quarterPlayed = ordered.some((item) => item.round === "quartas" && linked(item)?.result);
-    for (const { bracketMatchId, slotB } of settlement.slots) {
-      const item = bracket.find((candidate) => candidate.id === bracketMatchId)!;
-      if (slotB.type !== "winner" || (item.slotB.type === "winner" && item.slotB.bracketMatchId === slotB.bracketMatchId)) continue;
-      if (quarterPlayed) plan.anomalies.push(`O cruzamento gravado em ${item.label} não corresponde aos vencedores da repescagem, e as quartas já têm placar.`);
-      else plan.steps.push({ type: "set-quarter-source", bracketMatchId, sourceBracketMatchId: slotB.bracketMatchId });
-    }
-    if (plan.steps.length > 0 || plan.anomalies.length > 0) return plan;
-  }
-
   const teamOf = (slot: BracketSlotSource): string | null => {
     if (slot.type === "direct") return slot.teamId;
-    if (slot.type !== "winner") return null;
+    if (slot.type !== "winner" && slot.type !== "loser") return null;
     const source = bracket.find((item) => item.id === slot.bracketMatchId);
     const match = source ? linked(source) : undefined;
-    return match?.result ? winnerOf(match, match.result) : null;
+    if (!match?.result) return null;
+    const won = winnerOf(match, match.result);
+    return slot.type === "winner" ? won : won === match.teamAId ? match.teamBId : match.teamAId;
   };
   const pairing = (item: BracketMatch) => {
-    if (item.round === "quartas" && !settlement) return null;
     const teamAId = teamOf(item.slotA);
     const teamBId = teamOf(item.slotB);
     return teamAId && teamBId ? { teamAId, teamBId } : null;
@@ -283,9 +261,11 @@ export function planKnockoutSync(snapshot: KnockoutSnapshot, newId: () => string
   }
   if (plan.steps.length > 0 || plan.anomalies.length > 0) return plan;
 
-  // Final: campeão, vice e encerramento. O histórico vem antes da fase, para "encerrado"
+  // Final: campeão e vice no histórico assim que a final tem placar. A edição só encerra com a
+  // final E a disputa de 3º lugar decididas. O histórico vem antes da fase, para "encerrado"
   // nunca existir sem campeão registrado.
   const final = linked(entries.get("F")!);
+  const thirdPlace = linked(entries.get("T")!);
   if (final?.result) {
     const championTeamId = winnerOf(final, final.result);
     const runnerUpTeamId = championTeamId === final.teamAId ? final.teamBId : final.teamAId;
@@ -293,7 +273,8 @@ export function planKnockoutSync(snapshot: KnockoutSnapshot, newId: () => string
     if (!champion || champion.championTeamId !== championTeamId || champion.runnerUpTeamId !== runnerUpTeamId || champion.finalResult !== finalResult) {
       plan.steps.push({ type: "record-champion", championTeamId, runnerUpTeamId, finalResult });
     }
-    if (phase !== PHASE_FINISHED) plan.steps.push({ type: "set-phase", phase: PHASE_FINISHED });
+    const target = thirdPlace?.result ? PHASE_FINISHED : PHASE_KNOCKOUT;
+    if (phase !== target) plan.steps.push({ type: "set-phase", phase: target });
   } else {
     if (phase !== PHASE_KNOCKOUT) plan.steps.push({ type: "set-phase", phase: PHASE_KNOCKOUT });
     if (champion) plan.anomalies.push("O histórico já tem campeão para esta edição, mas a final não tem placar.");
@@ -308,8 +289,9 @@ export interface KnockoutStatus {
   groupStage: GroupStageStatus;
   pendingTieGroups: GroupId[];
   bracketGenerated: boolean;
-  /** Campeão registrado: jogadores não lançam nem editam mais nada. */
+  /** Final e disputa de 3º lugar decididas e campeão registrado: jogadores não lançam nem editam mais nada. */
   editionFinished: boolean;
+  /** Campeão registrado no histórico: preenchido assim que a final termina, mesmo antes do 3º lugar. */
   champion: { teamId: string; teamName: string } | null;
   runnerUp: { teamId: string; teamName: string } | null;
   finalResult: string | null;

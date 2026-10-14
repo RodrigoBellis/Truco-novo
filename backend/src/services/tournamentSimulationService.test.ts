@@ -40,15 +40,16 @@ test("a simulação completa é aprovada sem erros", () => {
 
   assert.equal(report.status, "SIMULAÇÃO APROVADA");
   assert.deepEqual(report.errors, []);
-  assert.equal(report.approvedTeams, 10);
-  assert.equal(report.groupMatches, 20);
-  assert.equal(report.knockoutMatches, 7);
+  assert.equal(report.approvedTeams, 7);
+  assert.equal(report.groupMatches, 21);
+  assert.equal(report.knockoutMatches, 6);
   assert.equal(report.totalMatches, 27);
-  assert.deepEqual(report.knockout.map((match) => match.key), ["R1", "R2", "Q1", "Q2", "S1", "S2", "F"]);
+  assert.deepEqual(report.knockout.map((match) => match.key), ["Q1", "Q2", "S1", "S2", "T", "F"]);
   assert.ok(report.knockout.every((match) => match.played));
   assert.ok(report.final.championTeamName);
   assert.ok(report.final.runnerUpTeamName);
-  assert.notEqual(report.final.championTeamName, report.final.runnerUpTeamName);
+  assert.ok(report.final.thirdPlaceTeamName);
+  assert.equal(new Set([report.final.championTeamName, report.final.runnerUpTeamName, report.final.thirdPlaceTeamName]).size, 3);
 });
 
 test("a mesma seed reproduz exatamente o mesmo campeonato", () => {
@@ -63,33 +64,30 @@ test("seeds diferentes continuam produzindo campeonatos válidos", () => {
   [1, 7, 99, 12345].forEach((seed) => {
     const report = runFullSimulation({ seed });
     assert.equal(report.status, "SIMULAÇÃO APROVADA", `seed ${seed} deveria ser aprovada`);
-    assert.equal(report.groups[0].teamNames.length, 5);
-    assert.equal(report.groups[1].teamNames.length, 5);
+    assert.equal(report.groups.length, 1);
+    assert.equal(report.groups[0].teamNames.length, 7);
   });
 });
 
-test("cabeças de chave nunca caem no mesmo grupo", () => {
+test("as 7 duplas oficiais vão todas para o grupo único", () => {
   for (let seed = 1; seed <= 25; seed += 1) {
     runFullSimulation({ seed });
-    const seededTeams = store.approvedTeams().filter((team) => team.seeded);
-    assert.equal(seededTeams.length, 2);
-    assert.notEqual(seededTeams[0].groupId, seededTeams[1].groupId, `seed ${seed} juntou as cabeças de chave`);
+    const approved = store.approvedTeams();
+    assert.equal(approved.length, 7);
+    assert.ok(approved.every((team) => team.groupId === "A"), `seed ${seed} deixou dupla fora do grupo único`);
+    assert.deepEqual(approved.map((team) => team.name).sort(), [
+      "Digão & Rafinha", "JP & Anderson", "PG & Alexandre", "Pigas & Diguinho", "Rogério & Waguinho", "Ronaldo & Rodrigo", "Saulo & Vitor",
+    ]);
   }
 });
 
-test("classificação numera de 1º a 5º em cada grupo", () => {
+test("classificação numera de 1º a 7º no grupo único, com 6 jogos por dupla", () => {
   runFullSimulation({ seed: 2026 });
-
-  (["A", "B"] as const).forEach((groupId) => {
-    const rows = computeStandings(groupId);
-    assert.deepEqual(
-      rows.map((row) => row.position),
-      [1, 2, 3, 4, 5],
-    );
-    rows.forEach((row) => {
-      assert.equal(row.jogos, 4);
-      assert.equal(row.vitorias + row.derrotas, 4);
-    });
+  const rows = computeStandings("A");
+  assert.deepEqual(rows.map((row) => row.position), [1, 2, 3, 4, 5, 6, 7]);
+  rows.forEach((row) => {
+    assert.equal(row.jogos, 6);
+    assert.equal(row.vitorias + row.derrotas, 6);
   });
 });
 
@@ -120,7 +118,6 @@ test("reiniciar a simulação volta ao estado inicial preservando dados-base", (
   assert.equal(store.matches.length, 0);
   assert.equal(store.bracketMatches.length, 0);
   assert.equal(store.getGroup("A").teamIds.length, 0);
-  assert.equal(store.getGroup("B").teamIds.length, 0);
   // Derivado do seed: o histórico é dado-base preservado, não um número fixo —
   // assim o teste não quebra a cada nova edição adicionada ao Hall da Fama.
   assert.equal(store.history.length, SEED_HISTORY.length);

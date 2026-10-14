@@ -104,3 +104,28 @@ A API real (mesmas rotas, middlewares, serviços e regras) com dados fictícios 
 ## O que ainda não foi executado no banco real
 
 Geração automática do mata-mata, desfazer/refazer o chaveamento, avanço de fase, correção de placar no mata-mata, decisão de empate, registro do campeão no histórico (incluindo o preenchimento do par histórico) e os dois scripts que gravam. Tudo isso passou em testes com dados isolados e no modo ensaio; a primeira execução real deve ser acompanhada.
+
+## Formato de 14/10/2026: 7 duplas, grupo único (homologado localmente)
+
+O formato de 10 duplas acima foi substituído. Fase de grupos: 7 duplas, todos contra todos (21 jogos). Classificação: 1º e 2º vão direto à semifinal, 3º a 6º jogam as quartas e o 7º é eliminado. Quartas 1: 3º × 6º. Quartas 2: 4º × 5º. Semifinal 1: 1º × vencedor da Q2. Semifinal 2: 2º × vencedor da Q1. Depois vêm a final e a disputa de 3º lugar. São 27 partidas no total. O campeão é gravado quando a final termina, e a edição só encerra quando a final e o 3º lugar têm placar. O 3º lugar aparece no Mata-mata, sem coluna nova no histórico. Prêmios por dupla: R$ 400, R$ 200 e R$ 100.
+
+Participantes oficiais: Pigas & Diguinho (4), Ronaldo & Rodrigo (5), JP & Anderson (3), Saulo & Vitor (3), PG & Alexandre (2), Rogério & Waguinho (2) e Digão & Rafinha (2). Rafinha é o mesmo jogador "Rafael" (mesmo id e mesma conta, só o nome muda). Digão é outra pessoa, pai do Diguinho.
+
+Arquivos:
+- `supabase/migrations/202610140001_edition5_single_group_seven_teams.sql`: limite de 7 duplas no grupo único, fase `terceiro` e lado `loser`. Foi aplicada só no banco local.
+- `supabase/scripts/edition5_replace_participants.sql`: renomeia, cadastra Anderson, Saulo e Digão, e grava as 7 participações. Roda em modo ensaio por padrão.
+- `node backend/scripts/homologacao-participantes.mjs --api http://127.0.0.1:3101`: ensaio local completo (retrato do oficial, troca, acessos e permissões). As senhas temporárias ficam em `backend/senhas-temporarias-homologacao.local.csv`, fora do git.
+
+Ordem no oficial, cada passo com autorização própria:
+1. Backup.
+2. `edition5_reset_competition.sql`.
+3. Migrations 1 a 4 e depois `202610140001`.
+4. Troca de participantes.
+5. "Reiniciar acesso de todos" em Admin → Jogadores (os 14 criam a própria senha).
+6. Geração dos 21 jogos.
+
+Acesso (decisão final de 14/10/2026):
+- Os 14 criam a própria senha na primeira entrada, direto na carta ("Crie sua senha para a 5ª Edição"), sem e-mail, SMS ou código.
+- "Reiniciar acesso de todos" em Admin → Jogadores invalida as senhas e sessões anteriores. Só funciona com o cadeado fechado.
+- "Redefinir acesso" fica para casos excepcionais.
+- O plano de implantação no Supabase real está em `docs/implantacao-5a-edicao.md`.

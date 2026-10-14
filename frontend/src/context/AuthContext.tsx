@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { AuthUser } from "@truco/shared";
-import { login as loginRequest, type LoginIdentifier } from "../services/authService";
+import { createFirstPassword as createFirstPasswordRequest, login as loginRequest, type LoginIdentifier } from "../services/authService";
 import { supabase } from "../lib/supabaseClient";
 import { AuthContext } from "./auth-context";
 import { clearStoredSession, readStoredSession, restoreStoredSession, syncStoredSession, writeStoredSession } from "../lib/authSession";
@@ -46,6 +46,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const adopt = useCallback(async (response: Awaited<ReturnType<typeof loginRequest>>) => {
+    writeStoredSession(response);
+    const session = await restoreStoredSession();
+    if (!session) throw new Error("Não foi possível iniciar a sessão. Entre novamente.");
+    setUser(session.user);
+    setToken(session.token);
+    return response.user;
+  }, []);
+
+  const createFirstPassword = useCallback(async (playerId: string, newPassword: string) => adopt(await createFirstPasswordRequest(playerId, newPassword)), [adopt]);
+
   const login = useCallback(async (identifier: LoginIdentifier, password: string) => {
     const response = await loginRequest(identifier, password);
     writeStoredSession(response);
@@ -76,8 +87,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, token, isLoading, login, logout, updateUser }),
-    [user, token, isLoading, login, logout, updateUser],
+    () => ({ user, token, isLoading, login, createFirstPassword, logout, updateUser }),
+    [user, token, isLoading, login, createFirstPassword, logout, updateUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

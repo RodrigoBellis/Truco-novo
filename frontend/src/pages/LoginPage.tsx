@@ -26,8 +26,11 @@ import "./LoginPage.css";
 
 const ADMIN_IDENTITY: Identity = { name: "Administrador", credential: { email: "admin@trucodonovo.com" } };
 
-/** deck: cartas dos jogadores (entrada); players: lista simples de nomes; password: autenticação. */
-type Step = "deck" | "players" | "password";
+/**
+ * deck: cartas dos jogadores (entrada); players: lista simples de nomes; password: autenticação;
+ * setup: primeiro acesso da 5ª edição, quando a conta ainda não criou a senha.
+ */
+type Step = "deck" | "players" | "password" | "setup";
 
 interface Identity {
   name: string;
@@ -38,7 +41,7 @@ interface Identity {
 }
 
 export function LoginPage() {
-  const { user, isLoading, login } = useAuth();
+  const { user, isLoading, login, createFirstPassword } = useAuth();
   const { theme } = useTheme();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -46,6 +49,7 @@ export function LoginPage() {
   const [step, setStep] = useState<Step>("deck");
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [playerQuery, setPlayerQuery] = useState("");
@@ -69,7 +73,8 @@ export function LoginPage() {
     setLastPlayerId(player.id);
     setError(null);
     setPassword("");
-    setStep("password");
+    setConfirmation("");
+    setStep(player.needsSetup ? "setup" : "password");
   }
 
   function backToDeck() {
@@ -105,6 +110,30 @@ export function LoginPage() {
   }
 
   const isPlayerIdentity = identity !== null && "playerId" in identity.credential;
+  const setupMismatch = confirmation.length > 0 && password !== confirmation;
+
+  async function handleSetup(event: FormEvent) {
+    event.preventDefault();
+    if (!identity || !("playerId" in identity.credential) || password !== confirmation) return;
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const loggedInUser = await createFirstPassword(identity.credential.playerId!, password);
+      showToast("success", `Senha criada! Bem-vindo, ${loggedInUser.name}!`);
+      navigate(entryPathForUser(loggedInUser), { replace: true });
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        // Alguém já criou a senha desta conta (talvez o próprio jogador em outro aparelho).
+        setPassword("");
+        setConfirmation("");
+        setStep("password");
+        refetchPlayers();
+      }
+      setError(err instanceof ApiError ? err.message : "Não foi possível criar a senha. Tente novamente.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   if (step === "deck") {
     return (
@@ -210,6 +239,43 @@ export function LoginPage() {
                 )}
               </>
             )}
+          </div>
+        )}
+
+        {step === "setup" && identity && (
+          <div className={`login-step login-step-password${identity.card ? " login-auth" : ""}`}>
+            <button type="button" className="login-back" onClick={backToDeck}>
+              ← Voltar
+            </button>
+            <div className="login-auth-identity">
+              {identity.card && (
+                <div className="login-auth-card">
+                  <TrucoPlayerCard name={identity.name} identity={identity.card} />
+                </div>
+              )}
+              <span className="login-auth-kicker">Primeiro acesso</span>
+              <h1>Crie sua senha para a 5ª Edição</h1>
+              <p className="text-muted">{identity.name}, escolha a senha que quiser. É ela que você vai usar nas próximas entradas.</p>
+            </div>
+            <form onSubmit={handleSetup} className="login-form" aria-label="Crie sua senha">
+              <label className="login-field">
+                <span>Nova senha</span>
+                <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={6} required autoFocus autoComplete="new-password" />
+              </label>
+              <label className="login-field">
+                <span>Repita a senha</span>
+                <input type="password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} minLength={6} required autoComplete="new-password" aria-invalid={setupMismatch} />
+              </label>
+              <p className="login-setup-hint text-faint">Pelo menos 6 caracteres. Só você deve saber esta senha.</p>
+              {setupMismatch && <p className="login-error" role="alert">As duas senhas não são iguais.</p>}
+              {error && <p className="login-error" role="alert">{error}</p>}
+              <Button type="submit" isLoading={isSubmitting} disabled={password.length < 6 || password !== confirmation} className="login-submit">
+                Criar senha e entrar
+              </Button>
+            </form>
+            <button type="button" className="login-switch-user" onClick={backToDeck}>
+              Não é você? Escolher outro jogador
+            </button>
           </div>
         )}
 

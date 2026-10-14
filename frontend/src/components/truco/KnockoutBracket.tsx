@@ -17,11 +17,11 @@ interface KnockoutBracketProps {
 
 /**
  * Ordem de cima para baixo em cada coluna no desktop. As quartas aparecem invertidas
- * (2 em cima) porque o chaveamento cruza: Repescagem 1 → Quartas 2 → Semifinal 1. Assim cada
- * confronto fica na mesma linha do jogo que o alimenta e os conectores não se cruzam.
+ * (2 em cima) porque o chaveamento cruza: Quartas 2 → Semifinal 1 e Quartas 1 → Semifinal 2.
+ * Assim cada confronto fica na mesma linha do jogo que o alimenta e os conectores não se cruzam.
+ * A disputa de 3º lugar fica fora das colunas, logo abaixo do chaveamento.
  */
 const COLUMN_ORDER: Array<{ round: BracketRound; keys: KnockoutKey[] }> = [
-  { round: "repescagem", keys: ["R1", "R2"] },
   { round: "quartas", keys: ["Q2", "Q1"] },
   { round: "semifinal", keys: ["S1", "S2"] },
   { round: "final", keys: ["F"] },
@@ -104,6 +104,13 @@ export function KnockoutBracket({ view, highlightTeamId, provisionalLabel = "pos
           </div>
         </section>
       </div>
+
+      {byKey.get("T") && (
+        <section className="ko-third" aria-label={BRACKET_ROUND_LABEL.terceiro}>
+          <h3 className="ko-round-title">{BRACKET_ROUND_LABEL.terceiro} · perdedores das semifinais</h3>
+          <MatchCard match={byKey.get("T")!} highlightTeamId={highlightTeamId} provisionalLabel={provisionalLabel} actions={renderActions?.(byKey.get("T")!)} />
+        </section>
+      )}
     </div>
   );
 }

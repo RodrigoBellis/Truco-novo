@@ -46,3 +46,23 @@ test("ensaio e homologação não ligam juntos, e o ensaio recusa a chave de ser
   withEnv({ TRUCO_REHEARSAL: "1", SUPABASE_SERVICE_ROLE_KEY: "chave-de-teste" }, () => assert.throws(isRehearsalMode, /chave de serviço/));
   withEnv({ TRUCO_REHEARSAL: "1" }, () => assert.equal(isRehearsalMode(), true));
 });
+
+test("TRUST_PROXY: sem a variável o IP vem da conexão; com 1, do X-Forwarded-For do proxy imediato", async () => {
+  const { default: express } = await import("express");
+  const ipOf = async (trust: string | undefined, forwarded: string) => {
+    const app = express();
+    const value = Number(trust ?? 0);
+    if (Number.isInteger(value) && value > 0) app.set("trust proxy", value);
+    app.get("/ip", (req, res) => { res.json({ ip: req.ip }); });
+    const server = app.listen(0, "127.0.0.1");
+    await new Promise((resolve) => server.once("listening", resolve));
+    const port = (server.address() as { port: number }).port;
+    const reply = await fetch(`http://127.0.0.1:${port}/ip`, { headers: { "X-Forwarded-For": forwarded } }).then((r) => r.json()) as { ip: string };
+    server.close();
+    return reply.ip;
+  };
+  assert.match(await ipOf(undefined, "203.0.113.9"), /127\.0\.0\.1/, "sem proxy confiável, o cabeçalho é ignorado");
+  assert.equal(await ipOf("1", "203.0.113.9"), "203.0.113.9");
+  // Forjar uma cadeia não adianta: só o último salto (o adicionado pelo Nginx) é aceito.
+  assert.equal(await ipOf("1", "1.2.3.4, 203.0.113.9"), "203.0.113.9");
+});

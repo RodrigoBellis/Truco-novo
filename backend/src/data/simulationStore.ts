@@ -1,4 +1,5 @@
 import type { Player, Team, Group, Match, BracketMatch, RankingEntry, HistoryEntry, GroupId, DrawStatus, StandingOverride } from "@truco/shared";
+import { SINGLE_GROUP_NAME } from "@truco/shared";
 import { SEED_PLAYERS, SEED_TEAMS, SEED_RANKING, SEED_HISTORY } from "./seed.js";
 import { DEFAULT_PASSWORD, type Credential } from "./credentials.js";
 
@@ -17,14 +18,11 @@ function buildCredentials(players: Player[]): Credential[] {
 class TrucoStore {
   players: Player[] = clone(SEED_PLAYERS);
   teams: Team[] = clone(SEED_TEAMS);
-  groups: Group[] = [
-    { id: "A", name: "Grupo A", teamIds: [] },
-    { id: "B", name: "Grupo B", teamIds: [] },
-  ];
+  groups: Group[] = [{ id: "A", name: SINGLE_GROUP_NAME, teamIds: [] }];
   matches: Match[] = [];
   bracketMatches: BracketMatch[] = [];
   /** Decisões de empate exato tomadas na simulação (o papel do administrador). */
-  standingOverrides: Record<GroupId, StandingOverride[]> = { A: [], B: [] };
+  standingOverrides: Record<GroupId, StandingOverride[]> = { A: [] };
   ranking: RankingEntry[] = clone(SEED_RANKING);
   history: HistoryEntry[] = clone(SEED_HISTORY);
   drawStatus: DrawStatus = "pendente";
@@ -34,13 +32,10 @@ class TrucoStore {
   reset(): void {
     this.players = clone(SEED_PLAYERS);
     this.teams = clone(SEED_TEAMS);
-    this.groups = [
-      { id: "A", name: "Grupo A", teamIds: [] },
-      { id: "B", name: "Grupo B", teamIds: [] },
-    ];
+    this.groups = [{ id: "A", name: SINGLE_GROUP_NAME, teamIds: [] }];
     this.matches = [];
     this.bracketMatches = [];
-    this.standingOverrides = { A: [], B: [] };
+    this.standingOverrides = { A: [] };
     this.ranking = clone(SEED_RANKING);
     this.history = clone(SEED_HISTORY);
     this.drawStatus = "pendente";

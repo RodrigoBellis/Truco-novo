@@ -1,4 +1,4 @@
-import { BRACKET_ROUNDS, KNOCKOUT_PLAN, buildKnockoutView, type BracketMatch, type BracketRound, type GroupId, type KnockoutKey, type KnockoutMatchView, type Match, type MatchResult, type StandingRow, type Team } from "@truco/shared";
+import { BRACKET_ROUNDS, EDITION_GROUP_IDS, KNOCKOUT_PLAN, buildKnockoutView, type BracketMatch, type BracketRound, type GroupId, type KnockoutKey, type KnockoutMatchView, type Match, type MatchResult, type StandingRow, type Team } from "@truco/shared";
 import { getTeams } from "../services/teamsService";
 import { getMatches } from "../services/matchesService";
 import { getBracket, getKnockoutStatus } from "../services/bracketService";
@@ -16,15 +16,14 @@ export interface KnockoutData {
 
 /** Tudo o que as telas de mata-mata precisam, numa ida só à API. */
 export async function loadKnockoutData(): Promise<KnockoutData> {
-  const [teams, bracket, matches, standingsA, standingsB, status] = await Promise.all([
+  const [teams, bracket, matches, standingsA, status] = await Promise.all([
     getTeams(),
     getBracket(),
     getMatches({ stage: "mata-mata" }),
     getStandings("A"),
-    getStandings("B"),
     getKnockoutStatus(),
   ]);
-  return { teams, bracket, matches, standings: { A: standingsA, B: standingsB }, status };
+  return { teams, bracket, matches, standings: { A: standingsA }, status };
 }
 
 export type KnockoutPhase = "grupos" | BracketRound | "encerrado";
@@ -39,15 +38,15 @@ export interface KnockoutSummary {
   provisional: boolean;
   /** Fase de grupos encerrada, mas há empate exato esperando a decisão do administrador. */
   tiePending: boolean;
-  /** Todos os jogos de grupo têm placar: sem empate a decidir, a repescagem nasce sozinha. */
+  /** Todos os jogos de grupo têm placar: sem empate a decidir, as quartas nascem sozinhas. */
   groupsComplete: boolean;
 }
 
 export function summarizeKnockout({ teams, bracket, matches, standings, status }: KnockoutData): KnockoutSummary {
-  const rows = [...standings.A, ...standings.B];
+  const rows = EDITION_GROUP_IDS.flatMap((group) => standings[group]);
   const groupsStarted = rows.some((row) => row.jogos > 0);
   const generated = bracket.length > 0;
-  const groupsComplete = rows.length > 0 && (["A", "B"] as const).every((group) => standings[group].length > 1 && standings[group].every((row) => row.jogos === standings[group].length - 1));
+  const groupsComplete = rows.length > 0 && EDITION_GROUP_IDS.every((group) => standings[group].length > 1 && standings[group].every((row) => row.jogos === standings[group].length - 1));
 
   const view = buildKnockoutView({
     bracket,
@@ -76,34 +75,32 @@ export function summarizeKnockout({ teams, bracket, matches, standings, status }
   };
 }
 
-/**
- * Aviso para quando sobra um reencontro nas quartas. O cruzamento já é o de menos reencontros,
- * então o que aparece aqui é sempre o caso inevitável: os dois vencedores da repescagem
- * saíram do mesmo grupo.
- */
-export function quarterfinalRematchNote(view: readonly KnockoutMatchView[]): string | null {
-  const rematch = view.find((match) => match.round === "quartas" && match.sameGroup && !match.sideA.provisional && !match.sideB.provisional);
-  if (!rematch) return null;
-  return `Reencontro inevitável nas quartas: ${rematch.sideA.name} e ${rematch.sideB.name} já se enfrentaram na fase de grupos. Os dois vencedores da repescagem saíram do mesmo grupo, então um deles cai com o 2º colocado desse grupo de qualquer jeito.`;
-}
-
 // ---------- Campanha da dupla no mata-mata ----------
 
 const isReady = (match: KnockoutMatchView) => Boolean(match.sideA.name && match.sideB.name && !match.sideA.provisional && !match.sideB.provisional);
 
 /** Texto de quem venceu cada fase: é a fase seguinte que aparece. */
 export const ADVANCE_HEADLINE: Record<BracketRound, string> = {
-  repescagem: "Classificados para as quartas de final!",
   quartas: "Classificados para a semifinal!",
   semifinal: "Vocês estão na final!",
+  terceiro: "3º lugar da 5ª edição!",
   final: "Campeões da 5ª edição!",
+};
+
+/** Derrota que não encerra a campanha (semifinal) ou que ainda vale pódio (final). */
+const LOSS_HEADLINE: Partial<Record<BracketRound, string>> = {
+  semifinal: "Vocês vão disputar o 3º lugar",
+  final: "Vice-campeões da 5ª edição!",
 };
 
 export const CAMPAIGN_OVER_HEADLINE = "Fim da campanha nesta edição";
 
 export interface TeamKnockoutStatus {
-  /** O que o último jogo de mata-mata da dupla decidiu. null: ela ainda não jogou no mata-mata. */
-  outcome: "advanced" | "champion" | "eliminated" | null;
+  /**
+   * O que o último jogo de mata-mata da dupla decidiu. null: ela ainda não jogou no mata-mata.
+   * "podium": vice-campeã ou 3º lugar (campanha encerrada com premiação).
+   */
+  outcome: "advanced" | "champion" | "podium" | "eliminated" | null;
   headline: string | null;
   /** Complemento do título: o placar que decidiu, ou por que a campanha acabou. */
   detail: string | null;
@@ -125,7 +122,7 @@ export function teamKnockoutStatus(summary: KnockoutSummary, data: KnockoutData,
 
   if (mine.length === 0) {
     // Chaveamento montado sem a dupla: ela terminou o grupo fora das vagas.
-    const inGroups = [...data.standings.A, ...data.standings.B].some((row) => row.teamId === teamId);
+    const inGroups = EDITION_GROUP_IDS.flatMap((group) => data.standings[group]).some((row) => row.teamId === teamId);
     return inGroups ? { outcome: "eliminated", headline: CAMPAIGN_OVER_HEADLINE, detail: "A dupla terminou a fase de grupos fora das vagas do mata-mata.", turn: null, waiting: null } : null;
   }
 
@@ -138,10 +135,12 @@ export function teamKnockoutStatus(summary: KnockoutSummary, data: KnockoutData,
   if (last) {
     const me = sideOf(last) === "A" ? last.sideA : last.sideB;
     const other = sideOf(last) === "A" ? last.sideB : last.sideA;
-    outcome = !me.winner ? "eliminated" : last.round === "final" ? "champion" : "advanced";
-    headline = me.winner ? ADVANCE_HEADLINE[last.round] : CAMPAIGN_OVER_HEADLINE;
+    if (me.winner) outcome = last.round === "final" ? "champion" : last.round === "terceiro" ? "podium" : "advanced";
+    else outcome = last.round === "semifinal" ? "advanced" : last.round === "final" ? "podium" : "eliminated";
+    headline = me.winner ? ADVANCE_HEADLINE[last.round] : (LOSS_HEADLINE[last.round] ?? CAMPAIGN_OVER_HEADLINE);
+    if (!me.winner && last.round === "terceiro") headline = `${CAMPAIGN_OVER_HEADLINE}: 4º lugar`;
     detail = `${last.label}: ${me.name} ${me.sets} × ${other.sets} ${other.name}`;
-    if (last.round === "final" && me.winner && data.status?.editionFinished !== true) {
+    if (last.round === "final" && me.winner && !data.status?.champion) {
       outcome = "advanced";
       headline = "Final vencida. Registro do título pendente.";
     }
@@ -149,18 +148,14 @@ export function teamKnockoutStatus(summary: KnockoutSummary, data: KnockoutData,
 
   let turn: TeamKnockoutStatus["turn"] = null;
   let waiting: TeamKnockoutStatus["waiting"] = null;
-  if (outcome !== "eliminated" && outcome !== "champion") {
+  if (outcome !== "eliminated" && outcome !== "champion" && outcome !== "podium") {
     if (open && isReady(open)) {
       const other = sideOf(open) === "A" ? open.sideB : open.sideA;
       turn = { match: open, matchId: summary.matchIds[open.key] ?? null, opponentName: other.name! };
     } else if (open) {
       const other = sideOf(open) === "A" ? open.sideB : open.sideA;
-      // "Vencedor das Quartas 2" → "Vocês aguardam o vencedor das Quartas 2".
+      // "Vencedor das Quartas 2" → "Vocês aguardam o vencedor das Quartas 2"; idem "Perdedor da Semifinal 1".
       waiting = { match: open, sentence: `Vocês aguardam o ${other.placeholder.charAt(0).toLowerCase()}${other.placeholder.slice(1)}, ${open.round === "quartas" ? "nas" : "na"} ${open.label}.` };
-    } else if (outcome === "advanced" && last?.round === "repescagem") {
-      // As quartas só são montadas com as duas repescagens encerradas.
-      const pending = summary.view.find((match) => match.round === "repescagem" && !match.played);
-      if (pending) waiting = { match: pending, sentence: `Vocês aguardam o fim da ${pending.label} para conhecer o adversário das quartas de final.` };
     }
   }
   return { outcome, headline, detail, turn, waiting };
@@ -171,5 +166,7 @@ export function knockoutResultToast(match: KnockoutMatchView, teamId: string | n
   const side = match.sideA.teamId === teamId ? "A" : match.sideB.teamId === teamId ? "B" : null;
   if (!side) return null;
   const won = side === "A" ? result.setsA > result.setsB : result.setsB > result.setsA;
-  return won ? ADVANCE_HEADLINE[match.round] : `Resultado registrado. ${CAMPAIGN_OVER_HEADLINE}.`;
+  if (won) return ADVANCE_HEADLINE[match.round];
+  const loss = LOSS_HEADLINE[match.round];
+  return loss ? `Resultado registrado. ${loss}.` : `Resultado registrado. ${CAMPAIGN_OVER_HEADLINE}.`;
 }

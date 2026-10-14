@@ -138,3 +138,17 @@
     flex: 1;
   }
 }
+
+/* Alterar senha */
+.profile-password-form { display: grid; gap: 12px; }
+.profile-password-form label { display: grid; gap: 6px; font-size: 0.85rem; font-weight: 650; }
+.profile-password-form input {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+.profile-password-form > .btn { justify-self: start; min-height: 44px; }

@@ -58,12 +58,23 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("truco_profiles")
-    .select("truco_id, truco_player_id, role, must_change_password")
+    .select("truco_id, truco_player_id, role, must_change_password, access_setup_required, sessions_valid_after")
     .eq("truco_id", data.user.id)
     .maybeSingle();
 
   if (profileError || !profile) {
     res.status(403).json({ message: "Perfil não encontrado para este usuário." });
+    return;
+  }
+
+  // Acesso reiniciado: a conta ainda não criou a senha desta edição. Nenhuma sessão vale.
+  if (profile.access_setup_required) {
+    res.status(401).json({ message: "Crie sua senha para a 5ª Edição: escolha sua carta na tela de entrada.", code: "access_setup_required" });
+    return;
+  }
+  // Sessões abertas antes do reinício do acesso (ou de outra criação de senha) não valem mais.
+  if (sessionPredates(token, profile.sessions_valid_after)) {
+    res.status(401).json({ message: "Sua sessão expirou. Entre novamente com sua senha.", code: "session_revoked" });
     return;
   }
 
@@ -76,6 +87,28 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
   req.authUser = { id: profile.truco_id, role: profile.role, playerId: profile.truco_player_id };
   next();
+}
+
+/**
+ * Horário em que a sessão foi autenticada, em segundos. O Supabase grava em `amr` o momento do
+ * login com senha, e esse valor se mantém quando a sessão é renovada; `iat` é só o fallback.
+ * O token já foi validado por auth.getUser antes desta leitura.
+ */
+export function authTimeOf(token: string): number | null {
+  try {
+    const claims = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString()) as { amr?: Array<{ timestamp?: number }>; iat?: number };
+    const stamps = (claims.amr ?? []).map((entry) => entry.timestamp).filter((value): value is number => typeof value === "number");
+    return stamps.length > 0 ? Math.min(...stamps) : typeof claims.iat === "number" ? claims.iat : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Sessão autenticada antes de `validAfter` (com 1 s de tolerância de relógio). Sem horário legível, é recusada. */
+export function sessionPredates(token: string, validAfter: string | null | undefined): boolean {
+  if (!validAfter) return false;
+  const authTime = authTimeOf(token);
+  return authTime === null || authTime * 1000 < new Date(validAfter).getTime() - 1000;
 }
 
 /** Deve vir depois de requireAuth. Bloqueia quem não tem um dos papéis permitidos. */

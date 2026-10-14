@@ -25,6 +25,11 @@ export type MountExtraRoutes = (app: Express) => void;
 
 export function createApp(mountExtraRoutes?: MountExtraRoutes): Express {
   const app = express();
+  // Atrás do Nginx, o IP real do jogador vem em X-Forwarded-For. TRUST_PROXY=1 confia só no proxy
+  // imediatamente à frente (o Nginx do servidor); sem a variável, nenhum cabeçalho é aceito e
+  // ninguém consegue forjar o IP. É o IP que limita as tentativas de criar senha (accessService).
+  const trustProxy = Number(process.env.TRUST_PROXY ?? 0);
+  if (Number.isInteger(trustProxy) && trustProxy > 0) app.set("trust proxy", trustProxy);
   const rehearsal = isRehearsalMode();
   const homologation = !rehearsal && isHomologationMode();
 

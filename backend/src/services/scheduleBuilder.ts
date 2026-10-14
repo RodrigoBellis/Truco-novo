@@ -10,9 +10,8 @@ export interface TableAssignment {
 /**
  * Monta a escala das 3 mesas para a fase de grupos, em blocos de até 3 jogos simultâneos.
  *
- * Regras (pedidas pelo usuário):
- * - Mesa 1 prioriza Grupo A, Mesa 2 prioriza Grupo B.
- * - Mesa 3 é coringa: vai para o grupo com mais jogos pendentes (o "atrasado").
+ * Regras (pedidas pelo usuário; grupo único desde 14/10/2026):
+ * - As três mesas puxam da mesma fila, em ordem (com 7 duplas, até 3 jogos por bloco).
  * - Uma dupla nunca entra em duas mesas no mesmo bloco.
  * - Uma dupla que jogou no bloco anterior só volta a jogar se não houver
  *   alternativa elegível na fila daquele grupo (evita jogos consecutivos).
@@ -28,8 +27,8 @@ export function buildSchedule(matches: Match[]): TableAssignment[] {
   const pending = matches.filter((m) => m.stage === "grupos" && m.status === "pendente");
   const alreadyPlayed = matches.filter((m) => m.stage === "grupos" && m.status === "realizado");
 
-  const queueA = pending.filter((m) => m.groupId === "A").sort((a, b) => a.order - b.order);
-  const queueB = pending.filter((m) => m.groupId === "B").sort((a, b) => a.order - b.order);
+  // Fila única: a fase de grupos tem um grupo só. A ordem é a do round-robin gerado.
+  const queue = [...pending].sort((a, b) => a.order - b.order);
 
   // Último bloco em que cada dupla jogou (considerando também jogos já realizados,
   // tratados como "bloco -1" — recém-saídos de quadra, então preferimos não
@@ -86,46 +85,18 @@ export function buildSchedule(matches: Match[]): TableAssignment[] {
     lastBlockByTeam.set(b, blockNumber);
   }
 
-  while (queueA.length > 0 || queueB.length > 0) {
+  while (queue.length > 0) {
     const blockUsedTeams = new Set<string>();
-
-    // Mesa 1 — prioridade Grupo A
-    const matchTable1 = pickEligible(queueA, blockUsedTeams);
-    if (matchTable1) {
-      takeFromQueue(queueA, matchTable1);
-      assign(matchTable1, 1, blockUsedTeams);
+    let placed = 0;
+    for (const tableNumber of [1, 2, 3] as const) {
+      const match = pickEligible(queue, blockUsedTeams);
+      if (!match) break;
+      takeFromQueue(queue, match);
+      assign(match, tableNumber, blockUsedTeams);
+      placed += 1;
     }
-
-    // Mesa 2 — prioridade Grupo B
-    const matchTable2 = pickEligible(queueB, blockUsedTeams);
-    if (matchTable2) {
-      takeFromQueue(queueB, matchTable2);
-      assign(matchTable2, 2, blockUsedTeams);
-    }
-
-    // Mesa 3 — coringa: vai para quem está mais atrasado (mais jogos pendentes).
-    // Empate desempata para o grupo que NÃO usou a mesa 3 no bloco anterior,
-    // pra não virar sempre o mesmo grupo. Como não guardamos isso explicitamente,
-    // o critério de "mais pendente" já resolve a alternância na prática, porque
-    // o grupo que ganha a mesa 3 fica temporariamente com menos pendências.
-    const behindQueue = queueA.length === queueB.length ? (blockNumber % 2 === 0 ? queueA : queueB) : queueA.length > queueB.length ? queueA : queueB;
-    const otherQueue = behindQueue === queueA ? queueB : queueA;
-
-    let matchTable3 = pickEligible(behindQueue, blockUsedTeams);
-    let sourceQueue = behindQueue;
-    if (!matchTable3) {
-      matchTable3 = pickEligible(otherQueue, blockUsedTeams);
-      sourceQueue = otherQueue;
-    }
-    if (matchTable3) {
-      takeFromQueue(sourceQueue, matchTable3);
-      assign(matchTable3, 3, blockUsedTeams);
-    }
-
-    // Se nenhuma mesa recebeu jogo neste bloco (só pode acontecer se as filas
-    // restantes estão vazias), encerra para não girar em vazio.
-    if (!matchTable1 && !matchTable2 && !matchTable3) break;
-
+    // Nenhuma mesa recebeu jogo: só acontece com a fila vazia; encerra para não girar em vazio.
+    if (placed === 0) break;
     blockNumber += 1;
   }
 

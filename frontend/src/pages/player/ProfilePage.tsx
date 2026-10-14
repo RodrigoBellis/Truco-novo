@@ -11,6 +11,8 @@ import { useFetchData } from "../../hooks/useFetchData";
 import { getTeams } from "../../services/teamsService";
 import { uploadMyAvatar } from "../../services/playersService";
 import { resizeImageToDataUrl } from "../../utils/image";
+import { changePassword } from "../../services/authService";
+import { ApiError } from "../../services/api";
 import "./ProfilePage.css";
 
 export function ProfilePage() {
@@ -91,13 +93,55 @@ export function ProfilePage() {
         <ThemeToggle />
       </Card>
 
-      <p className="profile-note text-faint">
-        Para alterar sua senha, saia da conta e use a opção de criar nova senha ao entrar.
-      </p>
+      <PasswordChangeCard />
 
       <Button variant="danger" onClick={logout}>
         Sair da conta
       </Button>
     </div>
+  );
+}
+
+/**
+ * Troca da senha pelo próprio jogador, quando quiser. Pede a senha atual (uma sessão esquecida
+ * aberta não basta para trocar). Quem esqueceu a senha pede ao administrador para redefinir.
+ */
+function PasswordChangeCard() {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState<{ tone: "error" | "success"; text: string } | null>(null);
+  const mismatch = confirm.length > 0 && next !== confirm;
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (next !== confirm) return;
+    setIsSaving(true);
+    setMessage(null);
+    try {
+      await changePassword(next, current);
+      setCurrent(""); setNext(""); setConfirm("");
+      setMessage({ tone: "success", text: "Senha alterada. Use a nova senha no próximo login." });
+    } catch (err) {
+      setMessage({ tone: "error", text: err instanceof ApiError ? err.message : "Não foi possível alterar a senha." });
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <Card className="profile-password-card">
+      <form className="profile-password-form" onSubmit={(event) => void handleSubmit(event)} aria-labelledby="profile-password-title">
+        <strong id="profile-password-title">Alterar senha</strong>
+        <span className="text-muted">Escolha a senha que quiser, com pelo menos 6 caracteres. Esqueceu a atual? Peça ao administrador para redefinir.</span>
+        <label><span>Senha atual</span><input type="password" autoComplete="current-password" value={current} onChange={(event) => setCurrent(event.target.value)} required /></label>
+        <label><span>Nova senha</span><input type="password" autoComplete="new-password" minLength={6} value={next} onChange={(event) => setNext(event.target.value)} required /></label>
+        <label><span>Repita a nova senha</span><input type="password" autoComplete="new-password" minLength={6} value={confirm} onChange={(event) => setConfirm(event.target.value)} required aria-invalid={mismatch} /></label>
+        {mismatch && <span className="profile-avatar-error" role="alert">As duas senhas novas não são iguais.</span>}
+        {message && <span className={message.tone === "error" ? "profile-avatar-error" : "profile-avatar-success"} role={message.tone === "error" ? "alert" : "status"}>{message.text}</span>}
+        <Button type="submit" isLoading={isSaving} disabled={!current || next.length < 6 || mismatch}>Salvar nova senha</Button>
+      </form>
+    </Card>
   );
 }

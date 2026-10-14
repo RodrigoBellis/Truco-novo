@@ -1,5 +1,5 @@
 /* Chaveamento do mata-mata (KnockoutBracket.tsx).
-   Largo: cinco colunas (repescagem → campeão) ligadas por conectores; confrontos da mesma
+   Largo: quatro colunas (quartas → campeão) ligadas por conectores; confrontos da mesma
    trilha ficam na mesma linha. Estreito: uma coluna só, fase por fase, sem rolagem lateral.
    A troca usa a largura do próprio componente (container query), não a da janela. */
 .ko {
@@ -23,10 +23,17 @@
   animation: rise-in var(--motion-reveal) backwards;
 }
 
-.ko-round-quartas { animation-delay: 110ms; }
-.ko-round-semifinal { animation-delay: 220ms; }
-.ko-round-final { animation-delay: 330ms; }
-.ko-round-champion { animation-delay: 440ms; }
+.ko-round-semifinal { animation-delay: 110ms; }
+.ko-round-final { animation-delay: 220ms; }
+.ko-round-champion { animation-delay: 330ms; }
+
+/* Disputa de 3º lugar: abaixo do chaveamento, mesma linguagem dos confrontos. */
+.ko-third {
+  display: grid;
+  gap: 12px;
+  margin-top: 26px;
+  animation: rise-in var(--motion-reveal) 440ms backwards;
+}
 
 .ko-round-title {
   display: flex;
@@ -309,7 +316,7 @@
 /* ---------- Largo: chaveamento horizontal ---------- */
 @container (min-width: 900px) {
   .ko-rounds {
-    grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 0.86fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 0.86fr);
     gap: var(--ko-gap);
     align-items: stretch;
   }
@@ -319,7 +326,6 @@
   .ko-round-title::after { display: none; }
 
   /* Conector reto até o confronto da próxima coluna, na mesma linha. */
-  .ko-round-repescagem .ko-cell::after,
   .ko-round-quartas .ko-cell::after,
   .ko-round-final .ko-cell::after {
     content: "";
@@ -334,7 +340,6 @@
     animation: ko-line-in 420ms var(--ease-out) 380ms backwards;
   }
 
-  .ko-round-quartas .ko-cell::after { animation-delay: 490ms; }
   .ko-round-final .ko-cell::after { animation-delay: 760ms; }
 
   /* As duas semifinais se juntam na final: cotovelo que desce (ou sobe) até o meio. */
@@ -380,4 +385,8 @@
   .ko-round-semifinal .ko-cell-played::after { background: none; }
 
   .ko-round-champion .ko-round-matches { align-items: center; }
+
+  .ko-third { max-width: 420px; margin-inline: auto; width: 100%; }
+  .ko-third .ko-round-title { justify-content: center; }
+  .ko-third .ko-round-title::after { display: none; }
 }

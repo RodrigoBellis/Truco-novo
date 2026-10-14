@@ -6,7 +6,7 @@ import { rehearsalStore } from "../data/rehearsalStore.js";
 
 export class AuthError extends Error {}
 
-async function toAuthUser(authUserId: string): Promise<AuthUser> {
+export async function toAuthUser(authUserId: string): Promise<AuthUser> {
   const { data: profile, error } = await supabaseAdmin
     .from("truco_profiles")
     .select("truco_id, truco_player_id, email, role, must_change_password")
@@ -93,15 +93,26 @@ export function passwordProblem(newPassword: string): string | null {
  * Troca a senha da conta autenticada (authUserId vem do token já validado) e encerra a
  * obrigação de troca do primeiro acesso.
  */
-export async function changePassword(authUserId: string, newPassword: string): Promise<AuthUser> {
+export async function changePassword(authUserId: string, newPassword: string, currentPassword?: string): Promise<AuthUser> {
   const problem = passwordProblem(newPassword);
   if (problem) throw new AuthError(problem);
 
   if (isRehearsalMode()) {
+    const current = rehearsalStore().findAccount({ id: authUserId });
+    // Fora do primeiro acesso, trocar a senha exige a senha atual (sessão esquecida aberta não basta).
+    if (current && !current.mustChangePassword && current.password !== currentPassword) throw new AuthError("A senha atual não confere.");
     rehearsalStore().setAccountPassword(authUserId, newPassword);
     const account = rehearsalStore().findAccount({ id: authUserId });
     if (!account) throw new AuthError("Perfil não encontrado para este usuário.");
     return rehearsalAuthUser(account);
+  }
+
+  const { data: profile } = await supabaseAdmin.from("truco_profiles").select("email, must_change_password").eq("truco_id", authUserId).maybeSingle();
+  if (!profile) throw new AuthError("Perfil não encontrado para este usuário.");
+  if (!profile.must_change_password) {
+    // Confere a senha atual num cliente isolado: nunca no supabaseAdmin compartilhado.
+    const { error: currentError } = await createLoginClient().auth.signInWithPassword({ email: profile.email, password: String(currentPassword ?? "") });
+    if (currentError) throw new AuthError("A senha atual não confere.");
   }
 
   const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(authUserId, { password: newPassword });

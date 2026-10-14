@@ -177,6 +177,9 @@ export type Database = {
           created_at: string;
           email: string;
           must_change_password: boolean;
+          access_setup_required: boolean;
+          access_setup_completed_at: string | null;
+          sessions_valid_after: string | null;
           role: Database["public"]["Enums"]["truco_user_role"];
           truco_id: string;
           truco_player_id: string;
@@ -334,8 +337,8 @@ export type Database = {
       };
     };
     Enums: {
-      truco_bracket_round: "oitavas" | "quartas" | "semifinal" | "final";
-      truco_bracket_slot_type: "direct" | "winner" | "tbd";
+      truco_bracket_round: "oitavas" | "quartas" | "semifinal" | "final" | "terceiro";
+      truco_bracket_slot_type: "direct" | "winner" | "loser" | "tbd";
       truco_championship_status: "em_andamento" | "encerrado";
       truco_draw_status: "pendente" | "realizado";
       truco_match_stage: "grupos" | "mata-mata";

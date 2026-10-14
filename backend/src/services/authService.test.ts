@@ -61,6 +61,7 @@ test("troca de senha só mexe na conta do token, exige 6 caracteres e encerra o 
   process.env.SUPABASE_URL = "https://auth-test.example.invalid";
   process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
   const calls: Array<{ method: string; path: string; search: string; body: unknown }> = [];
+  let firstAccess = true;
 
   t.mock.method(globalThis, "fetch", async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const request = new Request(input, init);
@@ -68,8 +69,16 @@ test("troca de senha só mexe na conta do token, exige 6 caracteres e encerra o 
     const text = await request.text();
     calls.push({ method: request.method, path: url.pathname, search: url.search, body: text ? JSON.parse(text) : null });
     let payload: unknown = null;
+    if (url.pathname.endsWith("/truco_profiles") && request.method === "PATCH") firstAccess = (JSON.parse(text) as { must_change_password: boolean }).must_change_password;
+    if (url.pathname.endsWith("/auth/v1/token")) {
+      // Conferência da senha atual (cliente de login isolado).
+      const ok = (JSON.parse(text) as { password: string }).password === "atual-certa";
+      return new Response(JSON.stringify(ok
+        ? { access_token: "t", refresh_token: "r", token_type: "bearer", expires_in: 3600, user: { id: "7b1d6c0e-52a4-4f0b-9a57-0c1f4e2d9a31", aud: "authenticated" } }
+        : { error: "invalid_grant", error_description: "Invalid login credentials" }), { status: ok ? 200 : 400, headers: { "Content-Type": "application/json" } });
+    }
     if (url.pathname.includes("/auth/v1/admin/users/")) payload = { id: "7b1d6c0e-52a4-4f0b-9a57-0c1f4e2d9a31", email: "rafael@example.invalid" };
-    else if (url.pathname.endsWith("/truco_profiles") && request.method === "GET") payload = { truco_id: "7b1d6c0e-52a4-4f0b-9a57-0c1f4e2d9a31", truco_player_id: "player-rafael", email: "rafael@example.invalid", role: "jogador", must_change_password: false };
+    else if (url.pathname.endsWith("/truco_profiles") && request.method === "GET") payload = { truco_id: "7b1d6c0e-52a4-4f0b-9a57-0c1f4e2d9a31", truco_player_id: "player-rafael", email: "rafael@example.invalid", role: "jogador", must_change_password: firstAccess };
     else if (url.pathname.endsWith("/truco_players")) payload = { name: "Rafael", avatar_url: null };
     return new Response(JSON.stringify(payload), { status: 200, headers: { "Content-Type": "application/json" } });
   });
@@ -92,4 +101,15 @@ test("troca de senha só mexe na conta do token, exige 6 caracteres e encerra o 
   assert.deepEqual(profileUpdates.map((call) => [call.search, call.body]), [["?truco_id=eq.7b1d6c0e-52a4-4f0b-9a57-0c1f4e2d9a31", { must_change_password: false }]]);
   // Nenhuma busca de usuário por e-mail: a conta vem do token, não de um dado enviado pelo cliente.
   assert.equal(calls.some((call) => call.path.endsWith("/auth/v1/admin/users")), false);
+  // No primeiro acesso não se pede a senha atual (a temporária acabou de ser usada no login).
+  assert.equal(calls.some((call) => call.path.endsWith("/auth/v1/token")), false);
+
+  // Fora do primeiro acesso: trocar exige a senha atual, conferida antes de qualquer alteração.
+  firstAccess = false;
+  calls.length = 0;
+  await assert.rejects(() => changePassword("7b1d6c0e-52a4-4f0b-9a57-0c1f4e2d9a31", "outra-senha"), /senha atual não confere/);
+  await assert.rejects(() => changePassword("7b1d6c0e-52a4-4f0b-9a57-0c1f4e2d9a31", "outra-senha", "chute"), /senha atual não confere/);
+  assert.equal(calls.some((call) => call.path.includes("/auth/v1/admin/users/")), false, "senha atual errada: nada foi alterado");
+  await changePassword("7b1d6c0e-52a4-4f0b-9a57-0c1f4e2d9a31", "outra-senha", "atual-certa");
+  assert.deepEqual(calls.filter((call) => call.path.includes("/auth/v1/admin/users/")).map((call) => call.body), [{ password: "outra-senha" }]);
 });

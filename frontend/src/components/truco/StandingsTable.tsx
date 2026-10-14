@@ -14,7 +14,7 @@ interface StandingsTableProps {
 }
 
 /** Cor de cada zona, dita em palavras na legenda para não depender só da cor. */
-const ZONE_COLOR_NAME = { semifinal: "Verde", quartas: "Azul", repescagem: "Laranja", eliminado: "Vermelho" } as const;
+const ZONE_COLOR_NAME = { semifinal: "Verde", quartas: "Azul", eliminado: "Vermelho" } as const;
 
 export function StandingsTable({ rows, teams, players = [], highlightTeamId }: StandingsTableProps) {
   // Quando um resultado é registrado e a tabela reordena, as duplas deslizam

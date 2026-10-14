@@ -7,6 +7,8 @@ export interface AuthContextValue {
   token: string | null;
   isLoading: boolean;
   login: (identifier: LoginIdentifier, password: string) => Promise<AuthUser>;
+  /** Cria a senha do primeiro acesso e entra com ela. */
+  createFirstPassword: (playerId: string, newPassword: string) => Promise<AuthUser>;
   logout: () => void;
   updateUser: (patch: Partial<AuthUser>) => void;
 }

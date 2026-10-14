@@ -8,7 +8,7 @@
 .standings-players,.standings-mobile-stats{display:block;margin-top:4px;color:var(--color-text-muted);font-size:12px;font-weight:400}
 .standings-table .standings-points{font-weight:800;font-size:20px;color:var(--color-text)}
 /* A linha inteira leva a cor da zona (pedido do usuário): verde semifinal, azul quartas,
-   laranja repescagem, vermelho eliminado. Barra sólida na borda e tinta média no fundo; o
+   vermelho eliminado (a antiga zona laranja da repescagem saiu no formato de 14/10/2026). Barra sólida na borda e tinta média no fundo; o
    texto fica na cor normal da interface, que tem contraste sobre as quatro tintas. */
 .standings-row{--zone-color:transparent;--zone-bg:var(--color-surface);background:var(--zone-bg);transition:background-color var(--transition-fast)}
 .standings-row-semifinal{--zone-color:#128a5c;--zone-bg:rgb(22 163 116 / .2)}

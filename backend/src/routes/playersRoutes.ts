@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { setupPendingPlayerIds } from "../services/accessService.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { store } from "../data/store.js";
 import { requireAuth, requireRole } from "../middleware/requireAuth.js";
@@ -30,7 +31,9 @@ playersRoutes.post(
 playersRoutes.get(
   "/roster",
   asyncHandler(async (_req, res) => {
-    res.json(loginRoster(await store.listPlayers()));
+    // needsSetup: a carta leva direto a "Crie sua senha para a 5ª Edição".
+    const pending = await setupPendingPlayerIds();
+    res.json(loginRoster(await store.listPlayers()).map((player) => ({ ...player, needsSetup: pending.has(player.id) })));
   }),
 );
 

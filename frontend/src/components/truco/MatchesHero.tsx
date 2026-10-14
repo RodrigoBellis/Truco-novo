@@ -1,3 +1,4 @@
+import { groupDisplayName } from "@truco/shared";
 import type { GroupId, StandingRow } from "@truco/shared";
 import { TeamCrest } from "./TeamCrest";
 import { groupToneClass } from "../../utils/groupColor";
@@ -39,7 +40,7 @@ export function MatchesHero({ teamName, hue, groupId, standing, pendingCount, ne
             <p className="matches-hero-group">
               {groupId ? (
                 <>
-                  Está no <span className={`group-pill matches-hero-pill ${groupToneClass(groupId)}`}>Grupo {groupId}</span>
+                  Está no <span className={`group-pill matches-hero-pill ${groupToneClass(groupId)}`}>{groupDisplayName(groupId)}</span>
                   {standing && <strong>{standing.position}º lugar</strong>}
                 </>
               ) : (

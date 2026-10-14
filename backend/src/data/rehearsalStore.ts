@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import {
   EDITION_GROUP_IDS,
+  TEAMS_PER_GROUP,
+  groupDisplayName,
   MATCHES_PER_GROUP,
   PHASE_GROUPS,
   type BracketMatch,
@@ -92,6 +94,7 @@ interface State {
   overrides: Array<{ groupId: GroupId; teamId: string; position: number }>;
   history: HistoryRow[];
   audit: Array<{ id: string; matchId: string; actorId: string; action: string; createdAt: string; metadata: unknown }>;
+  accountEvents: Array<{ actorId: string; accountId: string; action: string; playerId: string; createdAt: string }>;
 }
 
 const two = (value: number) => String(value).padStart(2, "0");
@@ -100,11 +103,11 @@ const VALID_SCORES = new Set(["2-0", "2-1", "1-2", "0-2"]);
 
 function buildSeed(): State {
   const now = new Date().toISOString();
-  // 20 jogadores da edição + 2 que só existem no histórico (sem conta e sem dupla na edição).
-  const players = Array.from({ length: 22 }, (_, index) => ({ id: `ensaio-jogador-${two(index + 1)}`, name: `Jogador ${index + 1}`, avatarUrl: null as string | null }));
+  // 14 jogadores da edição (7 duplas) + 2 que só existem no histórico (sem conta e sem dupla na edição).
+  const players = Array.from({ length: 16 }, (_, index) => ({ id: `ensaio-jogador-${two(index + 1)}`, name: `Jogador ${index + 1}`, avatarUrl: null as string | null }));
   players.push({ id: REHEARSAL_ADMIN_PLAYER_ID, name: "Administrador", avatarUrl: null });
 
-  const accounts: RehearsalAccount[] = players.slice(0, 20).map((player, index) => ({
+  const accounts: RehearsalAccount[] = players.slice(0, 14).map((player, index) => ({
     id: `ensaio-conta-${two(index + 1)}`, playerId: player.id, role: "jogador", email: `jogador${index + 1}@ensaio.invalid`, password: REHEARSAL_PASSWORD, mustChangePassword: false,
   }));
   // Como no banco real, a única conta administrativa é superadmin. O e-mail é o identificador
@@ -114,32 +117,32 @@ function buildSeed(): State {
   const teams: TeamRow[] = [];
   const memberships: State["memberships"] = [];
   EDITION_GROUP_IDS.forEach((groupId, groupIndex) => {
-    for (let slot = 0; slot < 5; slot += 1) {
-      const first = players[groupIndex * 10 + slot * 2];
-      const second = players[groupIndex * 10 + slot * 2 + 1];
+    for (let slot = 0; slot < TEAMS_PER_GROUP; slot += 1) {
+      const first = players[groupIndex * TEAMS_PER_GROUP * 2 + slot * 2];
+      const second = players[groupIndex * TEAMS_PER_GROUP * 2 + slot * 2 + 1];
       const id = `ensaio-dupla-${groupId.toLowerCase()}${slot + 1}`;
       teams.push({ id, name: `${first.name} & ${second.name}`, status: "aprovada", seeded: slot === 0, isPlaceholder: false, groupId });
       memberships.push({ teamId: id, player1Id: first.id, player2Id: second.id, strength: 3 });
     }
   });
   // Dupla que só existe no histórico (como uma campeã antiga que não joga esta edição).
-  teams.push({ id: "ensaio-dupla-historica", name: "Jogador 21 & Jogador 22", status: "pendente", seeded: false, isPlaceholder: false, groupId: null });
+  teams.push({ id: "ensaio-dupla-historica", name: "Jogador 15 & Jogador 16", status: "pendente", seeded: false, isPlaceholder: false, groupId: null });
 
   // Só as duplas que já foram campeãs têm par histórico; as demais são como duplas criadas
   // pela tela de administração, que só têm a participação da edição.
   const legacyMembers: State["legacyMembers"] = [
     { teamId: "ensaio-dupla-a1", playerId: players[0].id, position: 1 }, { teamId: "ensaio-dupla-a1", playerId: players[1].id, position: 2 },
-    { teamId: "ensaio-dupla-b1", playerId: players[10].id, position: 1 }, { teamId: "ensaio-dupla-b1", playerId: players[11].id, position: 2 },
-    { teamId: "ensaio-dupla-historica", playerId: players[20].id, position: 1 }, { teamId: "ensaio-dupla-historica", playerId: players[21].id, position: 2 },
+    { teamId: "ensaio-dupla-a2", playerId: players[2].id, position: 1 }, { teamId: "ensaio-dupla-a2", playerId: players[3].id, position: 2 },
+    { teamId: "ensaio-dupla-historica", playerId: players[14].id, position: 1 }, { teamId: "ensaio-dupla-historica", playerId: players[15].id, position: 2 },
   ];
 
-  const champions = ["ensaio-dupla-a1", "ensaio-dupla-a1", "ensaio-dupla-historica", "ensaio-dupla-b1"];
+  const champions = ["ensaio-dupla-a1", "ensaio-dupla-a1", "ensaio-dupla-historica", "ensaio-dupla-a2"];
   const history: HistoryRow[] = champions.map((championTeamId, index) => ({
     id: `ensaio-historico-${index + 1}`, championshipId: `ensaio-edicao-${index + 1}`, edition: index + 1, name: `${index + 1}ª Edição`, year: 2022 + index,
     championTeamId, runnerUpTeamId: null, finalResult: null, notes: "Edição fictícia do modo ensaio.",
   }));
 
-  // Os 20 jogos saem da mesma regra do sistema (generateGroupMatches) e recebem a escala de
+  // Os 21 jogos saem da mesma regra do sistema (generateGroupMatches) e recebem a escala de
   // mesas pelo mesmo escalonador (buildSchedule), como o administrador faz antes do evento.
   const matches: Match[] = EDITION_GROUP_IDS.flatMap((groupId) =>
     generateGroupMatches(teams.filter((team) => team.groupId === groupId).map((team) => team.id)).map((pair) => ({
@@ -152,7 +155,7 @@ function buildSeed(): State {
 
   return {
     championship: { truco_id: REHEARSAL_CHAMPIONSHIP_ID, edition: 5, name: "5ª Edição", year: 2026, status: "em_andamento", current_phase: PHASE_GROUPS, draw_status: "realizado", results_locked: true, created_at: now, updated_at: now },
-    players, accounts, teams, memberships, legacyMembers, matches, bracket: [], overrides: [], history, audit: [],
+    players, accounts, teams, memberships, legacyMembers, matches, bracket: [], overrides: [], history, audit: [], accountEvents: [],
   };
 }
 
@@ -178,7 +181,7 @@ export class RehearsalRepository implements Store {
   enforceUniqueness = true;
   private faults = new Map<string, number>();
 
-  /** Volta tudo ao ponto de partida: 20 jogos sem placar, cadeado fechado, sem mata-mata. */
+  /** Volta tudo ao ponto de partida: 21 jogos sem placar, cadeado fechado, sem mata-mata. */
   reset(): void {
     this.state = buildSeed();
     this.latencyMs = 0;
@@ -202,6 +205,26 @@ export class RehearsalRepository implements Store {
   setAccountPassword(accountId: string, password: string): void {
     const account = this.state.accounts.find((item) => item.id === accountId);
     if (account) Object.assign(account, { password, mustChangePassword: false });
+  }
+
+  /** Redefinição pelo administrador: senha temporária nova e troca obrigatória; cria a conta se faltar. */
+  resetAccountPassword(playerId: string, password: string): RehearsalAccount {
+    let account = this.state.accounts.find((item) => item.playerId === playerId);
+    if (!account) {
+      account = { id: `ensaio-conta-${playerId}`, playerId, role: "jogador", email: `${playerId}@ensaio.invalid`, password, mustChangePassword: true };
+      this.state.accounts.push(account);
+    }
+    Object.assign(account, { password, mustChangePassword: true });
+    return copy(account);
+  }
+
+  /** Auditoria de acessos do ensaio (sem senha). */
+  recordAccountEvent(event: { actorId: string; accountId: string; action: string; playerId: string }): void {
+    this.state.accountEvents.push({ ...event, createdAt: new Date().toISOString() });
+  }
+
+  accountEvents(): State["accountEvents"] {
+    return copy(this.state.accountEvents);
   }
 
   playerName(playerId: string): string {
@@ -390,7 +413,7 @@ export class RehearsalRepository implements Store {
     await this.enter("listGroups");
     return EDITION_GROUP_IDS.map((groupId) => ({
       id: groupId,
-      name: `Grupo ${groupId}`,
+      name: groupDisplayName(groupId),
       teamIds: this.state.teams.filter((team) => team.status === "aprovada" && team.groupId === groupId).map((team) => team.id),
     }));
   }
@@ -485,7 +508,7 @@ export class RehearsalRepository implements Store {
 
   async createAllGroupMatches(_championshipId: string, fixtures: Record<GroupId, Array<{ teamAId: string; teamBId: string; order: number }>>): Promise<void> {
     await this.enter("createAllGroupMatches");
-    if (fixtures.A.length !== MATCHES_PER_GROUP || fixtures.B.length !== MATCHES_PER_GROUP) throw new RangeError(`A edição deve gerar ${MATCHES_PER_GROUP} partidas por grupo.`);
+    if (EDITION_GROUP_IDS.some((groupId) => fixtures[groupId].length !== MATCHES_PER_GROUP)) throw new RangeError(`A edição deve gerar ${MATCHES_PER_GROUP} partidas por grupo.`);
     EDITION_GROUP_IDS.forEach((groupId) => this.pushGroupMatches(groupId, fixtures[groupId]));
   }
 
@@ -568,12 +591,6 @@ export class RehearsalRepository implements Store {
       this.conflict("o chaveamento desta edição já tem esse confronto");
     }
     this.state.bracket.push(...rows.map((row) => ({ ...copy(row), matchId: null })));
-  }
-
-  async setBracketSlotBSource(bracketMatchId: string, sourceBracketMatchId: string): Promise<void> {
-    await this.enter("setBracketSlotBSource");
-    const item = this.state.bracket.find((candidate) => candidate.id === bracketMatchId);
-    if (item) item.slotB = { type: "winner", bracketMatchId: sourceBracketMatchId };
   }
 
   async deletePendingKnockoutMatch(matchId: string): Promise<void> {

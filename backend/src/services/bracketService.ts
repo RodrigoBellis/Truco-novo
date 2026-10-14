@@ -30,9 +30,8 @@ function temporaryProgressionError(error: unknown): boolean {
 
 async function loadSnapshot(championshipId: string): Promise<{ snapshot: KnockoutSnapshot; championship: Awaited<ReturnType<typeof store.getCurrentChampionship>> }> {
   const championship = await store.getCurrentChampionship();
-  const [standingsA, standingsB, bracket, knockoutMatches, teams, champion] = await Promise.all([
+  const [standingsA, bracket, knockoutMatches, teams, champion] = await Promise.all([
     computeStandings(championshipId, "A"),
-    computeStandings(championshipId, "B"),
     store.listBracketMatches(championshipId),
     store.listMatches(championshipId, { stage: "mata-mata" }),
     store.listTeams(championshipId),
@@ -42,7 +41,7 @@ async function loadSnapshot(championshipId: string): Promise<{ snapshot: Knockou
   if (championship.truco_id !== championshipId) throw new StoreOperationError("A edição em andamento mudou.", "edition_changed");
   return {
     championship,
-    snapshot: { standings: { A: standingsA, B: standingsB }, bracket, knockoutMatches, groupOf: (teamId) => groupByTeam.get(teamId), phase: championship.current_phase, champion },
+    snapshot: { standings: { A: standingsA }, bracket, knockoutMatches, groupOf: (teamId) => groupByTeam.get(teamId), phase: championship.current_phase, champion },
   };
 }
 
@@ -56,8 +55,6 @@ async function execute(championshipId: string, step: KnockoutStep, championship:
     await store.clearKnockout(championshipId);
   } else if (step.type === "create-bracket") {
     await store.createBracketMatches(championshipId, step.rows);
-  } else if (step.type === "set-quarter-source") {
-    await store.setBracketSlotBSource(step.bracketMatchId, step.sourceBracketMatchId);
   } else if (step.type === "create-match") {
     const match = await store.createMatch({ championshipId, stage: "mata-mata", round: step.round, order: step.order, teamAId: step.teamAId, teamBId: step.teamBId });
     await store.linkBracketMatch(step.bracketMatchId, match.id);

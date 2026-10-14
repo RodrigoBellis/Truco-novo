@@ -7,7 +7,7 @@ import { recordResult } from "./simulation/matchService.js";
 import { canRecordEditionResult, canRecordMatchResult } from "./matchAuthorization.js";
 import { validateTeamParticipation, validateTeamStatusChange } from "./teamParticipationService.js";
 import { generateGroupMatches, missingGroupMatches, planGroupCompletion } from "./groupMatchesService.js";
-import { buildSchedule, findQueueAdjacencyConflicts } from "./scheduleBuilder.js";
+import { buildSchedule, findConflicts, findQueueAdjacencyConflicts } from "./scheduleBuilder.js";
 
 test("a pontuação 2x0 e 2x1 é simétrica para a dupla vencedora e perdedora", () => {
   assert.deepEqual([pointsForResult({ setsA: 2, setsB: 0 }, true), pointsForResult({ setsA: 2, setsB: 0 }, false)], [3, 0]);
@@ -15,114 +15,105 @@ test("a pontuação 2x0 e 2x1 é simétrica para a dupla vencedora e perdedora",
   assert.deepEqual([pointsForResult({ setsA: 1, setsB: 2 }, true), pointsForResult({ setsA: 1, setsB: 2 }, false)], [1, 2]);
 });
 
-test("formato definitivo da edição: 2 grupos de 5 duplas, 10 no total e 10 jogos por grupo", () => {
-  assert.deepEqual([TEAMS_PER_GROUP, EDITION_TEAM_COUNT, MATCHES_PER_GROUP], [5, 10, 10]);
+test("formato definitivo da edição: grupo único de 7 duplas e 21 jogos", () => {
+  assert.deepEqual([TEAMS_PER_GROUP, EDITION_TEAM_COUNT, MATCHES_PER_GROUP], [7, 7, 21]);
 });
 
-test("cinco posições têm zonas corretas: 1º semifinal, 2º quartas, 3º e 4º repescagem, 5º eliminado", () => {
-  assert.deepEqual([1, 2, 3, 4, 5].map((position) => qualificationForPosition(position)), ["semifinal", "quartas", "repescagem", "repescagem", "eliminado"]);
-  assert.throws(() => qualificationForPosition(6), RangeError);
+test("sete posições têm zonas corretas: 1º e 2º semifinal, 3º a 6º quartas, 7º eliminado", () => {
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 7].map((position) => qualificationForPosition(position)), ["semifinal", "semifinal", "quartas", "quartas", "quartas", "quartas", "eliminado"]);
+  assert.throws(() => qualificationForPosition(8), RangeError);
   assert.throws(() => qualificationForPosition(0), RangeError);
 });
 
-test("cinco duplas por grupo geram exatamente dez jogos e rejeitam formato diferente", () => {
-  const matches = generateGroupMatches(["a1", "a2", "a3", "a4", "a5"]);
-  assert.equal(matches.length, 10);
-  assert.equal(new Set(matches.map((match) => [match.teamAId, match.teamBId].sort().join(":"))).size, 10);
-  assert.throws(() => generateGroupMatches(["a1", "a2", "a3", "a4", "a5", "a6"]), RangeError);
-  assert.throws(() => generateGroupMatches(["a1", "a2", "a3", "a4"]), RangeError);
+test("sete duplas geram 21 jogos em 7 rodadas de 3, cada dupla folga uma vez, e rejeitam formato diferente", () => {
+  const ids = ["a1", "a2", "a3", "a4", "a5", "a6", "a7"];
+  const matches = generateGroupMatches(ids);
+  assert.equal(matches.length, 21);
+  assert.equal(new Set(matches.map((match) => [match.teamAId, match.teamBId].sort().join(":"))).size, 21);
+  assert.deepEqual(matches.map((match) => match.order), Array.from({ length: 21 }, (_, index) => index));
+  for (let round = 0; round < 7; round += 1) {
+    const teams = matches.slice(round * 3, round * 3 + 3).flatMap((match) => [match.teamAId, match.teamBId]);
+    assert.equal(new Set(teams).size, 6, "rodada " + (round + 1) + " repete dupla");
+  }
+  ids.forEach((id) => assert.equal(matches.filter((match) => match.teamAId === id || match.teamBId === id).length, 6));
+  assert.throws(() => generateGroupMatches(ids.slice(0, 6)), RangeError);
+  assert.throws(() => generateGroupMatches([...ids, "a8"]), RangeError);
 });
 
-test("a edição aceita no máximo cinco duplas em cada grupo e dez no total", () => {
+test("a edição aceita no máximo sete duplas aprovadas, todas no grupo único", () => {
   const players: Player[] = Array.from({ length: 30 }, (_, index) => ({ id: "p" + (index + 1), name: "P" + (index + 1), role: "jogador", teamId: null, avatarUrl: null }));
-  const team = (id: string, index: number, groupId: "A" | "B"): Team => ({ id, name: id, player1Id: "p" + (index * 2 + 1), player2Id: "p" + (index * 2 + 2), status: "aprovada", seeded: false, isPlaceholder: false, groupId, strength: 3 });
-  const fourA = Array.from({ length: 4 }, (_, index) => team("a" + index, index, "A"));
-  const fifth = { name: "Quinta", player1Id: "p25", player2Id: "p26", groupId: "A" as const, strength: 3 };
-  assert.equal(validateTeamParticipation(fifth, fourA, players), null);
+  const team = (id: string, index: number): Team => ({ id, name: id, player1Id: "p" + (index * 2 + 1), player2Id: "p" + (index * 2 + 2), status: "aprovada", seeded: false, isPlaceholder: false, groupId: "A", strength: 3 });
+  const six = Array.from({ length: 6 }, (_, index) => team("a" + index, index));
+  const seventh = { name: "Sétima", player1Id: "p25", player2Id: "p26", groupId: "A" as const, strength: 3 };
+  assert.equal(validateTeamParticipation(seventh, six, players), null);
 
-  const fiveA = [...fourA, team("a4", 4, "A")];
-  assert.match(validateTeamParticipation({ ...fifth, name: "Sexta" }, fiveA, players) ?? "", /já tem 5/);
-  assert.equal(validateTeamParticipation({ ...fifth, groupId: "B" }, fiveA, players), null);
-
-  const ten = [...fiveA, ...Array.from({ length: 5 }, (_, index) => team("b" + index, 5 + index, "B"))];
-  assert.match(validateTeamParticipation({ ...fifth, player1Id: "p27", player2Id: "p28", groupId: "B" }, ten, players) ?? "", /10 duplas/);
+  const seven = [...six, team("a6", 6)];
+  assert.match(validateTeamParticipation({ ...seventh, name: "Oitava" }, seven, players) ?? "", /7 duplas/);
+  assert.match(validateTeamParticipation({ ...seventh, groupId: "B" as never }, six, players) ?? "", /grupo único/);
 });
 
-test("dupla aprovada não pode mudar para um grupo que já está completo", () => {
-  const players: Player[] = Array.from({ length: 12 }, (_, index) => ({ id: "p" + (index + 1), name: "P" + (index + 1), role: "jogador", teamId: null, avatarUrl: null }));
-  const teams: Team[] = Array.from({ length: 6 }, (_, index) => ({ id: "t" + index, name: "T" + index, player1Id: "p" + (index * 2 + 1), player2Id: "p" + (index * 2 + 2), status: "aprovada", seeded: false, isPlaceholder: false, groupId: index < 5 ? "A" : "B", strength: 3 }));
-  const moving = { name: "T5", player1Id: "p11", player2Id: "p12", groupId: "A" as const, strength: 3 };
-  assert.match(validateTeamParticipation(moving, teams, players, "t5") ?? "", /já tem 5/);
-  assert.equal(validateTeamParticipation({ ...moving, groupId: "B" }, teams, players, "t5"), null);
-});
-
-test("retirada e reativação de participação respeitam os limites de cinco por grupo", () => {
-  const teams: Team[] = Array.from({ length: 6 }, (_, index) => ({ id: "t" + index, name: "A" + index, player1Id: "p" + (index * 2), player2Id: "p" + (index * 2 + 1), status: index < 5 ? "aprovada" : "pendente", seeded: false, isPlaceholder: false, groupId: "A", strength: 3 }));
-  assert.match(validateTeamStatusChange(teams, "t5", "aprovada") ?? "", /5 duplas/);
+test("retirada e reativação de participação respeitam o limite de sete duplas", () => {
+  const teams: Team[] = Array.from({ length: 8 }, (_, index) => ({ id: "t" + index, name: "A" + index, player1Id: "p" + (index * 2), player2Id: "p" + (index * 2 + 1), status: index < 7 ? "aprovada" : "pendente", seeded: false, isPlaceholder: false, groupId: "A", strength: 3 }));
+  assert.match(validateTeamStatusChange(teams, "t7", "aprovada") ?? "", /7 duplas/);
   teams[0].status = "pendente";
-  assert.equal(validateTeamStatusChange(teams, "t5", "aprovada"), null);
+  assert.equal(validateTeamStatusChange(teams, "t7", "aprovada"), null);
 });
 
-// Retrato sanitizado da 5ª edição no banco (07/10/2026): 5 duplas por grupo, 20 jogos e os
-// 4 resultados reais da dupla a1 (2x1, 2x1, 1x2, 2x0). Ids trocados por códigos neutros.
+// Grupo único com 21 jogos, 4 já disputados pela dupla a1. A dupla a7 é a que entra depois.
 function editionSnapshot(): Match[] {
-  const rows: Array<[groupId: "A" | "B", order: number, teamAId: string, teamBId: string, result: [number, number] | null, queuePosition: number]> = [
-    ["A", 0, "a1", "a5", [2, 1], 1], ["A", 1, "a1", "a4", [2, 1], 4], ["A", 2, "a1", "a3", [1, 2], 10], ["A", 3, "a1", "a2", [2, 0], 9],
-    ["A", 4, "a5", "a4", null, 13], ["A", 5, "a5", "a3", null, 7], ["A", 6, "a5", "a2", null, 16], ["A", 7, "a4", "a3", null, 3], ["A", 8, "a4", "a2", null, 19], ["A", 9, "a3", "a2", null, 15],
-    ["B", 0, "b5", "b1", null, 2], ["B", 1, "b5", "b2", null, 8], ["B", 2, "b5", "b3", null, 14], ["B", 3, "b5", "b4", null, 6], ["B", 4, "b1", "b2", null, 17],
-    ["B", 5, "b1", "b3", null, 11], ["B", 6, "b1", "b4", null, 20], ["B", 7, "b2", "b3", null, 5], ["B", 8, "b2", "b4", null, 12], ["B", 9, "b3", "b4", null, 18],
-  ];
-  return rows.map(([groupId, order, teamAId, teamBId, result, queuePosition]) => ({
-    id: `${groupId}-${order}`, championshipId: "edicao-5", stage: "grupos", round: `Grupo ${groupId}`, order, groupId, teamAId, teamBId,
-    result: result ? { setsA: result[0], setsB: result[1] } : null, status: result ? "realizado" : "pendente", tableNumber: null, blockNumber: null, queuePosition,
-  }));
+  const ids = ["a1", "a2", "a3", "a4", "a5", "a6", "a7"];
+  const results = new Map<string, [number, number]>([["a1:a2", [2, 1]], ["a1:a3", [2, 1]], ["a1:a4", [1, 2]], ["a1:a5", [2, 0]]]);
+  return generateGroupMatches(ids).map((pair, index) => {
+    const result = results.get([pair.teamAId, pair.teamBId].sort().join(":")) ?? null;
+    return {
+      ...pair, id: "A-" + pair.order, championshipId: "edicao-5", stage: "grupos", round: "Grupo A", groupId: "A",
+      result: result ? { setsA: result[0], setsB: result[1] } : null, status: result ? "realizado" : "pendente", tableNumber: null, blockNumber: null, queuePosition: index + 1,
+    } satisfies Match;
+  });
 }
 
-// Mesmo retrato sem a dupla 5 de cada grupo: o cenário de uma dupla que entra depois dos jogos gerados.
-const withoutFifth = (matches: Match[]) => matches.filter((match) => !match.teamAId.endsWith("5") && !match.teamBId.endsWith("5"));
+// Mesmo retrato sem a dupla 7: o cenário de uma dupla que entra depois dos jogos gerados.
+const withoutSeventh = (matches: Match[]) => matches.filter((match) => match.teamAId !== "a7" && match.teamBId !== "a7");
 
 test("a dupla que entra depois recebe só os jogos que faltam, sem tocar nos existentes", () => {
-  const existing = withoutFifth(editionSnapshot());
+  const existing = withoutSeventh(editionSnapshot());
   const before = JSON.stringify(existing);
-  const groupA = ["a1", "a2", "a3", "a4", "a5"];
-  const missingA = missingGroupMatches(groupA, existing.filter((match) => match.groupId === "A"));
-  assert.equal(missingA.length, 4);
-  assert.ok(missingA.every((pair) => pair.teamAId === "a5" || pair.teamBId === "a5"));
+  const ids = ["a1", "a2", "a3", "a4", "a5", "a6", "a7"];
+  const missing = missingGroupMatches(ids, existing);
+  assert.equal(missing.length, 6);
+  assert.ok(missing.every((pair) => pair.teamAId === "a7" || pair.teamBId === "a7"));
   assert.equal(JSON.stringify(existing), before);
 
-  const complete = [...existing.filter((match) => match.groupId === "A"), ...missingA.map((pair) => ({ ...pair }))];
+  const complete = [...existing, ...missing.map((pair) => ({ ...pair }))];
   assert.equal(complete.length, MATCHES_PER_GROUP);
-  assert.deepEqual(missingGroupMatches(groupA, complete), []);
+  assert.deepEqual(missingGroupMatches(ids, complete), []);
   // Jogo de dupla que saiu do grupo é sinal de grupo divergente: não completa às cegas.
-  assert.throws(() => missingGroupMatches(["a1", "a2", "a3", "a6", "a7"], existing.filter((match) => match.groupId === "A")), RangeError);
+  assert.throws(() => missingGroupMatches(["a1", "a2", "a3", "a4", "a5", "a8", "a9"], existing), RangeError);
 });
 
-test("completar os grupos intercala os pendentes, preserva os realizados e não põe dupla em jogos seguidos", () => {
-  const existing = withoutFifth(editionSnapshot());
-  const all: Match[] = [];
-  for (const groupId of ["A", "B"] as const) {
-    const ids = [1, 2, 3, 4, 5].map((index) => groupId.toLowerCase() + index);
-    const groupMatches = existing.filter((match) => match.groupId === groupId);
-    const plan = planGroupCompletion(ids, groupMatches);
-    assert.equal(plan.created.length, 4);
-    const played = new Set(groupMatches.filter((match) => match.status === "realizado").map((match) => match.id));
-    assert.ok(plan.reordered.every((item) => !played.has(item.matchId)));
-
-    const orders = new Map(plan.reordered.map((item) => [item.matchId, item.order]));
-    all.push(...groupMatches.map((match) => ({ ...match, order: orders.get(match.id) ?? match.order })));
-    all.push(...plan.created.map((pair): Match => ({
-      ...pair, id: groupId + "-novo-" + pair.order, championshipId: "edicao-5", stage: "grupos", round: "Grupo " + groupId, groupId,
-      result: null, status: "pendente", tableNumber: null, blockNumber: null, queuePosition: null,
-    })));
-    assert.equal(new Set(all.filter((match) => match.groupId === groupId).map((match) => match.order)).size, MATCHES_PER_GROUP);
-  }
-  assert.equal(all.length, 20);
-  // Os jogos realizados ficam idênticos (placar, status, ordem e posição na fila).
+test("completar o grupo intercala os pendentes, preserva os realizados e não põe dupla em jogos seguidos", () => {
+  const existing = withoutSeventh(editionSnapshot());
+  const ids = ["a1", "a2", "a3", "a4", "a5", "a6", "a7"];
+  const plan = planGroupCompletion(ids, existing);
+  assert.equal(plan.created.length, 6);
   const played = existing.filter((match) => match.status === "realizado");
+  assert.ok(plan.reordered.every((item) => !played.some((match) => match.id === item.matchId)));
+
+  const orders = new Map(plan.reordered.map((item) => [item.matchId, item.order]));
+  const all: Match[] = [
+    ...existing.map((match) => ({ ...match, order: orders.get(match.id) ?? match.order })),
+    ...plan.created.map((pair): Match => ({
+      ...pair, id: "A-novo-" + pair.order, championshipId: "edicao-5", stage: "grupos", round: "Grupo A", groupId: "A",
+      result: null, status: "pendente", tableNumber: null, blockNumber: null, queuePosition: null,
+    })),
+  ];
+  assert.equal(new Set(all.map((match) => match.order)).size, MATCHES_PER_GROUP);
+  assert.equal(all.length, 21);
+  // Os jogos realizados ficam idênticos (placar, status, ordem e posição na fila).
   assert.deepEqual(all.filter((match) => match.status === "realizado"), played);
 
   const assignments = buildSchedule(all);
-  assert.equal(assignments.length, 20 - played.length);
+  assert.equal(assignments.length, 21 - played.length);
   assert.ok(assignments.every((assignment) => !played.some((match) => match.id === assignment.matchId)));
   const queued = all.map((match) => {
     const assignment = assignments.find((item) => item.matchId === match.id);
@@ -131,14 +122,19 @@ test("completar os grupos intercala os pendentes, preserva os realizados e não 
   assert.deepEqual(findQueueAdjacencyConflicts(queued), []);
 });
 
-test("escala de 20 jogos gerada do zero para 5+5 não põe dupla em jogos seguidos", () => {
-  const all = (["A", "B"] as const).flatMap((groupId) => generateGroupMatches([1, 2, 3, 4, 5].map((index) => groupId + index)).map((pair): Match => ({
-    ...pair, id: groupId + "-" + pair.order, championshipId: "edicao-5", stage: "grupos", round: "Grupo " + groupId, groupId,
+test("escala dos 21 jogos gerada do zero: 7 blocos de 3 mesas, sem dupla em duas mesas nem em jogos seguidos", () => {
+  const all = generateGroupMatches(["a1", "a2", "a3", "a4", "a5", "a6", "a7"]).map((pair): Match => ({
+    ...pair, id: "A-" + pair.order, championshipId: "edicao-5", stage: "grupos", round: "Grupo A", groupId: "A",
     result: null, status: "pendente", tableNumber: null, blockNumber: null, queuePosition: null,
-  })));
+  }));
   const assignments = buildSchedule(all);
-  assert.equal(assignments.length, 20);
-  const queued = all.map((match) => ({ ...match, queuePosition: assignments.find((item) => item.matchId === match.id)!.queuePosition }));
+  assert.equal(assignments.length, 21);
+  assert.ok(Math.max(...assignments.map((item) => item.blockNumber)) <= 7, "mais blocos que o necessário");
+  const queued = all.map((match) => {
+    const assignment = assignments.find((item) => item.matchId === match.id)!;
+    return { ...match, queuePosition: assignment.queuePosition, blockNumber: assignment.blockNumber, tableNumber: assignment.tableNumber };
+  });
+  assert.deepEqual(findConflicts(queued), []);
   assert.deepEqual(findQueueAdjacencyConflicts(queued), []);
 });
 
@@ -150,7 +146,7 @@ test("força de dupla aceita somente inteiros entre uma e cinco estrelas", () =>
 test("uma pessoa não pode pertencer a duas duplas na mesma edição", () => {
   const players: Player[] = ["p1", "p2", "p3"].map((id) => ({ id, name: id, role: "jogador", teamId: null, avatarUrl: null }));
   const teams: Team[] = [{ id: "t1", name: "Dupla 1", player1Id: "p1", player2Id: "p2", status: "aprovada", seeded: false, isPlaceholder: false, groupId: "A", strength: 3 }];
-  const conflict = validateTeamParticipation({ name: "Dupla 2", player1Id: "p1", player2Id: "p3", groupId: "B", strength: 4 }, teams, players);
+  const conflict = validateTeamParticipation({ name: "Dupla 2", player1Id: "p1", player2Id: "p3", groupId: "A", strength: 4 }, teams, players);
   assert.match(conflict ?? "", /uma dupla nesta edição/);
   assert.equal(validateTeamParticipation({ name: "Dupla 1", player1Id: "p1", player2Id: "p2", groupId: "A", strength: 3 }, teams, players, "t1"), null);
 });
@@ -188,9 +184,9 @@ test("corrigir um resultado recalcula os pontos em vez de acumular o lançamento
   assert.equal(computeStandings("A").every((row) => row.jogos === 1), true);
 });
 
-test("classificação com 5 duplas aceita exatamente 4 jogos por dupla", () => {
+test("classificação com 7 duplas aceita exatamente 6 jogos por dupla", () => {
   store.reset();
-  const teams = store.teams.slice(0, 5);
+  const teams = store.teams.slice(0, 7);
   store.groups[0].teamIds = teams.map((team) => team.id);
   store.matches = generateGroupMatches(teams.map((team) => team.id)).map((fixture, index) => ({
     ...fixture,
@@ -206,7 +202,7 @@ test("classificação com 5 duplas aceita exatamente 4 jogos por dupla", () => {
     queuePosition: null,
   }));
   const rows = computeStandings("A");
-  assert.equal(rows.length, 5);
-  assert.ok(rows.every((row) => row.jogos === 4));
-  assert.deepEqual(rows.map((row) => row.position), [1, 2, 3, 4, 5]);
+  assert.equal(rows.length, 7);
+  assert.ok(rows.every((row) => row.jogos === 6));
+  assert.deepEqual(rows.map((row) => row.position), [1, 2, 3, 4, 5, 6, 7]);
 });

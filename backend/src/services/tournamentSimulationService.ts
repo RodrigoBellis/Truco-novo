@@ -16,7 +16,8 @@ import {
   MATCHES_PER_GROUP,
   TEAMS_PER_GROUP,
   buildKnockoutView,
-  decideQuarterfinalPairing,
+  groupDisplayName,
+  knockoutThirdPlace,
   pendingTieClusters,
   pointsForResult,
   qualificationForPosition,
@@ -28,7 +29,7 @@ import { shuffle } from "../utils/shuffle.js";
 import { performDraw } from "./simulation/drawService.js";
 import { recordResult } from "./simulation/matchService.js";
 import { computeStandings } from "./simulation/standingsService.js";
-import { generateBracket, quarterfinalPairing } from "./simulation/bracketService.js";
+import { generateBracket } from "./simulation/bracketService.js";
 import { finalizeTournament, findTournamentOutcome, type TournamentOutcome } from "./simulation/championService.js";
 
 export class SimulationError extends Error {}
@@ -121,7 +122,7 @@ function positionTeamId(rows: StandingRow[], position: number): string | null {
  * simulador faz esse papel por sorteio com a seed, registra a decisão e avisa no relatório.
  */
 function resolvePendingTies(random: RandomFn, collector: CheckCollector): void {
-  (["A", "B"] as const).forEach((groupId) => {
+  (["A"] as const).forEach((groupId) => {
     pendingTieClusters(computeStandings(groupId)).forEach((cluster) => {
       const positions = cluster.map((row) => row.position).sort((a, b) => a - b);
       const decided = shuffle(cluster, random);
@@ -130,7 +131,7 @@ function resolvePendingTies(random: RandomFn, collector: CheckCollector): void {
       });
       collector.tieResolved.add(groupId);
       collector.warnings.push(
-        `Grupo ${groupId}: empate exato entre ${cluster.map((row) => teamName(row.teamId)).join(", ")} ` +
+        `${groupDisplayName(groupId)}: empate exato entre ${cluster.map((row) => teamName(row.teamId)).join(", ")} ` +
           `(${cluster[0].pontos} pontos, ${cluster[0].vitorias} vitórias, ${cluster[0].vitorias2x0} por 2x0, confronto direto ${cluster[0].confrontoDireto} e saldo ${cluster[0].saldoSets}). ` +
           `Esgotados os cinco critérios, a simulação decidiu as posições ${positions.join("º, ")}º por sorteio, no lugar do administrador: ` +
           `${decided.map((row, index) => `${positions[index]}º ${teamName(row.teamId)}`).join(" · ")}.`,
@@ -144,37 +145,34 @@ function buildGroupSummary(groupId: GroupId, rows: StandingRow[], collector: Che
   const namesIn = (zone: SimulationGroupSummary["standings"][number]["zone"]) => standings.filter((row) => row.zone === zone).map((row) => row.teamName);
   return {
     id: groupId,
-    name: `Grupo ${groupId}`,
+    name: groupDisplayName(groupId),
     teamNames: standings.map((row) => row.teamName),
     standings,
-    qualifiedDirect: namesIn("semifinal")[0] ?? null,
-    qualifiedQuarter: namesIn("quartas")[0] ?? null,
-    qualifiedPlayoff: namesIn("repescagem"),
+    qualifiedDirect: namesIn("semifinal"),
+    qualifiedQuarter: namesIn("quartas"),
     eliminated: namesIn("eliminado")[0] ?? null,
     tieResolvedManually: collector.tieResolved.has(groupId),
   };
 }
 
-function validateGroups(collector: CheckCollector, standingsA: StandingRow[], standingsB: StandingRow[]): void {
-  const groupA = store.getGroup("A");
-  const groupB = store.getGroup("B");
+function validateGroups(collector: CheckCollector, standings: StandingRow[]): void {
+  const group = store.getGroup("A");
 
   addCheck(
     collector,
     "grupos-tamanho",
-    `Cada grupo possui exatamente ${TEAMS_PER_GROUP} duplas`,
-    groupA.teamIds.length === TEAMS_PER_GROUP && groupB.teamIds.length === TEAMS_PER_GROUP,
-    `Grupo A: ${groupA.teamIds.length} duplas · Grupo B: ${groupB.teamIds.length} duplas.`,
+    `O grupo único possui exatamente ${TEAMS_PER_GROUP} duplas`,
+    group.teamIds.length === TEAMS_PER_GROUP,
+    `${groupDisplayName("A")}: ${group.teamIds.length} duplas.`,
   );
 
-  const allAssigned = [...groupA.teamIds, ...groupB.teamIds];
-  const uniqueAssigned = new Set(allAssigned);
+  const uniqueAssigned = new Set(group.teamIds);
   addCheck(
     collector,
     "duplas-sem-duplicidade",
-    "Nenhuma dupla foi duplicada entre os grupos",
-    uniqueAssigned.size === allAssigned.length,
-    `${allAssigned.length} alocações para ${uniqueAssigned.size} duplas distintas.`,
+    "Nenhuma dupla foi duplicada no grupo",
+    uniqueAssigned.size === group.teamIds.length,
+    `${group.teamIds.length} alocações para ${uniqueAssigned.size} duplas distintas.`,
   );
 
   const approved = store.approvedTeams();
@@ -187,35 +185,25 @@ function validateGroups(collector: CheckCollector, standingsA: StandingRow[], st
     withoutGroup.length === 0 ? `Todas as ${EDITION_TEAM_COUNT} duplas foram alocadas.` : `Sem grupo: ${withoutGroup.map((t) => t.name).join(", ")}.`,
   );
 
-  const seededTeams = approved.filter((team) => team.seeded);
-  const seededGroups = new Set(seededTeams.map((team) => team.groupId));
-  addCheck(
-    collector,
-    "cabecas-de-chave",
-    "Cabeças de chave em grupos diferentes",
-    seededTeams.length === 2 && seededGroups.size === 2,
-    seededTeams.map((team) => `${team.name} → Grupo ${team.groupId}`).join(" · "),
-  );
-
   addCheck(
     collector,
     "classificacao-completa",
     `Classificação calculada para as ${EDITION_TEAM_COUNT} duplas`,
-    standingsA.length === TEAMS_PER_GROUP && standingsB.length === TEAMS_PER_GROUP,
-    `Grupo A: ${standingsA.length} linhas · Grupo B: ${standingsB.length} linhas.`,
+    standings.length === TEAMS_PER_GROUP,
+    `${standings.length} linhas.`,
   );
 
-  const zonesOf = (rows: StandingRow[]) => rows.map((row) => qualificationForPosition(row.position, rows.length)).join(", ");
-  const expectedZones = "semifinal, quartas, repescagem, repescagem, eliminado";
+  const zones = standings.map((row) => qualificationForPosition(row.position, standings.length)).join(", ");
+  const expectedZones = "semifinal, semifinal, quartas, quartas, quartas, quartas, eliminado";
   addCheck(
     collector,
     "zonas-por-posicao",
-    "1º semifinal, 2º quartas, 3º e 4º repescagem, 5º eliminado",
-    zonesOf(standingsA) === expectedZones && zonesOf(standingsB) === expectedZones,
-    `Grupo A: ${zonesOf(standingsA)} · Grupo B: ${zonesOf(standingsB)}.`,
+    "1º e 2º semifinal, 3º a 6º quartas, 7º eliminado",
+    zones === expectedZones,
+    zones,
   );
 
-  const stillPending = [...standingsA, ...standingsB].filter((row) => row.tiePending);
+  const stillPending = standings.filter((row) => row.tiePending);
   addCheck(
     collector,
     "empates-resolvidos",
@@ -233,8 +221,8 @@ function validateMatches(collector: CheckCollector): void {
     collector,
     "jogos-fase-grupos",
     "Todos os confrontos da fase de grupos foram gerados",
-    groupMatches.length === MATCHES_PER_GROUP * 2,
-    `${groupMatches.length} jogos gerados (esperado ${MATCHES_PER_GROUP * 2}).`,
+    groupMatches.length === MATCHES_PER_GROUP,
+    `${groupMatches.length} jogos gerados (esperado ${MATCHES_PER_GROUP}).`,
   );
 
   const missingParticipants = store.matches.filter(
@@ -274,7 +262,7 @@ function validateMatches(collector: CheckCollector): void {
   addCheck(
     collector,
     "jogos-mata-mata",
-    `Mata-mata com ${KNOCKOUT_MATCHES} confrontos (2 de repescagem + 2 quartas + 2 semifinais + final)`,
+    `Mata-mata com ${KNOCKOUT_MATCHES} confrontos (2 quartas + 2 semifinais + 3º lugar + final)`,
     knockoutMatches.length === KNOCKOUT_MATCHES,
     `${knockoutMatches.length} partidas eliminatórias geradas.`,
   );
@@ -349,7 +337,7 @@ function validateStandingsMath(collector: CheckCollector, groupId: GroupId, rows
   addCheck(
     collector,
     `classificacao-calculo-${groupId}`,
-    `Pontos, vitórias, 2x0, confronto direto, derrotas e saldo corretos no Grupo ${groupId}`,
+    `Pontos, vitórias, 2x0, confronto direto, derrotas e saldo corretos no ${groupDisplayName(groupId)}`,
     failures.length === 0,
     failures.length === 0 ? "Todos os totais conferem com os resultados registrados." : `Divergências: ${failures.join(", ")}.`,
   );
@@ -357,40 +345,38 @@ function validateStandingsMath(collector: CheckCollector, groupId: GroupId, rows
   addCheck(
     collector,
     `classificacao-ordem-${groupId}`,
-    `Ordenação da classificação do Grupo ${groupId} está correta`,
+    `Ordenação da classificação do ${groupDisplayName(groupId)} está correta`,
     orderedCorrectly,
     orderedCorrectly ? "Ordenada por pontos, vitórias, vitórias por 2x0, confronto direto e saldo de quedas." : "Ordem inconsistente com os critérios de desempate.",
   );
 }
 
-function validateKnockout(collector: CheckCollector, standingsA: StandingRow[], standingsB: StandingRow[], view: KnockoutMatchView[]): void {
+function validateKnockout(collector: CheckCollector, standings: StandingRow[], view: KnockoutMatchView[]): void {
   const fixture = (key: KnockoutKey) => view.find((item) => item.key === key)!;
   const winnerOf = (key: KnockoutKey) => {
     const item = fixture(key);
     return item.sideA.winner ? item.sideA.teamId : item.sideB.winner ? item.sideB.teamId : null;
   };
-  const at = (group: GroupId, position: number) => positionTeamId(group === "A" ? standingsA : standingsB, position);
-  const groupOf = (teamId: string | null) => (teamId ? store.getTeam(teamId)?.groupId ?? null : null);
+  const loserOf = (key: KnockoutKey) => {
+    const item = fixture(key);
+    return item.sideA.winner ? item.sideB.teamId : item.sideB.winner ? item.sideA.teamId : null;
+  };
+  const at = (position: number) => positionTeamId(standings, position);
 
-  // Cruzamento das quartas recalculado por fora, a partir de quem venceu cada repescagem.
-  const groupR1 = groupOf(winnerOf("R1"));
-  const groupR2 = groupOf(winnerOf("R2"));
-  const pairing = groupR1 && groupR2 ? decideQuarterfinalPairing(groupR1, groupR2) : null;
-
+  // Chaveamento recalculado por fora, direto da classificação final.
   const expected: Array<[KnockoutKey, string, string | null, string | null]> = [
-    ["R1", "Repescagem 1: 3º A × 4º B", at("A", 3), at("B", 4)],
-    ["R2", "Repescagem 2: 3º B × 4º A", at("B", 3), at("A", 4)],
-    ["Q1", "Quartas 1: 2º A × vencedor da repescagem que evita reencontro", at("A", 2), winnerOf(pairing?.swapped ? "R1" : "R2")],
-    ["Q2", "Quartas 2: 2º B × o outro vencedor da repescagem", at("B", 2), winnerOf(pairing?.swapped ? "R2" : "R1")],
-    ["S1", "Semifinal 1: 1º A × vencedor das Quartas 2", at("A", 1), winnerOf("Q2")],
-    ["S2", "Semifinal 2: 1º B × vencedor das Quartas 1", at("B", 1), winnerOf("Q1")],
+    ["Q1", "Quartas 1: 3º × 6º", at(3), at(6)],
+    ["Q2", "Quartas 2: 4º × 5º", at(4), at(5)],
+    ["S1", "Semifinal 1: 1º × vencedor das Quartas 2", at(1), winnerOf("Q2")],
+    ["S2", "Semifinal 2: 2º × vencedor das Quartas 1", at(2), winnerOf("Q1")],
+    ["T", "Disputa de 3º lugar: perdedores das semifinais", loserOf("S1"), loserOf("S2")],
     ["F", "Final: vencedores das semifinais", winnerOf("S1"), winnerOf("S2")],
   ];
 
   const byRound: Array<[string, string, KnockoutKey[]]> = [
-    ["repescagem-cruzada", "Repescagem cruza 3º A × 4º B e 3º B × 4º A", ["R1", "R2"]],
-    ["quartas-com-segundos", "Quartas recebem os 2º colocados e os vencedores da repescagem", ["Q1", "Q2"]],
-    ["semifinais-com-lideres", "Semifinais recebem os 1º colocados e os vencedores das quartas", ["S1", "S2"]],
+    ["quartas-cruzadas", "Quartas: 3º × 6º e 4º × 5º", ["Q1", "Q2"]],
+    ["semifinais-com-lideres", "Semifinais: 1º × vencedor da Q2 e 2º × vencedor da Q1", ["S1", "S2"]],
+    ["terceiro-com-perdedores", "Disputa de 3º lugar reúne os perdedores das semifinais", ["T"]],
     ["final-com-vencedores", "Final reúne os vencedores das semifinais", ["F"]],
   ];
   byRound.forEach(([id, label, keys]) => {
@@ -409,46 +395,26 @@ function validateKnockout(collector: CheckCollector, standingsA: StandingRow[], 
     );
   });
 
-  // O cruzamento escolhido tem de ser o de menos reencontros; só sobra reencontro quando os
-  // dois vencedores da repescagem saíram do mesmo grupo.
-  const quarterRematches = (["Q1", "Q2"] as KnockoutKey[]).filter((key) => fixture(key).sameGroup).length;
-  const bothFromSameGroup = Boolean(groupR1 && groupR1 === groupR2);
-  addCheck(
-    collector,
-    "quartas-sem-reencontro",
-    "Quartas evitam reencontro do mesmo grupo sempre que possível",
-    pairing !== null && quarterRematches === pairing.rematches && (quarterRematches === 0) === !bothFromSameGroup && quarterRematches <= 1,
-    quarterRematches === 0
-      ? `Nenhum reencontro${pairing?.avoided ? ` (cruzamento trocado: ${pairing.avoided} evitados)` : ""}.`
-      : `1 reencontro inevitável: os dois vencedores da repescagem são do Grupo ${groupR1}.`,
-  );
-
   const teamsIn = (keys: KnockoutKey[]) => new Set(keys.flatMap((key) => [fixture(key).sideA.teamId, fixture(key).sideB.teamId]));
-  const eliminated = [at("A", TEAMS_PER_GROUP), at("B", TEAMS_PER_GROUP)].filter(Boolean) as string[];
+  const eliminated = at(TEAMS_PER_GROUP);
   const everyone = teamsIn(KNOCKOUT_PLAN.map((item) => item.key));
-  const intruders = eliminated.filter((teamId) => everyone.has(teamId));
   addCheck(
     collector,
     "eliminados-nao-avancaram",
-    `Nenhum ${TEAMS_PER_GROUP}º colocado avançou para o mata-mata`,
-    intruders.length === 0,
-    intruders.length === 0
-      ? `Eliminados: ${eliminated.map(teamName).join(" e ")}.`
-      : `Duplas eliminadas encontradas no mata-mata: ${intruders.map(teamName).join(", ")}.`,
+    `O ${TEAMS_PER_GROUP}º colocado não avançou para o mata-mata`,
+    Boolean(eliminated) && !everyone.has(eliminated),
+    `Eliminado: ${teamName(eliminated)}.`,
   );
 
-  // Quem entra direto numa fase não pode aparecer nas fases anteriores.
-  const leaders = [at("A", 1), at("B", 1)];
-  const seconds = [at("A", 2), at("B", 2)];
-  const beforeSemis = teamsIn(["R1", "R2", "Q1", "Q2"]);
-  const repechage = teamsIn(["R1", "R2"]);
-  const byes = leaders.every((teamId) => teamId && !beforeSemis.has(teamId)) && seconds.every((teamId) => teamId && !repechage.has(teamId));
+  // 1º e 2º entram direto na semifinal: não jogam as quartas.
+  const leaders = [at(1), at(2)];
+  const quarters = teamsIn(["Q1", "Q2"]);
   addCheck(
     collector,
     "entradas-diretas",
-    "1º colocados só jogam a partir da semifinal e 2º colocados a partir das quartas",
-    byes,
-    `Líderes: ${leaders.map(teamName).join(" e ")} · Segundos: ${seconds.map(teamName).join(" e ")}.`,
+    "1º e 2º colocados só jogam a partir da semifinal",
+    leaders.every((teamId) => teamId && !quarters.has(teamId)),
+    `Direto na semifinal: ${leaders.map(teamName).join(" e ")}.`,
   );
 
   const progressionFailures: string[] = [];
@@ -458,9 +424,12 @@ function validateKnockout(collector: CheckCollector, standingsA: StandingRow[], 
 
     ([["slotA", bracket.slotA, match.teamAId], ["slotB", bracket.slotB, match.teamBId]] as const).forEach(
       ([slotName, slot, actualTeamId]) => {
-        if (slot.type !== "winner") return;
-        const expectedWinner = winnerOfBracket(store.bracketMatches.find((b) => b.id === slot.bracketMatchId));
-        if (expectedWinner && expectedWinner !== actualTeamId) {
+        if (slot.type !== "winner" && slot.type !== "loser") return;
+        const source = store.bracketMatches.find((b) => b.id === slot.bracketMatchId);
+        const sourceMatch = source?.matchId ? store.matches.find((m) => m.id === source.matchId) : undefined;
+        const won = winnerOfBracket(source);
+        const expectedTeam = slot.type === "winner" ? won : won && sourceMatch ? (won === sourceMatch.teamAId ? sourceMatch.teamBId : sourceMatch.teamAId) : null;
+        if (expectedTeam && expectedTeam !== actualTeamId) {
           progressionFailures.push(`${bracket.label} (${slotName})`);
         }
       },
@@ -473,7 +442,7 @@ function validateKnockout(collector: CheckCollector, standingsA: StandingRow[], 
     "Vencedores avançaram corretamente em cada fase",
     progressionFailures.length === 0,
     progressionFailures.length === 0
-      ? "Todas as chaves receberam o vencedor da fase anterior."
+      ? "Todas as chaves receberam o vencedor (ou, no 3º lugar, o perdedor) da fase anterior."
       : `Divergências: ${progressionFailures.join(", ")}.`,
   );
 }
@@ -530,8 +499,8 @@ function validateOutcome(collector: CheckCollector, outcome: TournamentOutcome |
   addCheck(
     collector,
     "dashboard-atualizado",
-    "Dashboard reflete o encerramento do campeonato",
-    store.currentPhase === "Campeonato Finalizado",
+    "Campeonato encerrado só com final e disputa de 3º lugar decididas",
+    store.currentPhase === "Campeonato Finalizado" && store.matches.filter((m) => m.stage === "mata-mata").every((m) => m.result),
     `Fase atual: ${store.currentPhase}.`,
   );
 
@@ -567,7 +536,7 @@ export function runFullSimulation(options: SimulationOptions = {}): SimulationRe
   const random = createSeededRandom(seed);
   const collector: CheckCollector = { checks: [], warnings: [], tieResolved: new Set() };
 
-  // 1. Ambiente limpo e 10 duplas aprovadas.
+  // 1. Ambiente limpo e 7 duplas aprovadas.
   resetSimulation();
   ensureApprovedTeams(collector);
 
@@ -581,7 +550,7 @@ export function runFullSimulation(options: SimulationOptions = {}): SimulationRe
   resolvePendingTies(random, collector);
   if (store.bracketMatches.length === 0) generateBracket();
 
-  // 5. Repescagem → quartas → semifinais → final: cada fase concluída abre a seguinte.
+  // 5. Quartas → semifinais → 3º lugar e final: cada fase concluída abre a seguinte.
   let guard = 0;
   while (store.matches.some((m) => m.stage === "mata-mata" && m.status === "pendente")) {
     if (guard > 10) {
@@ -594,18 +563,15 @@ export function runFullSimulation(options: SimulationOptions = {}): SimulationRe
   // 6. Campeão, ranking e histórico (da simulação).
   const outcome = finalizeTournament(year) ?? findTournamentOutcome();
 
-  const standingsA = computeStandings("A");
-  const standingsB = computeStandings("B");
+  const standings = computeStandings("A");
   const knockout = buildKnockoutView({
     bracket: store.bracketMatches,
     matches: store.matches,
     teamName: (teamId) => store.getTeam(teamId)?.name,
     groupOf: (teamId) => store.getTeam(teamId)?.groupId,
   });
-  if (quarterfinalPairing?.inevitable) {
-    const rematch = knockout.find((item) => item.round === "quartas" && item.sameGroup);
-    collector.warnings.push(`Reencontro inevitável nas quartas: ${rematch?.sideA.name} × ${rematch?.sideB.name} já se enfrentaram na fase de grupos. Os dois vencedores da repescagem saíram do mesmo grupo.`);
-  }
+  const thirdPlace = knockoutThirdPlace(knockout);
+  const thirdMatch = knockout.find((item) => item.round === "terceiro");
 
   // 7. Validações automáticas.
   addCheck(
@@ -615,11 +581,24 @@ export function runFullSimulation(options: SimulationOptions = {}): SimulationRe
     store.approvedTeams().length === EDITION_TEAM_COUNT,
     `${store.approvedTeams().length} duplas aprovadas.`,
   );
-  validateGroups(collector, standingsA, standingsB);
+  validateGroups(collector, standings);
   validateMatches(collector);
-  validateStandingsMath(collector, "A", standingsA);
-  validateStandingsMath(collector, "B", standingsB);
-  validateKnockout(collector, standingsA, standingsB, knockout);
+  validateStandingsMath(collector, "A", standings);
+  validateKnockout(collector, standings, knockout);
+  addCheck(
+    collector,
+    "terceiro-definido",
+    "Terceiro colocado definido pela disputa de 3º lugar",
+    Boolean(thirdPlace?.teamId),
+    thirdPlace ? `3º lugar: ${thirdPlace.name}.` : "A disputa de 3º lugar não teve vencedor.",
+  );
+  addCheck(
+    collector,
+    "total-de-jogos",
+    `${MATCHES_PER_GROUP + KNOCKOUT_MATCHES} partidas no campeonato (${MATCHES_PER_GROUP} do grupo + ${KNOCKOUT_MATCHES} do mata-mata)`,
+    store.matches.length === MATCHES_PER_GROUP + KNOCKOUT_MATCHES,
+    `${store.matches.length} partidas.`,
+  );
   validateOutcome(collector, outcome);
 
   const errors = collector.checks.filter((c) => !c.passed && c.severity === "erro").map((c) => `${c.label}: ${c.detail}`);
@@ -638,9 +617,8 @@ export function runFullSimulation(options: SimulationOptions = {}): SimulationRe
     totalPlayers: store.players.filter((p) => p.role === "jogador").length,
     totalTeams: store.teams.length,
     approvedTeams: store.approvedTeams().length,
-    groups: [buildGroupSummary("A", standingsA, collector), buildGroupSummary("B", standingsB, collector)],
+    groups: [buildGroupSummary("A", standings, collector)],
     knockout,
-    quarterfinals: quarterfinalPairing,
     groupMatches,
     knockoutMatches,
     totalMatches: groupMatches + knockoutMatches,
@@ -648,6 +626,8 @@ export function runFullSimulation(options: SimulationOptions = {}): SimulationRe
       championTeamName: outcome?.championTeam.name ?? null,
       runnerUpTeamName: outcome?.runnerUpTeam.name ?? null,
       finalScore: outcome?.finalScore ?? null,
+      thirdPlaceTeamName: thirdPlace?.name ?? null,
+      thirdPlaceScore: thirdMatch?.played ? `${Math.max(thirdMatch.sideA.sets ?? 0, thirdMatch.sideB.sets ?? 0)}x${Math.min(thirdMatch.sideA.sets ?? 0, thirdMatch.sideB.sets ?? 0)}` : null,
     },
     checks: collector.checks,
     errors,

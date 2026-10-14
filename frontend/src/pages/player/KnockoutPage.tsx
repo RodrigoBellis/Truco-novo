@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { BRACKET_ROUNDS, BRACKET_ROUND_LABEL, RESULTS_LOCKED_MESSAGE, type KnockoutMatchView } from "@truco/shared";
+import { BRACKET_ROUNDS, BRACKET_ROUND_LABEL, EDITION_PRIZES, RESULTS_LOCKED_MESSAGE, knockoutChampion, knockoutThirdPlace, type KnockoutMatchView } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Loading } from "../../components/ui/Loading";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -12,7 +12,7 @@ import { useFetchData } from "../../hooks/useFetchData";
 import { useRealtimeMatches } from "../../hooks/useRealtimeMatches";
 import { useResultsLock } from "../../hooks/useResultsLock";
 import { useResultEntry } from "../../hooks/useResultEntry";
-import { knockoutResultToast, loadKnockoutData, quarterfinalRematchNote, summarizeKnockout, teamKnockoutStatus, type KnockoutPhase } from "../../utils/knockout";
+import { knockoutResultToast, loadKnockoutData, summarizeKnockout, teamKnockoutStatus, type KnockoutPhase } from "../../utils/knockout";
 import "./KnockoutPage.css";
 import "../../components/truco/ResultsLockControl.css";
 
@@ -22,13 +22,16 @@ const PHASES: Array<{ id: KnockoutPhase; label: string }> = [
 ];
 
 const PHASE_NOTE: Record<KnockoutPhase, string> = {
-  grupos: "A repescagem começa sozinha quando os dois grupos terminarem.",
-  repescagem: "Repescagem em disputa: as duplas lançam o resultado aqui mesmo. Quando as duas terminarem, cada vencedor pega nas quartas o 2º colocado do outro grupo, sempre que possível.",
-  quartas: "Quartas de final em disputa: quem vencer enfrenta os líderes dos grupos.",
-  semifinal: "Semifinais em disputa: os vencedores decidem o título.",
+  grupos: "As quartas de final começam sozinhas quando os 21 jogos do grupo terminarem.",
+  quartas: "Quartas de final em disputa: quem vencer enfrenta o 1º ou o 2º colocado na semifinal.",
+  semifinal: "Semifinais em disputa: quem vence vai à final; quem perde disputa o 3º lugar.",
+  terceiro: "Final e disputa de 3º lugar liberadas. O campeonato termina quando as duas tiverem resultado.",
   final: "Só falta a final.",
   encerrado: "Campeonato encerrado.",
 };
+
+const SUBTITLE = "Quartas, semifinais, disputa de 3º lugar e final da 5ª Edição";
+const brl = (value: number) => `R$ ${value}`;
 
 export function KnockoutPage() {
   const { user } = useAuth();
@@ -56,7 +59,7 @@ export function KnockoutPage() {
   if (error || !data || !summary) {
     return (
       <div className="page-enter">
-        <PageHeader title="Mata-mata" subtitle="Repescagem, quartas, semifinais e final da 5ª Edição" />
+        <PageHeader title="Mata-mata" subtitle={SUBTITLE} />
         <EmptyState icon={<Icon name="bracket" size={36} />} tone="danger" title="Não foi possível carregar o mata-mata" description={error ?? ""} />
       </div>
     );
@@ -68,11 +71,20 @@ export function KnockoutPage() {
     : summary.tiePending
     ? "Fase de grupos encerrada com empate em todos os critérios de desempate. O chaveamento sai assim que o administrador decidir as posições."
     : summary.phase === "grupos" && summary.groupsComplete
-      ? "Fase de grupos encerrada: a repescagem já está valendo e os confrontos abaixo seguem a classificação final. O botão de lançar resultado aparece assim que os jogos entram no chaveamento."
+      ? "Fase de grupos encerrada: as quartas já estão valendo e os confrontos abaixo seguem a classificação final. O botão de lançar resultado aparece assim que os jogos entram no chaveamento."
     : summary.provisional
       ? "Chaveamento provisório: mostra quem ocupa cada posição hoje. As vagas só ficam definidas quando a fase de grupos terminar."
       : PHASE_NOTE[summary.phase];
-  const rematchNote = quarterfinalRematchNote(summary.view);
+  const final = summary.view.find((match) => match.round === "final");
+  const champion = data.status?.champion ? knockoutChampion(summary.view) : null;
+  const runnerUp = champion && final ? (final.sideA.winner ? final.sideB : final.sideA) : null;
+  const thirdPlace = knockoutThirdPlace(summary.view);
+  const thirdMatch = summary.view.find((match) => match.round === "terceiro");
+  const podium = [
+    { place: "1º", title: "Campeões", prize: EDITION_PRIZES.campeao, side: champion, match: final },
+    { place: "2º", title: "Vice-campeões", prize: EDITION_PRIZES.vice, side: runnerUp, match: final },
+    { place: "3º", title: "Terceiro lugar", prize: EDITION_PRIZES.terceiro, side: thirdPlace, match: thirdMatch },
+  ];
 
   const myTeamId = user?.role === "jogador" ? (user.teamId ?? null) : null;
   const myTeam = myTeamId ? data.teams.find((team) => team.id === myTeamId) : undefined;
@@ -111,7 +123,7 @@ export function KnockoutPage() {
 
   return (
     <div className="page-enter knockout-page">
-      <PageHeader title="Mata-mata" subtitle="Repescagem, quartas, semifinais e final da 5ª Edição" />
+      <PageHeader title="Mata-mata" subtitle={SUBTITLE} />
 
       {resultsLock.locked && !resultsLock.isLoading && !editionOver && (
         <p className="results-lock-notice" role="status"><Icon name="lock" size={20} />{RESULTS_LOCKED_MESSAGE}</p>
@@ -122,7 +134,7 @@ export function KnockoutPage() {
           {campaign.headline && (
             // A chave refaz a entrada quando a dupla passa de fase.
             <div className="knockout-campaign-result" key={campaign.headline}>
-              <span className="knockout-campaign-icon" aria-hidden="true"><Icon name={campaign.outcome === "champion" ? "trophy" : campaign.outcome === "advanced" ? "check" : "bracket"} size={22} /></span>
+              <span className="knockout-campaign-icon" aria-hidden="true"><Icon name={campaign.outcome === "champion" || campaign.outcome === "podium" ? "trophy" : campaign.outcome === "advanced" ? "check" : "bracket"} size={22} /></span>
               <div>
                 <h2 className="knockout-campaign-headline">{campaign.headline}</h2>
                 {campaign.detail && <p className="knockout-campaign-detail">{campaign.detail}</p>}
@@ -149,20 +161,38 @@ export function KnockoutPage() {
           ))}
         </ol>
         <p role="status">{note}</p>
-        {rematchNote && <p className="knockout-rematch-note">{rematchNote}</p>}
       </section>
 
-      <KnockoutBracket view={summary.view} championConfirmed={editionOver} highlightTeamId={user?.teamId} provisionalLabel={summary.groupsComplete && !summary.tiePending ? "classificação final" : undefined} renderActions={(match) => resultAction(match, "card")} />
+      <section className="knockout-podium" aria-labelledby="knockout-podium-title">
+        <h2 id="knockout-podium-title">Pódio e premiação</h2>
+        <ol>
+          {podium.map((item) => {
+            const score = item.side && item.match?.played ? `${Math.max(item.match.sideA.sets ?? 0, item.match.sideB.sets ?? 0)}x${Math.min(item.match.sideA.sets ?? 0, item.match.sideB.sets ?? 0)}` : null;
+            return (
+              <li key={item.place} className={`knockout-podium-item knockout-podium-${item.place.charAt(0)}${item.side ? " is-decided" : ""}`}>
+                <span className="knockout-podium-place">{item.place}</span>
+                <div>
+                  <p className="knockout-podium-title">{item.title} · {brl(item.prize)} por dupla</p>
+                  <p className="knockout-podium-team">{item.side?.name ?? "A definir"}</p>
+                  {score && <p className="knockout-podium-score">{item.match!.label} · {score}</p>}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </section>
+
+      <KnockoutBracket view={summary.view} championConfirmed={Boolean(data.status?.champion)} highlightTeamId={user?.teamId} provisionalLabel={summary.groupsComplete && !summary.tiePending ? "classificação final" : undefined} renderActions={(match) => resultAction(match, "card")} />
 
       <section className="knockout-rules" aria-labelledby="knockout-rules-title">
         <h2 id="knockout-rules-title">Como cada posição do grupo entra</h2>
         <ul>
-          <li className="knockout-rule-semifinal"><strong>1º lugar</strong> direto na semifinal</li>
-          <li className="knockout-rule-quartas"><strong>2º lugar</strong> direto nas quartas de final</li>
-          <li className="knockout-rule-repescagem"><strong>3º e 4º</strong> jogam a repescagem, cruzando os grupos; quem vence evita, nas quartas, o 2º do próprio grupo</li>
-          <li className="knockout-rule-eliminado"><strong>5º lugar</strong> eliminado</li>
+          <li className="knockout-rule-semifinal"><strong>1º e 2º</strong> direto na semifinal</li>
+          <li className="knockout-rule-quartas"><strong>3º a 6º</strong> jogam as quartas: 3º × 6º e 4º × 5º</li>
+          <li className="knockout-rule-eliminado"><strong>7º lugar</strong> eliminado</li>
         </ul>
-        <p>Cada fase nasce sozinha: a repescagem com o fim dos grupos, as quartas com as duas repescagens encerradas, e assim até a final. Quem joga a partida lança o resultado aqui no chaveamento ou em Jogos; o vencedor avança na hora.</p>
+        <p>Na semifinal, o 1º enfrenta o vencedor de 4º × 5º e o 2º enfrenta o vencedor de 3º × 6º. Quem vence vai à final; quem perde disputa o 3º lugar.</p>
+        <p>Cada fase nasce sozinha: as quartas com o fim do grupo, as semifinais com as quartas, e a final e a disputa de 3º lugar com as duas semifinais. Quem joga a partida lança o resultado aqui no chaveamento ou em Jogos; o vencedor avança na hora.</p>
       </section>
 
       {entry.dialog}

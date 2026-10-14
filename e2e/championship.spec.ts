@@ -1,8 +1,8 @@
 ﻿import { expect, test, type Page } from "@playwright/test";
 import { snapshotGroups, snapshotMatches, snapshotPlayers, snapshotStandings, snapshotTeams } from "./fixtures/edition5Snapshot";
 
-// Dados fictícios só para os testes, no formato definitivo da edição: 10 duplas, 5 por grupo.
-const players = Array.from({ length: 20 }, (_, index) => ({
+// Dados fictícios só para os testes, no formato definitivo da edição: 7 duplas num grupo único.
+const players = Array.from({ length: 14 }, (_, index) => ({
   id: `player-${index + 1}`,
   name: `Jogador ${index + 1}`,
   role: "jogador",
@@ -10,7 +10,7 @@ const players = Array.from({ length: 20 }, (_, index) => ({
   avatarUrl: index < 2 ? `/avatars/player-${index + 1}.webp` : null,
 }));
 
-const teams = Array.from({ length: 10 }, (_, index) => ({
+const teams = Array.from({ length: 7 }, (_, index) => ({
   id: `team-${index + 1}`,
   name: `Dupla ${index + 1}`,
   player1Id: players[index * 2].id,
@@ -18,13 +18,12 @@ const teams = Array.from({ length: 10 }, (_, index) => ({
   status: "aprovada",
   seeded: false,
   isPlaceholder: false,
-  groupId: index < 5 ? "A" : "B",
+  groupId: "A",
   strength: index % 5 + 1,
 }));
 
 const groups = [
-  { id: "A", name: "Grupo A", teamIds: teams.slice(0, 5).map((team) => team.id) },
-  { id: "B", name: "Grupo B", teamIds: teams.slice(5).map((team) => team.id) },
+  { id: "A", name: "Grupo Único", teamIds: teams.map((team) => team.id) },
 ];
 
 const standings = (teamList: typeof teams) => teamList.map((team, index) => ({
@@ -40,26 +39,22 @@ const standings = (teamList: typeof teams) => teamList.map((team, index) => ({
   tiePending: false,
 }));
 
-const groupPairs = Array.from({ length: 5 }, (_, first) => Array.from({ length: 5 - first - 1 }, (_, offset) => [first, first + offset + 1] as const)).flat();
-const matches = Array.from({ length: 20 }, (_, index) => {
-  const groupOffset = index < 10 ? 0 : 5;
-  const [first, second] = groupPairs[index % 10];
-  return ({
+const groupPairs = Array.from({ length: 7 }, (_, first) => Array.from({ length: 7 - first - 1 }, (_, offset) => [first, first + offset + 1] as const)).flat();
+const matches = groupPairs.map(([first, second], index) => ({
   id: `match-${index + 1}`,
   championshipId: "edition-5",
   stage: "grupos",
-  round: index < 10 ? "Grupo A" : "Grupo B",
-  order: index < 10 ? index : index - 10,
-  groupId: index < 10 ? "A" : "B",
-  teamAId: teams[groupOffset + first].id,
-  teamBId: teams[groupOffset + second].id,
+  round: "Grupo A",
+  order: index,
+  groupId: "A",
+  teamAId: teams[first].id,
+  teamBId: teams[second].id,
   result: null,
   status: "pendente",
   tableNumber: null,
   blockNumber: null,
   queuePosition: null,
-  });
-});
+}));
 
 function testToken(expired = false, version = "initial") {
   const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
@@ -107,10 +102,10 @@ async function mockCoreApi(page: Page, role: "admin" | "jogador", resultSaved = 
     if (url.pathname.endsWith("/players/me/avatar")) payload = { avatarUrl: "/avatars/player-1-updated.jpg" };
     else if (url.pathname.endsWith("/players") && route.request().method() === "POST") payload = { id: "new-player", name: "Nova Pessoa", role: "jogador", teamId: null, avatarUrl: null };
     else if (url.pathname.endsWith("/teams") && route.request().method() === "POST") payload = { ...teams[0], name: route.request().postDataJSON().name };
-    else if (url.pathname.endsWith("/teams")) payload = smallTeamList ? teams.slice(0, 8) : teams;
+    else if (url.pathname.endsWith("/teams")) payload = smallTeamList ? teams.slice(0, 5) : teams;
     else if (url.pathname.endsWith("/players")) payload = players;
     else if (url.pathname.endsWith("/groups")) payload = groups;
-    else if (url.pathname.includes("/standings")) payload = standings(url.pathname.endsWith("/A/standings") ? teams.slice(0, 5) : teams.slice(5));
+    else if (url.pathname.includes("/standings")) payload = standings(teams);
     else if (url.pathname.endsWith("/matches/audit")) payload = [];
     else if (url.pathname.endsWith("/matches/lock")) payload = { locked: false };
     else if (url.pathname.endsWith("/matches")) payload = noMatches ? [] : matches.map((match, index) => index === 0 && resultSaved ? { ...match, result: { setsA: 2, setsB: 0 }, status: "realizado" } : match);
@@ -125,7 +120,7 @@ async function mockCoreApi(page: Page, role: "admin" | "jogador", resultSaved = 
     else if (url.pathname.endsWith("/history")) payload = { editions: [{ id: "history-1", edition: 4, name: "4ª Edição", year: 2025, champions: ["Campeão 1", "Campeão 2"], runnersUp: null, finalResult: null, notes: "" }], currentEdition: 5, currentYear: 2026 };
     else if (url.pathname.endsWith("/players/roster")) payload = players.map(({ id, name }) => ({ id, name }));
     else if (url.pathname.endsWith("/admin/sorteio")) payload = { message: "Sorteio desativado" };
-    else if (url.pathname.endsWith("/groups/generate-matches")) payload = { matchesCreated: 20 };
+    else if (url.pathname.endsWith("/groups/generate-matches")) payload = { matchesCreated: 21 };
     else if (url.pathname.match(/\/matches\/[^/]+\/result$/)) payload = { ...matches[0], result: route.request().postDataJSON(), status: "realizado" };
     else if (url.pathname.endsWith("/matches") || url.pathname.endsWith("/teams") || url.pathname.endsWith("/players")) payload = [];
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload) });
@@ -142,42 +137,45 @@ test("admin cadastra pessoa e define dupla, grupo e estrelas", async ({ page }) 
 
   await page.goto("/admin/duplas");
   await page.getByLabel("Nome da dupla").fill("Dupla de teste");
-  await page.getByRole("combobox", { name: "Jogador 1", exact: true }).selectOption("player-19");
-  await page.getByRole("combobox", { name: "Jogador 2", exact: true }).selectOption("player-20");
-  await page.getByLabel("Grupo").selectOption("B");
+  await page.getByRole("combobox", { name: "Jogador 1", exact: true }).selectOption("player-13");
+  await page.getByRole("combobox", { name: "Jogador 2", exact: true }).selectOption("player-14");
+  await expect(page.getByLabel("Grupo")).toHaveValue("A");
+  await expect(page.getByLabel("Grupo").locator("option")).toHaveText(["Grupo Único"]);
   await page.getByLabel("Força da dupla").selectOption("5");
   await expect(page.getByText("Dupla de teste").first()).toBeVisible();
   await page.getByRole("button", { name: "Salvar dupla" }).click();
   await expect(page.getByText("Participação atualizada.").or(page.getByText("Dupla criada para esta edição."))).toBeVisible();
 });
 
-test("admin confere as cinco posições e solicita os vinte jogos", async ({ page }) => {
+test("admin confere as sete posições do grupo único e solicita os 21 jogos", async ({ page }) => {
   await mockCoreApi(page, "admin", false, false, true);
   await page.goto("/admin/grupos");
+  await expect(page.getByRole("heading", { name: "Grupo Único" })).toBeVisible();
   await expect(page.getByText("Semifinal", { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText("Quartas", { exact: true }).filter({ visible: true }).first()).toBeVisible();
-  await expect(page.getByText("Repescagem", { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText("Eliminado", { exact: true }).filter({ visible: true }).first()).toBeVisible();
-  await expect(page.getByText("5º", { exact: true }).filter({ visible: true }).first()).toBeVisible();
-  await expect(page.getByText("6º", { exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Gerar 20 jogos da fase de grupos" }).click();
-  await expect(page.getByText("20 jogos criados com os grupos definidos pelo administrador.")).toBeVisible();
+  await expect(page.getByText("Repescagem", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("7º", { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByText("8º", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Grupo B", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Gerar 21 jogos da fase de grupos" }).click();
+  await expect(page.getByText("21 jogos criados com os grupos definidos pelo administrador.")).toBeVisible();
 });
 
-test("admin gera só os jogos que faltam quando duas duplas entram depois", async ({ page }) => {
+test("admin gera só os jogos que faltam quando uma dupla entra depois", async ({ page }) => {
   await mockCoreApi(page, "admin");
-  // Jogos já gerados com 4 duplas por grupo: faltam os das duplas 5 (Grupo A) e 10 (Grupo B).
-  const newcomers = ["team-5", "team-10"];
+  // Jogos já gerados com 6 duplas: faltam os 6 da dupla 7.
+  const newcomers = ["team-7"];
   await page.route("**/api/matches**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(matches.filter((match) => !newcomers.includes(match.teamAId) && !newcomers.includes(match.teamBId))) }));
   let completeCalls = 0;
   await page.route("**/api/groups/complete-matches", (route) => {
     completeCalls += 1;
-    return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ matchesCreated: 8 }) });
+    return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ matchesCreated: 6 }) });
   });
   await page.goto("/admin/grupos");
-  await expect(page.getByRole("button", { name: /Gerar 20 jogos/ })).toHaveCount(0);
-  await page.getByRole("button", { name: "Gerar 8 jogos das duplas novas" }).click();
-  await expect(page.getByText("8 jogos criados para as duplas novas. Placar e ordem dos jogos já disputados não mudaram.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Gerar 21 jogos/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Gerar 6 jogos das duplas novas" }).click();
+  await expect(page.getByText("6 jogos criados para as duplas novas. Placar e ordem dos jogos já disputados não mudaram.")).toBeVisible();
   expect(completeCalls).toBe(1);
 });
 
@@ -202,54 +200,75 @@ test("jogador visualiza dupla e parceiro, lança e corrige resultado", async ({ 
   await expect(page.getByText(/Resultado registrado!/)).toBeVisible();
 });
 
-test("Grupos abre no grupo da dupla e permite consultar o outro grupo", async ({ page }) => {
+test("Grupos mostra o grupo único com as 7 duplas e destaca a dupla do jogador", async ({ page }) => {
   await mockCoreApi(page, "jogador");
   await page.goto("/grupos");
-  await expect(page.getByRole("tab", { name: "Grupo A · Seu grupo" })).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByText("Dupla 1").first()).toBeVisible();
-  await expect(page.getByText("Sua dupla")).toBeVisible();
-  await page.getByRole("tab", { name: "Grupo B", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Grupo Único" })).toBeVisible();
+  await expect(page.getByRole("tab")).toHaveCount(0);
+  await expect(page.locator(".standings-row")).toHaveCount(7);
   await expect(page.getByText("Dupla 7").first()).toBeVisible();
-  await expect(page.getByText("Grupo B", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("Sua dupla", { exact: true })).toHaveCount(0);
-  await expect(page.locator(".standings-row-mine")).toHaveCount(0);
-  await expect(page.getByText("Sua dupla está no Grupo A", { exact: true })).toBeVisible();
+  await expect(page.getByText("Sua dupla está aqui")).toBeVisible();
+  await expect(page.locator(".standings-row-mine")).toHaveCount(1);
+  await expect(page.getByText("Grupo B", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/1º e 2º na semifinal · 3º a 6º nas quartas · 7º eliminado/)).toBeVisible();
 });
 
-test("Jogos filtra pela dupla, grupo, situação e mostra placar na partida", async ({ page }) => {
+test("Jogos: Meus Jogos, 7 rodadas visuais com 3 mesas e quem descansa, progresso e classificação ao vivo", async ({ page }) => {
   await mockCoreApi(page, "jogador", true);
   await page.goto("/jogos");
   await expect(page.getByRole("tab", { name: "Meus Jogos" })).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator(".match-card")).toHaveCount(4);
-  await expect(page.locator(".match-group-title").filter({ hasText: "Grupo B" })).toHaveCount(0);
-  const myTeamBanner = page.getByRole("region", { name: "Sua dupla e seu grupo" });
-  await expect(myTeamBanner).toContainText("Dupla 1");
-  await expect(myTeamBanner).toContainText("Está no Grupo A");
-  await expect(page.locator(".match-card-outcome-win")).toHaveCount(1);
-  await expect(page.locator(".match-card-outcome-win")).toContainText("Vitória");
-  await expect(page.locator(".match-card-outcome-pending")).toHaveCount(3);
-  await expect(page.locator(".match-group-title")).toHaveText(["Próximos confrontos3", "Já jogados1"]);
-  await expect(myTeamBanner).toContainText("Próximo jogo");
+  await expect(page.locator(".matches-progress")).toContainText("1 de 21");
+  // Meus Jogos: os 6 da Dupla 1, pendentes primeiro, o finalizado por último.
+  const mine = page.locator(".round-match");
+  await expect(mine).toHaveCount(6);
+  await expect(page.locator(".round-match.is-done")).toHaveCount(1);
+  await expect(mine.last()).toContainText("Finalizado");
+  await expect(mine.last().locator(".round-team-sets")).toHaveText(["2", "0"]);
+  await expect(page.locator(".round-match-mine")).toHaveCount(6);
+  await expect(page.getByRole("button", { name: "Lançar resultado" })).toHaveCount(5);
+  await expect(page.getByRole("button", { name: "Editar resultado" })).toHaveCount(1);
+  // Antes do mata-mata existir não há aba de mata-mata.
+  await expect(page.getByRole("tab", { name: "Mata-mata" })).toHaveCount(0);
 
-  await page.getByRole("tab", { name: "Grupo A" }).click();
-  await expect(page.locator(".match-card")).toHaveCount(10);
+  // Todas as Rodadas: 7 rodadas, 3 mesas cada, uma dupla descansando, os 21 jogos uma vez.
+  await page.getByRole("tab", { name: "Todas as Rodadas" }).click();
+  await expect(page.locator(".round")).toHaveCount(7);
+  await expect(page.locator(".round .round-match")).toHaveCount(21);
+  for (let index = 0; index < 7; index += 1) {
+    const round = page.locator(".round").nth(index);
+    await expect(round.locator(".round-title")).toHaveText(`Rodada ${index + 1}`);
+    await expect(round.locator(".round-table")).toHaveText(["Mesa 1", "Mesa 2", "Mesa 3"]);
+    await expect(round.locator(".round-rest")).toHaveCount(1);
+  }
+  const resting = await page.locator(".round-rest strong").allTextContents();
+  expect([...resting].sort()).toEqual(teams.map((team) => team.name).sort());
+  // Jogos de outras duplas não oferecem ação; os da Dupla 1 sim.
+  const others = page.locator(".round .round-match:not(.round-match-mine)");
+  await expect(others).toHaveCount(15);
+  await expect(others.getByRole("button")).toHaveCount(0);
 
-  await page.getByRole("tab", { name: "Grupo B" }).click();
-  await expect(page.locator(".match-card")).toHaveCount(10);
-  await expect(page.getByText("Dupla 7").first()).toBeVisible();
-  await expect(page.locator(".match-card-mine")).toHaveCount(0);
-  await expect(myTeamBanner).toContainText("Está no Grupo A");
-  await page.getByRole("tab", { name: "Todos", exact: true }).click();
-  await expect(page.locator(".match-card")).toHaveCount(20);
-
-  await page.getByLabel("Filtrar por situação").selectOption("finished");
-  await expect(page.locator(".match-card")).toHaveCount(1);
-  await expect(page.locator(".match-card-team-result > strong")).toHaveText(["2", "0"]);
-  await expect(page.locator(".match-card-team-winner")).toContainText("Dupla 1");
-  await expect(page.locator(".match-card-points").first()).toHaveText("+3 pts");
-  await expect(page.locator(".match-card-points").last()).toHaveText("+0 pts");
-  await page.getByLabel("Filtrar por situação").selectOption("upcoming");
-  await expect(page.locator(".match-card")).toHaveCount(19);
+  // Classificação ao vivo, da API, com a dupla destacada.
+  const standingsSection = page.getByRole("region", { name: "Classificação ao vivo" });
+  await expect(standingsSection.locator(".standings-row")).toHaveCount(7);
+  await expect(standingsSection.locator(".standings-row-mine")).toHaveCount(1);
+  expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
+  if (process.env.MOTION_SHOTS) {
+    for (const theme of ["dark", "light"] as const) {
+      await page.evaluate((value) => {
+        localStorage.setItem("truco-do-novo:theme", value);
+        localStorage.setItem("truco-do-novo:appearance-version", "black-background-v1");
+      }, theme);
+      await page.reload();
+      await page.getByRole("tab", { name: "Meus Jogos" }).click();
+      await expect.poll(() => page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === "running").length)).toBe(0);
+      await page.screenshot({ path: `${process.env.MOTION_SHOTS}/${test.info().project.name}_jogos-meus_${theme}.png`, fullPage: true });
+      await page.getByRole("tab", { name: "Todas as Rodadas" }).click();
+      await expect(page.locator(".round").first()).toBeVisible();
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await expect.poll(() => page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === "running").length)).toBe(0);
+      await page.screenshot({ path: `${process.env.MOTION_SHOTS}/${test.info().project.name}_jogos-rodadas_${theme}.png`, fullPage: false });
+    }
+  }
 });
 
 test("rotas antigas levam às telas consolidadas sem quebrar", async ({ page }) => {
@@ -429,15 +448,17 @@ interface League {
   players: Array<{ id: string; name: string }>;
   teams: Array<{ id: string; name: string; player1Id: string; player2Id: string; groupId: string | null }>;
   groups: unknown[];
-  standings: Record<"A" | "B", StandingFixture[]>;
+  standings: Record<"A", StandingFixture[]>;
   matches: Array<{ teamAId: string; teamBId: string; status: string }>;
 }
 
 const fixtureRow = (position: number, teamId: string, jogos: number, vitorias: number, derrotas: number, pontos: number, saldoSets: number): StandingFixture =>
   ({ position, teamId, jogos, vitorias, vitorias2x0: 0, derrotas, pontos, saldoSets, confrontoDireto: 0, tiePending: false });
-const leagueStandings: Record<"A" | "B", StandingFixture[]> = {
-  A: [fixtureRow(1, "team-3", 4, 4, 0, 10, 5), fixtureRow(2, "team-1", 4, 3, 1, 8, 2), fixtureRow(3, "team-2", 4, 2, 2, 6, 1), fixtureRow(4, "team-5", 4, 1, 3, 3, -2), fixtureRow(5, "team-4", 4, 0, 4, 1, -6)],
-  B: [fixtureRow(1, "team-7", 3, 3, 0, 9, 4), fixtureRow(2, "team-8", 3, 2, 1, 6, 1), fixtureRow(3, "team-10", 3, 2, 1, 4, 0), fixtureRow(4, "team-6", 3, 1, 2, 3, -1), fixtureRow(5, "team-9", 3, 0, 3, 0, -4)],
+const leagueStandings: Record<"A", StandingFixture[]> = {
+  A: [
+    fixtureRow(1, "team-3", 4, 4, 0, 10, 5), fixtureRow(2, "team-1", 4, 3, 1, 8, 2), fixtureRow(3, "team-7", 3, 3, 0, 9, 4), fixtureRow(4, "team-2", 4, 2, 2, 6, 1),
+    fixtureRow(5, "team-6", 3, 1, 2, 3, -1), fixtureRow(6, "team-5", 4, 1, 3, 3, -2), fixtureRow(7, "team-4", 4, 0, 4, 1, -6),
+  ],
 };
 const fictionalLeague: League = { players, teams, groups, standings: leagueStandings, matches };
 const realSnapshotLeague: League = { players: snapshotPlayers, teams: snapshotTeams, groups: snapshotGroups, standings: snapshotStandings, matches: snapshotMatches };
@@ -478,7 +499,6 @@ async function mockLeagueWithAccounts(page: Page, league: League) {
     else if (url.pathname.endsWith("/teams")) payload = league.teams;
     else if (url.pathname.endsWith("/groups")) payload = league.groups;
     else if (url.pathname.endsWith("/A/standings")) payload = league.standings.A;
-    else if (url.pathname.endsWith("/B/standings")) payload = league.standings.B;
     else if (url.pathname.endsWith("/matches/lock")) payload = { locked: false };
     else if (url.pathname.endsWith("/matches")) payload = league.matches;
     else if (url.pathname.endsWith("/schedule/my-status")) payload = { status: "aguardando", opponentTeamId: null, matchesAhead: null };
@@ -517,7 +537,7 @@ async function logout(page: Page) {
 /** Início, Minha Dupla, Grupos e Jogos precisam mostrar a mesma linha: a da dupla do usuário logado. */
 async function expectOwnTeamEverywhere(page: Page, league: League, teamName: string) {
   const team = league.teams.find((candidate) => candidate.name === teamName)!;
-  const groupId = team.groupId as "A" | "B";
+  const groupId = team.groupId as "A";
   const row = league.standings[groupId].find((candidate) => candidate.teamId === team.id)!;
   const saldo = `${row.saldoSets > 0 ? "+" : ""}${row.saldoSets}`;
   const pending = league.matches.filter((match) => match.status === "pendente" && [match.teamAId, match.teamBId].includes(team.id)).length;
@@ -529,12 +549,12 @@ async function expectOwnTeamEverywhere(page: Page, league: League, teamName: str
   await expect(hero.locator(".home-hero-member strong")).toHaveText([team.player1Id, team.player2Id].map((id) => league.players.find((player) => player.id === id)!.name));
   await expect(hero.locator(".home-hero-role-me")).toHaveText("Você");
   await expect(hero.getByText("Seu parceiro", { exact: true })).toHaveCount(1);
-  await expect(hero.locator(".home-hero-group")).toHaveText(`Grupo ${groupId}`);
+  await expect(hero.locator(".home-hero-group")).toHaveText("Grupo Único");
 
   await openMenu(page, "Minha Dupla");
   await expect(page.locator(".team-profile-name")).toHaveText(teamName);
   await expect(page.locator(".team-profile-member strong")).toHaveText([team.player1Id, team.player2Id].map((id) => league.players.find((player) => player.id === id)!.name));
-  await expect(page.locator(".team-profile-group-mark")).toHaveText(`Grupo ${groupId}`);
+  await expect(page.locator(".team-profile-group-mark")).toHaveText("Grupo Único");
   await expect(page.locator(".team-profile-position")).toHaveText(`${row.position}º lugar`);
   // Os números contam até o valor (AnimatedCounter); toHaveText espera a contagem terminar.
   await expect(page.locator(".team-performance dd")).toHaveText([String(row.pontos), String(row.vitorias), String(row.derrotas), saldo]);
@@ -546,10 +566,12 @@ async function expectOwnTeamEverywhere(page: Page, league: League, teamName: str
   await expect(page.locator(".standings-row-mine .standings-points")).toHaveText(String(row.pontos));
 
   await openMenu(page, "Jogos");
-  await expect(page.locator(".matches-hero-name")).toHaveText(teamName);
-  await expect(page.locator(".matches-hero-group")).toContainText(`Grupo ${groupId}`);
-  await expect(page.locator(".matches-hero-group")).toContainText(`${row.position}º lugar`);
-  await expect(page.locator(".matches-hero-stat dd")).toHaveText([String(row.pontos), String(row.vitorias), String(row.derrotas), String(pending)]);
+  // Meus Jogos: só os confrontos desta dupla; a classificação ao vivo destaca a linha dela.
+  await expect(page.locator(".round-match-mine")).toHaveCount(league.matches.filter((match) => [match.teamAId, match.teamBId].includes(team.id)).length);
+  await expect(page.locator(".round-match").filter({ hasText: teamName })).toHaveCount(await page.locator(".round-match").count());
+  await expect(page.locator(".round-match:not(.is-done)")).toHaveCount(pending);
+  await expect(page.locator(".matches-standings .standings-row-mine .standings-team-name")).toHaveText(teamName);
+  await expect(page.locator(".matches-standings .standings-row-mine .standings-position")).toHaveText(`${row.position}º`);
 }
 
 test("cada conta vê só a própria dupla ao trocar de usuário, sem vazar estado entre logins", async ({ page }) => {
@@ -561,7 +583,7 @@ test("cada conta vê só a própria dupla ao trocar de usuário, sem vazar estad
     ["Jogador 1", "Dupla 1"],
     ["Jogador 5", "Dupla 3"],
     ["Jogador 13", "Dupla 7"],
-    ["Jogador 19", "Dupla 10"],
+    ["Jogador 10", "Dupla 5"],
   ];
   for (const [player, team] of sequence) {
     await loginAs(page, player);
@@ -576,28 +598,37 @@ test("cada conta vê só a própria dupla ao trocar de usuário, sem vazar estad
   await expectOwnTeamEverywhere(page, fictionalLeague, "Dupla 3");
 });
 
-test("Bagriel & Diguinho e Vito & Luizão veem só os próprios números reais ao trocar de conta", async ({ page }) => {
+test("Pigas & Diguinho e Digão & Rafinha veem só os próprios números ao trocar de conta", async ({ page }) => {
   test.setTimeout(90_000);
   await mockLeagueWithAccounts(page, realSnapshotLeague);
   await page.goto("/login");
+  // A tela de login lista exatamente os 14 participantes oficiais.
+  await page.getByRole("button", { name: "Ver lista de nomes" }).click();
+  await expect(page.locator(".profile-card .profile-name")).toHaveCount(14);
+  await expect(page.locator(".profile-name", { hasText: /^Rafael$/ })).toHaveCount(0);
+  await page.reload();
 
-  await loginAs(page, "Bagriel");
-  await expectOwnTeamEverywhere(page, realSnapshotLeague, "Bagriel & Diguinho");
+  await loginAs(page, "Pigas");
+  await expectOwnTeamEverywhere(page, realSnapshotLeague, "Pigas & Diguinho");
   await openMenu(page, "Minha Dupla");
-  await expect(page.locator(".team-performance dd")).toHaveText(["8", "3", "1", "+3"]);
+  await expect(page.locator(".team-performance dd")).toHaveText(["5", "2", "0", "+3"]);
   await logout(page);
 
-  await loginAs(page, "Vito");
-  await expectOwnTeamEverywhere(page, realSnapshotLeague, "Vito & Luizão");
+  // Digão (pai do Diguinho) é outra pessoa, com outra dupla e outros números.
+  await loginAs(page, "Digão");
+  await expectOwnTeamEverywhere(page, realSnapshotLeague, "Digão & Rafinha");
   await openMenu(page, "Minha Dupla");
-  // Vito & Luizão: 1 ponto (derrota por 1x2 para Bagriel & Diguinho), nunca os 8 da outra dupla.
-  await expect(page.locator(".team-performance dd")).toHaveText(["1", "0", "1", "-1"]);
+  await expect(page.locator(".team-performance dd")).toHaveText(["4", "1", "1", "+1"]);
   await page.reload();
-  await expectOwnTeamEverywhere(page, realSnapshotLeague, "Vito & Luizão");
+  await expectOwnTeamEverywhere(page, realSnapshotLeague, "Digão & Rafinha");
   await logout(page);
 
   await loginAs(page, "Diguinho");
-  await expectOwnTeamEverywhere(page, realSnapshotLeague, "Bagriel & Diguinho");
+  await expectOwnTeamEverywhere(page, realSnapshotLeague, "Pigas & Diguinho");
+  await logout(page);
+
+  await loginAs(page, "Rafinha");
+  await expectOwnTeamEverywhere(page, realSnapshotLeague, "Digão & Rafinha");
 });
 
 // ---------- Minha Dupla: perfil da dupla, desempenho e histórico ----------
@@ -612,13 +643,13 @@ async function routeTeamMatches(page: Page, finished: Record<number, { setsA: nu
 
 test("Minha Dupla mostra os três jogos encerrados mais recentes e leva a Jogos", async ({ page }) => {
   await mockCoreApi(page, "jogador");
-  // Dupla 1 joga os índices 0 a 3 (contra as Duplas 2 a 5); o índice 4 é Dupla 2 x Dupla 3.
+  // Dupla 1 joga os índices 0 a 5 (contra as Duplas 2 a 7); o índice 6 é Dupla 2 x Dupla 3.
   await routeTeamMatches(page, {
     0: { setsA: 2, setsB: 0, queuePosition: 1 },
     1: { setsA: 1, setsB: 2, queuePosition: 2 },
     2: { setsA: 2, setsB: 1, queuePosition: 3 },
     3: { setsA: 0, setsB: 2, queuePosition: 4 },
-    4: { setsA: 2, setsB: 0, queuePosition: 9 },
+    6: { setsA: 2, setsB: 0, queuePosition: 9 },
   });
   await page.goto("/minha-dupla");
   const history = page.getByRole("region", { name: "Histórico da dupla" });
@@ -671,7 +702,7 @@ test("Minha Dupla mostra o nome da dupla uma vez, a ordem aprovada e nenhum selo
   await expect(profile.getByText("Força 1 de 5", { exact: true })).toBeVisible();
   await expect(profile.locator(".team-profile-star")).toHaveCount(5);
   await expect(profile.locator(".team-profile-star-lit")).toHaveCount(1);
-  await expect(profile.locator(".team-profile-group-mark")).toHaveText("Grupo A");
+  await expect(profile.locator(".team-profile-group-mark")).toHaveText("Grupo Único");
   await expect(profile.locator(".team-profile-position")).toHaveText("1º lugar");
   await expect(profile.getByRole("link", { name: "Ver meu grupo" })).toHaveAttribute("href", "/grupos");
   // O único selo da página é o resultado do jogo encerrado, no histórico.
@@ -719,24 +750,21 @@ test("admin não gera mais o mata-mata: as fases nascem sozinhas e ele só regis
   });
   const generateButton = page.getByRole("button", { name: /Gerar mata-mata/ });
   await page.goto("/admin/mata-mata");
-  await expect(page.getByText(/A repescagem nasce sozinha quando todos os jogos de grupo terminarem/)).toBeVisible();
-  await expect(page.locator(".ko-match")).toHaveCount(7);
+  await expect(page.getByText(/As quartas nascem sozinhas quando os 21 jogos do grupo terminarem/)).toBeVisible();
+  await expect(page.locator(".ko-match")).toHaveCount(6);
   await expect(generateButton).toHaveCount(0);
 
   // Grupos encerrados e sem empate: nada a gerar, a tela só explica.
-  await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(finalStandings(route.request().url().includes("/A/") ? "A" : "B")) }));
+  await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(finalStandings()) }));
   await page.reload();
-  await expect(page.getByText(/A repescagem nasce sozinha a partir da classificação final: não é preciso gerar nada/)).toBeVisible();
+  await expect(page.getByText(/As quartas nascem sozinhas a partir da classificação final: não é preciso gerar nada/)).toBeVisible();
   await expect(generateButton).toHaveCount(0);
   await expect(page.locator(".admin-bracket-tie")).toHaveCount(0);
 
   // Empate exato: a única pendência do administrador, com o caminho para decidir.
-  await page.route("**/api/groups/*/standings", (route) => {
-    const groupId = route.request().url().includes("/A/") ? "A" : "B";
-    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(finalStandings(groupId, groupId === "A" ? ["team-2", "team-3"] : [])) });
-  });
+  await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(finalStandings(["team-2", "team-3"])) }));
   await page.reload();
-  await expect(page.getByText(/A repescagem nasce sozinha logo depois que você decidir as posições/)).toBeVisible();
+  await expect(page.getByText(/As quartas nascem sozinhas logo depois que você decidir as posições/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Decidir o empate em Grupos" })).toHaveAttribute("href", "/admin/grupos");
   await expect(generateButton).toHaveCount(0);
 
@@ -744,7 +772,8 @@ test("admin não gera mais o mata-mata: as fases nascem sozinhas e ele só regis
   await mockKnockout(page, 1, "admin");
   await page.reload();
   await expect(page.getByText(/As fases nascem sozinhas/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Registrar resultado" })).toHaveCount(1);
+  // Quartas 1 disputada: faltam a Quartas 2 e a Semifinal 2, que já nasceu.
+  await expect(page.getByRole("button", { name: "Registrar resultado" })).toHaveCount(2);
   await expect(page.getByRole("button", { name: "Corrigir resultado" })).toHaveCount(1);
   await expect(generateButton).toHaveCount(0);
   expect(generateCalls).toBe(0);
@@ -1003,7 +1032,7 @@ test("abertura usa conquistas registradas e continua para a campanha", async ({ 
   await expect(hero.locator(".home-hero-role")).toHaveText(["Você", "Seu parceiro"]);
   await expect(hero.getByText("Força 1 de 5", { exact: true })).toBeVisible();
   await expect(hero.locator(".home-hero-star-lit")).toHaveCount(1);
-  await expect(hero.locator(".home-hero-group")).toHaveText("Grupo A");
+  await expect(hero.locator(".home-hero-group")).toHaveText("Grupo Único");
   await expect(hero.getByRole("link", { name: "Ver meu grupo" })).toHaveAttribute("href", "/grupos");
   // O card não repete posição, zona, aprovação nem números da campanha.
   await expect(hero).not.toContainText(/lugar|Zona|aprovada|Cabeça de chave|Pontos|Vitórias|Saldo/i);
@@ -1029,10 +1058,11 @@ test("ranking preserva empates e jogos de outras duplas não oferecem edição",
   await expect(page.locator(".major-hero-stats, .major-mine, .major-row")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Ver o histórico por edição" })).toHaveAttribute("href", "/hall-da-fama");
   await page.goto("/jogos");
-  await page.getByRole("tab", { name: "Grupo B" }).click();
-  await expect(page.locator(".match-card")).toHaveCount(10);
-  await expect(page.getByRole("button", { name: /Lançar resultado|Editar resultado/ })).toHaveCount(0);
-  await expect(page.locator(".match-card .team-strength")).toHaveCount(20);
+  // Jogos entre outras duplas (Dupla 2 a 7): nenhum oferece lançar ou editar.
+  await page.getByRole("tab", { name: "Todas as Rodadas" }).click();
+  const others = page.locator(".round-match:not(.round-match-mine)");
+  await expect(others).toHaveCount(15);
+  await expect(others.getByRole("button", { name: /Lançar resultado|Editar resultado/ })).toHaveCount(0);
 });
 
 test("Maiores Campeões mostra só duplas com título e só dá metal a quem tem título", async ({ page }) => {
@@ -1119,7 +1149,7 @@ test("abertura sem títulos não inventa campeões e não impede continuar", asy
 
 // ---------- Início: card da dupla e faixa "Rumo ao campeonato" ----------
 
-test("Início de uma dupla do Grupo B leva ao próprio grupo e mantém a dupla ao recarregar", async ({ page }) => {
+test("Início de outra dupla leva ao grupo único e mantém a dupla ao recarregar", async ({ page }) => {
   await mockCoreApi(page, "jogador");
   await page.addInitScript(() => {
     const session = JSON.parse(localStorage.getItem("truco-do-novo:session")!);
@@ -1133,7 +1163,7 @@ test("Início de uma dupla do Grupo B leva ao próprio grupo e mantém a dupla a
   await expect(hero.locator(".home-hero-member strong")).toHaveText(["Jogador 13", "Jogador 14"]);
   await expect(hero.locator(".home-hero-role")).toHaveText(["Você", "Seu parceiro"]);
   await expect(hero.getByText("Força 2 de 5", { exact: true })).toBeVisible();
-  await expect(hero.locator(".home-hero-group")).toHaveText("Grupo B");
+  await expect(hero.locator(".home-hero-group")).toHaveText("Grupo Único");
 
   // Recarregar mantém a mesma dupla, sem rastro de outra.
   await page.reload();
@@ -1143,7 +1173,7 @@ test("Início de uma dupla do Grupo B leva ao próprio grupo e mantém a dupla a
 
   await hero.getByRole("link", { name: "Ver meu grupo" }).click();
   await expect(page).toHaveURL(/\/grupos$/);
-  await expect(page.getByRole("tab", { name: "Grupo B · Seu grupo" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("heading", { name: "Grupo Único" })).toBeVisible();
   await expect(page.locator(".standings-row-mine")).toContainText("Dupla 7");
 });
 
@@ -1255,7 +1285,7 @@ test("Rumo ao campeonato: cadeado sem resposta depois do horário fica aguardand
   await expect(unknown.getByText("Resultados bloqueados", { exact: true })).toBeVisible();
 });
 
-test("Grupos reconhece uma dupla do Grupo B e permite trocar pelo teclado", async ({ page }) => {
+test("Grupos reconhece a dupla do 7º lugar e marca a zona de eliminação", async ({ page }) => {
   await mockCoreApi(page, "jogador");
   await page.addInitScript(() => {
     const session = JSON.parse(localStorage.getItem("truco-do-novo:session")!);
@@ -1264,13 +1294,10 @@ test("Grupos reconhece uma dupla do Grupo B e permite trocar pelo teclado", asyn
     localStorage.setItem("truco-do-novo:session", JSON.stringify(session));
   });
   await page.goto("/grupos");
-  const ownTab = page.getByRole("tab", { name: "Grupo B · Seu grupo" });
-  await expect(ownTab).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByText("Sua dupla está aqui")).toBeVisible();
   await expect(page.locator(".standings-row-mine")).toContainText("Dupla 7");
-  await ownTab.focus();
-  await page.keyboard.press("ArrowLeft");
-  await expect(page.getByRole("tab", { name: "Grupo A", exact: true })).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator(".standings-row-mine")).toHaveCount(0);
+  await expect(page.locator(".standings-row-mine")).toHaveClass(/standings-row-eliminado/);
+  await expect(page.getByRole("tab")).toHaveCount(0);
 });
 
 test("jogador sem dupla não pode registrar partidas com vagas em aberto", async ({ page }) => {
@@ -1282,11 +1309,10 @@ test("jogador sem dupla não pode registrar partidas com vagas em aberto", async
   });
   await page.route("**/api/matches", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ ...matches[0], teamAId: null, teamBId: null }]) }));
   await page.goto("/jogos");
-  await page.getByRole("tab", { name: "Todos", exact: true }).click();
-  await expect(page.locator(".match-card")).toHaveCount(1);
+  await expect(page.getByText("Você não está em uma dupla")).toBeVisible();
+  await page.getByRole("tab", { name: "Todas as Rodadas" }).click();
   await expect(page.getByRole("button", { name: /Lançar resultado|Editar resultado/ })).toHaveCount(0);
-  await expect(page.locator(".match-card-mine-label")).toHaveCount(0);
-  await expect(page.locator(".team-strength-pending")).toHaveCount(2);
+  await expect(page.locator(".round-match-mine")).toHaveCount(0);
 });
 
 const ANIMATED_ROUTES: Array<{ role: "admin" | "jogador"; path: string }> = [
@@ -1374,50 +1400,50 @@ test("movimento reduzido mostra o conteúdo sem deslocamento", async ({ page }) 
 
 // ---------- Formato definitivo: zonas, desempate e mata-mata ----------
 
-/** Classificação final fictícia: a dupla N do grupo termina em Nº (Dupla 1 a 5 no A, 6 a 10 no B). */
-function finalStandings(groupId: "A" | "B", tied: string[] = []) {
-  return teams.filter((team) => team.groupId === groupId).map((team, index) => ({
-    position: index + 1, teamId: team.id, jogos: 4, vitorias: 4 - index, vitorias2x0: Math.max(0, 3 - index), derrotas: index,
-    pontos: 12 - index * 3, saldoSets: 8 - index * 4, confrontoDireto: 0, tiePending: tied.includes(team.id),
+/** Classificação final fictícia: a Dupla N termina em Nº (grupo único com 7 duplas). */
+function finalStandings(tied: string[] = []) {
+  return teams.map((team, index) => ({
+    position: index + 1, teamId: team.id, jogos: 6, vitorias: 6 - index, vitorias2x0: Math.max(0, 5 - index), derrotas: index,
+    pontos: 18 - index * 3, saldoSets: 12 - index * 4, confrontoDireto: 0, tiePending: tied.includes(team.id),
   }));
 }
 
-type RepechageOutcome = "thirds" | "fourths" | "bothFromA";
-
 /**
  * Mata-mata fictício já gerado, com os `played` primeiros jogos disputados (na ordem do
- * chaveamento). `repechage` diz quem vence a repescagem: os dois 3º colocados (padrão), os
- * dois 4º, ou as duas duplas do Grupo A. Depois dela o lado A vence por 2x0 em tudo, menos na
- * final, que o lado B vence por 2x1. As quartas seguem a regra do sistema: só existem com as
- * duas repescagens encerradas, e o cruzamento é trocado quando isso evita reencontro.
+ * chaveamento: Quartas 1, Quartas 2, Semifinal 1, Semifinal 2, 3º lugar, Final). O lado A vence
+ * por 2x0 em tudo, menos na final, que o lado B vence por 2x1. Como no sistema, um jogo só existe
+ * quando as duas duplas são conhecidas; final e 3º lugar nascem juntos com as duas semifinais.
+ *
+ * Com a classificação de finalStandings: Q1 Dupla 3 × Dupla 6, Q2 Dupla 4 × Dupla 5,
+ * S1 Dupla 1 × Dupla 4, S2 Dupla 2 × Dupla 3, 3º lugar Dupla 4 × Dupla 3 (vence a 4),
+ * Final Dupla 1 × Dupla 2 (vence a 2).
  */
-function knockoutFixture(played: number, repechage: RepechageOutcome = "thirds") {
-  // Com os dois 4º colocados vencendo, o cruzamento padrão daria 2º A × 4º A e 2º B × 4º B.
-  const swapped = repechage === "fourths";
+function knockoutFixture(played: number) {
   const plan = [
-    { key: "R1", round: "repescagem", order: 0, label: "Repescagem 1", a: "team-3", b: "team-9" },
-    { key: "R2", round: "repescagem", order: 1, label: "Repescagem 2", a: "team-8", b: "team-4" },
-    { key: "Q1", round: "quartas", order: 0, label: "Quartas 1", a: "team-2", b: swapped ? "R1" : "R2" },
-    { key: "Q2", round: "quartas", order: 1, label: "Quartas 2", a: "team-7", b: swapped ? "R2" : "R1" },
-    { key: "S1", round: "semifinal", order: 0, label: "Semifinal 1", a: "team-1", b: "Q2" },
-    { key: "S2", round: "semifinal", order: 1, label: "Semifinal 2", a: "team-6", b: "Q1" },
-    { key: "F", round: "final", order: 0, label: "Final", a: "S1", b: "S2" },
+    { key: "Q1", round: "quartas", order: 0, label: "Quartas 1", a: "team-3", b: "team-6" },
+    { key: "Q2", round: "quartas", order: 1, label: "Quartas 2", a: "team-4", b: "team-5" },
+    { key: "S1", round: "semifinal", order: 0, label: "Semifinal 1", a: "team-1", b: "W:Q2" },
+    { key: "S2", round: "semifinal", order: 1, label: "Semifinal 2", a: "team-2", b: "W:Q1" },
+    { key: "T", round: "terceiro", order: 0, label: "Disputa de 3º lugar", a: "L:S1", b: "L:S2" },
+    { key: "F", round: "final", order: 0, label: "Final", a: "W:S1", b: "W:S2" },
   ];
-  const sideBWins = (key: string) => key === "F" || (key === "R1" && repechage === "fourths") || (key === "R2" && repechage !== "thirds");
   const winners = new Map<string, string>();
+  const losers = new Map<string, string>();
   const knockoutMatches: Array<Record<string, unknown>> = [];
-  const slot = (source: string) => (source.startsWith("team-") ? { type: "direct", teamId: source } : { type: "winner", bracketMatchId: "bracket-" + source });
-  const resolve = (source: string) => (source.startsWith("team-") ? source : winners.get(source) ?? null);
+  const slot = (source: string) => (source.startsWith("team-") ? { type: "direct", teamId: source } : { type: source.startsWith("W:") ? "winner" : "loser", bracketMatchId: "bracket-" + source.slice(2) });
+  const resolve = (source: string) => (source.startsWith("team-") ? source : (source.startsWith("W:") ? winners : losers).get(source.slice(2)) ?? null);
 
   const bracket = plan.map((item, index) => {
     const teamAId = resolve(item.a);
     const teamBId = resolve(item.b);
-    const repechageDone = winners.has("R1") && winners.has("R2");
-    const ready = Boolean(teamAId && teamBId) && (item.round !== "quartas" || repechageDone);
+    const ready = Boolean(teamAId && teamBId);
     if (ready) {
       const done = index < played;
-      const result = done ? (sideBWins(item.key) ? { setsA: 1, setsB: 2 } : { setsA: 2, setsB: 0 }) : null;
-      if (result) winners.set(item.key, result.setsA > result.setsB ? teamAId! : teamBId!);
+      const result = done ? (item.key === "F" ? { setsA: 1, setsB: 2 } : { setsA: 2, setsB: 0 }) : null;
+      if (result) {
+        winners.set(item.key, result.setsA > result.setsB ? teamAId! : teamBId!);
+        losers.set(item.key, result.setsA > result.setsB ? teamBId! : teamAId!);
+      }
       knockoutMatches.push({
         id: "ko-" + item.key, championshipId: "edition-5", stage: "mata-mata", round: item.label, order: item.order, groupId: null,
         teamAId, teamBId, result, status: done ? "realizado" : "pendente", tableNumber: null, blockNumber: null, queuePosition: null,
@@ -1428,11 +1454,13 @@ function knockoutFixture(played: number, repechage: RepechageOutcome = "thirds")
   return { bracket, matches: knockoutMatches };
 }
 
-async function mockKnockout(page: Page, played: number, role: "admin" | "jogador" = "jogador", repechage: RepechageOutcome = "thirds") {
+async function mockKnockout(page: Page, played: number, role: "admin" | "jogador" = "jogador") {
   await mockCoreApi(page, role);
-  const fixture = knockoutFixture(played, repechage);
-  await page.route("**/api/bracket/status", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ editionFinished: played === 7, syncPending: false }) }));
-  await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(finalStandings(route.request().url().includes("/A/") ? "A" : "B")) }));
+  const fixture = knockoutFixture(played);
+  // Campeão registrado assim que a final tem placar; edição encerrada só com final e 3º lugar.
+  const champion = played >= 6 ? { teamId: "team-2", teamName: "Dupla 2" } : null;
+  await page.route("**/api/bracket/status", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ editionFinished: played >= 6, champion, syncPending: false }) }));
+  await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(finalStandings()) }));
   await page.route("**/api/bracket", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixture.bracket) }));
   await page.route("**/api/matches?stage=mata-mata", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixture.matches) }));
 }
@@ -1452,24 +1480,24 @@ const campaignPanel = (page: Page) => page.getByRole("region", { name: "Sua dupl
 const cardSides = (page: Page, key: string) => page.locator(".ko-cell-" + key + " .ko-side-team strong");
 const noSidewaysScroll = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 
-test("Grupos pinta cada linha na cor da zona e a legenda explica as quatro", async ({ page }) => {
+test("Grupos pinta cada linha na cor da zona e a legenda explica as três", async ({ page }) => {
   await mockCoreApi(page, "jogador");
   await page.goto("/grupos");
-  await expect(page.locator(".standings-row")).toHaveCount(5);
-  // 1º semifinal, 2º quartas, 3º e 4º repescagem, 5º eliminado.
-  await expect(page.locator(".standings-row").nth(0)).toHaveClass(/standings-row-semifinal/);
-  await expect(page.locator(".standings-row").nth(1)).toHaveClass(/standings-row-quartas/);
-  await expect(page.locator(".standings-row").nth(2)).toHaveClass(/standings-row-repescagem/);
-  await expect(page.locator(".standings-row").nth(3)).toHaveClass(/standings-row-repescagem/);
-  await expect(page.locator(".standings-row").nth(4)).toHaveClass(/standings-row-eliminado/);
+  await expect(page.locator(".standings-row")).toHaveCount(7);
+  // 1º e 2º semifinal, 3º a 6º quartas, 7º eliminado.
+  for (const index of [0, 1]) await expect(page.locator(".standings-row").nth(index)).toHaveClass(/standings-row-semifinal/);
+  for (const index of [2, 3, 4, 5]) await expect(page.locator(".standings-row").nth(index)).toHaveClass(/standings-row-quartas/);
+  await expect(page.locator(".standings-row").nth(6)).toHaveClass(/standings-row-eliminado/);
+  await expect(page.locator(".standings-row-repescagem")).toHaveCount(0);
   await expect(page.getByRole("list", { name: "Legenda da classificação" }).locator("li")).toHaveText([
-    "Verde = Semifinal", "Azul = Quartas", "Laranja = Repescagem", "Vermelho = Eliminado", "Ordem da classificação: pontos, vitórias, vitórias por 2x0, confronto direto, saldo de quedas",
+    "Verde = Semifinal", "Azul = Quartas", "Vermelho = Eliminado", "Ordem da classificação: pontos, vitórias, vitórias por 2x0, confronto direto, saldo de quedas",
   ]);
 
-  // As quatro zonas têm fundos diferentes entre si, e a linha da dupla mantém a cor da zona.
+  // As três zonas têm fundos diferentes entre si, e a linha da dupla mantém a cor da zona.
   const backgrounds = await page.locator(".standings-row").evaluateAll((rows) => rows.map((row) => getComputedStyle(row).backgroundColor));
-  expect(new Set([backgrounds[0], backgrounds[1], backgrounds[2], backgrounds[4]]).size).toBe(4);
-  expect(backgrounds[2]).toBe(backgrounds[3]);
+  expect(new Set([backgrounds[0], backgrounds[2], backgrounds[6]]).size).toBe(3);
+  expect(backgrounds[0]).toBe(backgrounds[1]);
+  expect(backgrounds[2]).toBe(backgrounds[5]);
   await expect(page.locator(".standings-row-mine")).toHaveClass(/standings-row-semifinal/);
   await expect(page.locator(".standings-row-mine")).toContainText("Sua dupla");
   expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
@@ -1478,8 +1506,7 @@ test("Grupos pinta cada linha na cor da zona e a legenda explica as quatro", asy
 test("empate exato aparece como pendente de decisão do administrador nos Grupos e no Mata-mata", async ({ page }) => {
   await mockCoreApi(page, "jogador");
   await page.route("**/api/groups/*/standings", (route) => {
-    const groupId = route.request().url().includes("/A/") ? "A" : "B";
-    const rows = finalStandings(groupId, groupId === "A" ? ["team-2", "team-3"] : []).map((row) => (["team-2", "team-3"].includes(row.teamId) ? { ...row, pontos: 8, vitorias: 3, vitorias2x0: 1, confrontoDireto: 0, saldoSets: 2 } : row));
+    const rows = finalStandings(["team-2", "team-3"]).map((row) => (["team-2", "team-3"].includes(row.teamId) ? { ...row, pontos: 14, vitorias: 5, vitorias2x0: 3, confrontoDireto: 0, saldoSets: 6 } : row));
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(rows) });
   });
   await page.goto("/grupos");
@@ -1491,99 +1518,112 @@ test("empate exato aparece como pendente de decisão do administrador nos Grupos
   await expect(page.locator(".ko-champion-decided")).toHaveCount(0);
 });
 
-test("Mata-mata mostra as posições antes do fim dos grupos, sem prometer vaga", async ({ page }) => {
+test("Mata-mata mostra as posições antes do fim do grupo, sem prometer vaga", async ({ page }) => {
   await mockCoreApi(page, "jogador");
   await page.goto("/mata-mata");
   await expect(page.getByRole("heading", { name: "Mata-mata", level: 1 })).toBeVisible();
-  await expect(page.locator(".ko-match")).toHaveCount(7);
+  await expect(page.locator(".ko-match")).toHaveCount(6);
   // Sem nenhum jogo disputado só aparecem as posições, nunca um nome.
-  await expect(cardSides(page, "R1")).toHaveText(["3º do Grupo A", "4º do Grupo B"]);
-  await expect(cardSides(page, "R2")).toHaveText(["3º do Grupo B", "4º do Grupo A"]);
-  // Qual vencedor da repescagem cai em cada jogo só se decide depois das duas repescagens.
-  await expect(cardSides(page, "Q1")).toHaveText(["2º do Grupo A", "Vencedor da repescagem"]);
-  await expect(cardSides(page, "Q2")).toHaveText(["2º do Grupo B", "Vencedor da repescagem"]);
-  await expect(cardSides(page, "S1")).toHaveText(["1º do Grupo A", "Vencedor das Quartas 2"]);
-  await expect(cardSides(page, "S2")).toHaveText(["1º do Grupo B", "Vencedor das Quartas 1"]);
+  await expect(cardSides(page, "Q1")).toHaveText(["3º colocado", "6º colocado"]);
+  await expect(cardSides(page, "Q2")).toHaveText(["4º colocado", "5º colocado"]);
+  await expect(cardSides(page, "S1")).toHaveText(["1º colocado", "Vencedor das Quartas 2"]);
+  await expect(cardSides(page, "S2")).toHaveText(["2º colocado", "Vencedor das Quartas 1"]);
+  await expect(cardSides(page, "T")).toHaveText(["Perdedor da Semifinal 1", "Perdedor da Semifinal 2"]);
   await expect(cardSides(page, "F")).toHaveText(["Vencedor da Semifinal 1", "Vencedor da Semifinal 2"]);
   await expect(page.locator(".ko-champion-name")).toHaveText("A definir");
   await expect(page.locator(".knockout-step-current")).toHaveText("Fase de grupos");
-  await expect(page.getByRole("region", { name: "Como cada posição do grupo entra" }).locator("li")).toHaveCount(4);
+  await expect(page.getByRole("region", { name: "Como cada posição do grupo entra" }).locator("li")).toHaveCount(3);
+  // Pódio e premiação: 1º, 2º e 3º com o valor por dupla, ainda sem nomes.
+  const podium = page.getByRole("region", { name: "Pódio e premiação" });
+  await expect(podium.locator(".knockout-podium-title")).toHaveText(["Campeões · R$ 400 por dupla", "Vice-campeões · R$ 200 por dupla", "Terceiro lugar · R$ 100 por dupla"]);
+  await expect(podium.locator(".knockout-podium-team")).toHaveText(["A definir", "A definir", "A definir"]);
 
   // Com a fase de grupos em andamento, mostra quem ocupa cada posição hoje — marcado como provisório.
-  await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(finalStandings(route.request().url().includes("/A/") ? "A" : "B").map((row) => ({ ...row, jogos: 2 }))) }));
+  await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(finalStandings().map((row) => ({ ...row, jogos: 2 }))) }));
   await page.reload();
   await expect(page.getByText(/Chaveamento provisório/)).toBeVisible();
-  await expect(cardSides(page, "R1")).toHaveText(["Dupla 3", "Dupla 9"]);
-  await expect(page.locator(".ko-cell-R1 .ko-side-team small").first()).toContainText("posição de hoje");
-  // O 5º de cada grupo não aparece em lugar nenhum do chaveamento.
-  await expect(page.locator(".ko").getByText("Dupla 5", { exact: true })).toHaveCount(0);
-  await expect(page.locator(".ko").getByText("Dupla 10", { exact: true })).toHaveCount(0);
+  await expect(cardSides(page, "Q1")).toHaveText(["Dupla 3", "Dupla 6"]);
+  await expect(page.locator(".ko-cell-Q1 .ko-side-team small").first()).toContainText("posição de hoje");
+  // O 7º não aparece em lugar nenhum do chaveamento.
+  await expect(page.locator(".ko").getByText("Dupla 7", { exact: true })).toHaveCount(0);
   expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
 });
 
-test("repescagem cruza os grupos e os vencedores encontram os 2º colocados nas quartas", async ({ page }) => {
+test("quartas cruzam 3º × 6º e 4º × 5º e os vencedores encontram 1º e 2º na semifinal", async ({ page }) => {
   await mockKnockout(page, 2);
   await page.goto("/mata-mata");
-  await expect(cardSides(page, "R1")).toHaveText(["Dupla 3", "Dupla 9"]);
-  await expect(cardSides(page, "R2")).toHaveText(["Dupla 8", "Dupla 4"]);
-  await expect(page.locator(".ko-cell-R1 .ko-side-winner")).toContainText("Dupla 3");
-  await expect(page.locator(".ko-cell-R1 .ko-side-sets")).toHaveText(["2", "0"]);
-  // Quartas 1: 2º A × vencedor de B3×A4 · Quartas 2: 2º B × vencedor de A3×B4.
-  await expect(cardSides(page, "Q1")).toHaveText(["Dupla 2", "Dupla 8"]);
-  await expect(cardSides(page, "Q2")).toHaveText(["Dupla 7", "Dupla 3"]);
-  // Os líderes já esperam na semifinal; o outro lado ainda depende das quartas.
-  await expect(cardSides(page, "S1")).toHaveText(["Dupla 1", "Vencedor das Quartas 2"]);
-  await expect(cardSides(page, "S2")).toHaveText(["Dupla 6", "Vencedor das Quartas 1"]);
-  await expect(page.locator(".knockout-step-current")).toHaveText("Quartas de final");
+  await expect(cardSides(page, "Q1")).toHaveText(["Dupla 3", "Dupla 6"]);
+  await expect(cardSides(page, "Q2")).toHaveText(["Dupla 4", "Dupla 5"]);
+  await expect(page.locator(".ko-cell-Q1 .ko-side-winner")).toContainText("Dupla 3");
+  await expect(page.locator(".ko-cell-Q1 .ko-side-sets")).toHaveText(["2", "0"]);
+  // Semifinal 1: 1º × vencedor da Quartas 2 · Semifinal 2: 2º × vencedor da Quartas 1.
+  await expect(cardSides(page, "S1")).toHaveText(["Dupla 1", "Dupla 4"]);
+  await expect(cardSides(page, "S2")).toHaveText(["Dupla 2", "Dupla 3"]);
+  // Final e 3º lugar esperam as duas semifinais.
+  await expect(cardSides(page, "F")).toHaveText(["Vencedor da Semifinal 1", "Vencedor da Semifinal 2"]);
+  await expect(cardSides(page, "T")).toHaveText(["Perdedor da Semifinal 1", "Perdedor da Semifinal 2"]);
+  await expect(page.locator(".knockout-step-current")).toHaveText("Semifinal");
   await expect(page.locator(".ko-cell-S1 .ko-side-you")).toHaveText("Sua dupla");
 });
 
-test("quartas levam à semifinal, a semifinal gera a final e a final define o campeão", async ({ page }) => {
-  await mockKnockout(page, 6);
+test("semifinais geram a final e o 3º lugar; a final registra o campeão e o 3º lugar encerra a edição", async ({ page }) => {
+  await mockKnockout(page, 4);
   await page.goto("/mata-mata");
-  await expect(cardSides(page, "S1")).toHaveText(["Dupla 1", "Dupla 7"]);
-  await expect(cardSides(page, "S2")).toHaveText(["Dupla 6", "Dupla 2"]);
-  await expect(cardSides(page, "F")).toHaveText(["Dupla 1", "Dupla 6"]);
+  await expect(cardSides(page, "F")).toHaveText(["Dupla 1", "Dupla 2"]);
+  await expect(cardSides(page, "T")).toHaveText(["Dupla 4", "Dupla 3"]);
   await expect(page.locator(".ko-cell-F .ko-match-status")).toHaveText("A jogar");
-  await expect(page.locator(".knockout-step-current")).toHaveText("Final");
+  await expect(page.locator(".ko-cell-T .ko-match-status")).toHaveText("A jogar");
+  await expect(page.locator(".knockout-step-current")).toHaveText("Disputa de 3º lugar");
+  await expect(page.getByText(/O campeonato termina quando as duas tiverem resultado/)).toBeVisible();
   await expect(page.locator(".ko-champion-decided")).toHaveCount(0);
 
-  await mockKnockout(page, 7);
+  // 3º lugar decidido, final ainda não: há 3º colocado, mas nenhum campeão.
+  await mockKnockout(page, 5);
+  await page.reload();
+  const podium = page.getByRole("region", { name: "Pódio e premiação" });
+  await expect(podium.locator(".knockout-podium-team")).toHaveText(["A definir", "A definir", "Dupla 4"]);
+  await expect(podium.locator(".knockout-podium-score")).toHaveText(["Disputa de 3º lugar · 2x0"]);
+  await expect(page.locator(".ko-champion-decided")).toHaveCount(0);
+
+  await mockKnockout(page, 6);
   await page.reload();
   await expect(page.locator(".ko-cell-F .ko-side-sets")).toHaveText(["1", "2"]);
-  await expect(page.locator(".ko-cell-F .ko-side-winner")).toContainText("Dupla 6");
-  await expect(page.locator(".ko-champion-decided .ko-champion-name")).toHaveText("Dupla 6");
+  await expect(page.locator(".ko-cell-F .ko-side-winner")).toContainText("Dupla 2");
+  await expect(page.locator(".ko-champion-decided .ko-champion-name")).toHaveText("Dupla 2");
   await expect(page.locator(".ko-champion-decided")).toContainText("Campeão da 5ª edição");
-  await expect(page.locator(".ko-match-played")).toHaveCount(7);
+  await expect(page.locator(".ko-match-played")).toHaveCount(6);
+  await expect(podium.locator(".knockout-podium-team")).toHaveText(["Dupla 2", "Dupla 1", "Dupla 4"]);
+  await expect(podium.locator(".knockout-podium-item.is-decided")).toHaveCount(3);
   await expect(page.getByText("Campeonato encerrado.")).toBeVisible();
   expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
 });
 
 test("o chaveamento vira colunas ligadas no desktop e uma trilha única no celular", async ({ page }, testInfo) => {
-  await mockKnockout(page, 7);
+  await mockKnockout(page, 6);
   await page.goto("/mata-mata");
-  await expect(page.locator(".ko-match")).toHaveCount(7);
+  await expect(page.locator(".ko-match")).toHaveCount(6);
   // Mede só depois da entrada: durante a cascata as colunas ainda estão subindo.
   await expect.poll(() => page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === "running").length)).toBe(0);
   const box = async (key: string) => (await page.locator(".ko-cell-" + key).boundingBox())!;
-  const [r1, q2, s1, q1] = [await box("R1"), await box("Q2"), await box("S1"), await box("Q1")];
+  const [q2, s1, q1, f, t] = [await box("Q2"), await box("S1"), await box("Q1"), await box("F"), await box("T")];
   if (testInfo.project.name === "mobile-chromium") {
-    // Uma coluna só: cada fase abaixo da anterior e as quartas na ordem 1, 2.
-    expect(Math.abs(r1.x - q2.x)).toBeLessThan(2);
+    // Uma coluna só: cada fase abaixo da anterior, as quartas na ordem 1, 2 e o 3º lugar no fim.
+    expect(Math.abs(q1.x - s1.x)).toBeLessThan(2);
     expect(q1.y).toBeLessThan(q2.y);
     expect(s1.y).toBeGreaterThan(q2.y);
+    expect(t.y).toBeGreaterThan(f.y);
   } else {
-    // Colunas: Repescagem 1 → Quartas 2 → Semifinal 1 na mesma linha, da esquerda para a direita.
-    expect(q2.x).toBeGreaterThan(r1.x + r1.width);
+    // Colunas: Quartas 2 → Semifinal 1 na mesma linha, da esquerda para a direita; 3º lugar abaixo.
     expect(s1.x).toBeGreaterThan(q2.x + q2.width);
-    expect(Math.abs((r1.y + r1.height / 2) - (q2.y + q2.height / 2))).toBeLessThan(3);
+    expect(f.x).toBeGreaterThan(s1.x + s1.width);
     expect(Math.abs((q2.y + q2.height / 2) - (s1.y + s1.height / 2))).toBeLessThan(3);
+    expect(t.y).toBeGreaterThan(q1.y + q1.height);
   }
   expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
   if (process.env.MOTION_SHOTS) {
     await page.screenshot({ path: process.env.MOTION_SHOTS + "/" + testInfo.project.name + "_mata-mata-final.png", fullPage: true });
     await page.goto("/grupos");
-    await expect(page.locator(".standings-row")).toHaveCount(5);
+    await expect(page.locator(".standings-row")).toHaveCount(7);
     await expect.poll(() => page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === "running").length)).toBe(0);
     await page.screenshot({ path: process.env.MOTION_SHOTS + "/" + testInfo.project.name + "_grupos.png", fullPage: true });
   }
@@ -1595,14 +1635,14 @@ test("o menu do jogador leva ao Mata-mata", async ({ page }, testInfo) => {
   if (testInfo.project.name === "mobile-chromium") await page.getByRole("button", { name: /Mais/ }).click();
   await page.getByRole("link", { name: "Mata-mata" }).first().click();
   await expect(page).toHaveURL(/\/mata-mata$/);
-  await expect(page.locator(".ko-match")).toHaveCount(7);
+  await expect(page.locator(".ko-match")).toHaveCount(6);
 });
 
 test("admin decide um empate exato escolhendo a ordem final das duplas", async ({ page }) => {
   await mockCoreApi(page, "admin");
   let decided = false;
-  const tiedRows = () => finalStandings("A", decided ? [] : ["team-2", "team-3"]).map((row) => (["team-2", "team-3"].includes(row.teamId) ? { ...row, pontos: 8, vitorias: 3, vitorias2x0: 1, confrontoDireto: 0, saldoSets: 2 } : row));
-  await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(route.request().url().includes("/A/") ? tiedRows() : finalStandings("B")) }));
+  const tiedRows = () => finalStandings(decided ? [] : ["team-2", "team-3"]).map((row) => (["team-2", "team-3"].includes(row.teamId) ? { ...row, pontos: 14, vitorias: 5, vitorias2x0: 3, confrontoDireto: 0, saldoSets: 6 } : row));
+  await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(tiedRows()) }));
   let sentOrder: string[] = [];
   await page.route("**/api/groups/A/tiebreak", (route) => {
     sentOrder = route.request().postDataJSON().orderedTeamIds;
@@ -1611,30 +1651,29 @@ test("admin decide um empate exato escolhendo a ordem final das duplas", async (
   });
 
   await page.goto("/admin/grupos");
-  const panel = page.getByRole("region", { name: "Decidir empate do Grupo A" });
-  await expect(panel).toContainText("8 pontos, 3 vitórias, 1 por 2x0");
+  const panel = page.getByRole("region", { name: "Decidir empate do Grupo Único" });
+  await expect(panel).toContainText("14 pontos, 5 vitórias, 3 por 2x0");
   await expect(panel).toContainText("confronto direto empatado e o mesmo saldo de quedas");
   await expect(panel.locator("li strong")).toHaveText(["Dupla 2", "Dupla 3"]);
   await expect(panel.locator(".tie-decision-position")).toHaveText(["2º", "3º"]);
-  await expect(page.getByRole("region", { name: "Decidir empate do Grupo B" })).toHaveCount(0);
 
   await panel.getByRole("button", { name: "Subir Dupla 3" }).click();
   await expect(panel.locator("li strong")).toHaveText(["Dupla 3", "Dupla 2"]);
-  await panel.getByRole("button", { name: "Confirmar posições do Grupo A" }).click();
-  await expect(page.getByText("Posições confirmadas. O empate do Grupo A está decidido.")).toBeVisible();
+  await panel.getByRole("button", { name: "Confirmar posições do Grupo Único" }).click();
+  await expect(page.getByText("Posições confirmadas. O empate do Grupo Único está decidido.")).toBeVisible();
   expect(sentOrder).toEqual(["team-3", "team-2"]);
-  await expect(page.getByRole("region", { name: "Decidir empate do Grupo A" })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Decidir empate do Grupo Único" })).toHaveCount(0);
 });
 
-test("com os grupos encerrados o jogador vê a repescagem valendo, sem depender do administrador", async ({ page }) => {
+test("com o grupo encerrado o jogador vê as quartas valendo, sem depender do administrador", async ({ page }) => {
   await mockCoreApi(page, "jogador");
-  await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(finalStandings(route.request().url().includes("/A/") ? "A" : "B")) }));
+  await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(finalStandings()) }));
   await page.goto("/mata-mata");
-  await expect(page.getByText(/a repescagem já está valendo/)).toBeVisible();
+  await expect(page.getByText(/as quartas já estão valendo/)).toBeVisible();
   await expect(page.locator(".knockout-page")).not.toContainText(/administrador confirmar|aguardando confirmação|Gerar mata-mata/i);
-  await expect(cardSides(page, "R1")).toHaveText(["Dupla 3", "Dupla 9"]);
-  await expect(page.locator(".ko-cell-R1 .ko-side-team small").first()).toContainText("classificação final");
-  await expect(page.locator(".ko-cell-R1 .ko-match-status")).toHaveText("Aguardando");
+  await expect(cardSides(page, "Q1")).toHaveText(["Dupla 3", "Dupla 6"]);
+  await expect(page.locator(".ko-cell-Q1 .ko-side-team small").first()).toContainText("classificação final");
+  await expect(page.locator(".ko-cell-Q1 .ko-match-status")).toHaveText("Aguardando");
   // Sem jogo criado não há o que lançar.
   await expect(resultButtons(page)).toHaveCount(0);
 });
@@ -1714,50 +1753,21 @@ test("nenhuma senha fica embutida no que o navegador recebe", async ({ page }) =
   expect(source).not.toMatch(/password\s*[:=]\s*["'][^"']{3,}["']/i);
 });
 
-test("as quartas só são montadas depois das duas repescagens", async ({ page }) => {
-  // Só a Repescagem 1 terminou: nenhum jogo das quartas existe ainda.
+test("as semifinais só nascem depois das quartas de que dependem", async ({ page }) => {
+  // Só a Quartas 1 terminou: a Semifinal 2 existe; a Semifinal 1 ainda espera a Quartas 2.
   await mockKnockout(page, 1);
   await page.goto("/mata-mata");
-  await expect(page.locator(".ko-cell-R1 .ko-side-winner")).toContainText("Dupla 3");
-  await expect(page.locator(".ko-cell-R2 .ko-match-status")).toHaveText("A jogar");
-  await expect(cardSides(page, "Q1")).toHaveText(["Dupla 2", "Vencedor da repescagem"]);
-  await expect(cardSides(page, "Q2")).toHaveText(["Dupla 7", "Vencedor da repescagem"]);
-  await expect(page.locator(".ko-cell-Q1 .ko-match-status")).toHaveText("Aguardando");
-  await expect(page.locator(".ko-cell-Q2 .ko-match-status")).toHaveText("Aguardando");
-});
-
-test("quartas trocam o cruzamento quando isso evita reencontro do mesmo grupo", async ({ page }) => {
-  // Vencem os dois 4º colocados (Dupla 9, do B, e Dupla 4, do A). Pelo cruzamento fixo seria
-  // Dupla 2 × Dupla 4 e Dupla 7 × Dupla 9 — dois reencontros de grupo.
-  await mockKnockout(page, 2, "jogador", "fourths");
-  await page.goto("/mata-mata");
-  await expect(page.locator(".ko-cell-R1 .ko-side-winner")).toContainText("Dupla 9");
-  await expect(page.locator(".ko-cell-R2 .ko-side-winner")).toContainText("Dupla 4");
-  await expect(cardSides(page, "Q1")).toHaveText(["Dupla 2", "Dupla 9"]);
-  await expect(cardSides(page, "Q2")).toHaveText(["Dupla 7", "Dupla 4"]);
-  // A origem de cada vencedor aparece como ficou gravada.
-  await expect(page.locator(".ko-cell-Q1 .ko-side-team small").nth(1)).toContainText("Vencedor da Repescagem 1");
-  await expect(page.locator(".ko-cell-Q2 .ko-side-team small").nth(1)).toContainText("Vencedor da Repescagem 2");
+  await expect(page.locator(".ko-cell-Q1 .ko-side-winner")).toContainText("Dupla 3");
+  await expect(page.locator(".ko-cell-Q2 .ko-match-status")).toHaveText("A jogar");
+  await expect(cardSides(page, "S2")).toHaveText(["Dupla 2", "Dupla 3"]);
+  await expect(cardSides(page, "S1")).toHaveText(["Dupla 1", "Vencedor das Quartas 2"]);
+  await expect(page.locator(".ko-cell-S1 .ko-match-status")).toHaveText("Aguardando");
   await expect(page.locator(".ko-match-rematch")).toHaveCount(0);
-  await expect(page.getByText(/Reencontro inevitável/)).toHaveCount(0);
-});
-
-test("reencontro inevitável nas quartas é mostrado, não escondido", async ({ page }) => {
-  // Os dois vencedores da repescagem são do Grupo A (Dupla 3 e Dupla 4): um deles enfrenta a
-  // Dupla 2, 2ª do mesmo grupo, em qualquer cruzamento.
-  await mockKnockout(page, 2, "jogador", "bothFromA");
-  await page.goto("/mata-mata");
-  await expect(cardSides(page, "Q1")).toHaveText(["Dupla 2", "Dupla 4"]);
-  await expect(cardSides(page, "Q2")).toHaveText(["Dupla 7", "Dupla 3"]);
-  await expect(page.locator(".ko-cell-Q1 .ko-match-rematch")).toHaveText("Reencontro do grupo");
-  await expect(page.locator(".ko-cell-Q2 .ko-match-rematch")).toHaveCount(0);
-  await expect(page.getByText(/Reencontro inevitável nas quartas: Dupla 2 e Dupla 4 já se enfrentaram na fase de grupos/)).toBeVisible();
-  expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
 });
 
 // ---------- Resultado direto no chaveamento ----------
 
-test("integrante da repescagem lança o resultado no chaveamento e vê o vencedor na hora", async ({ page }) => {
+test("integrante das quartas lança o resultado no chaveamento e vê o vencedor na hora", async ({ page }) => {
   await mockKnockout(page, 0);
   await asTeam(page, "team-3");
   const fixture = knockoutFixture(0);
@@ -1765,7 +1775,7 @@ test("integrante da repescagem lança o resultado no chaveamento e vê o vencedo
   const posts: Array<{ path: string; body: unknown }> = [];
   await page.route("**/api/matches?stage=mata-mata", (route) => route.fulfill({
     status: 200, contentType: "application/json",
-    body: JSON.stringify(fixture.matches.map((match) => (saved && match.id === "ko-R1" ? { ...match, result: { setsA: 2, setsB: 1 }, status: "realizado" } : match))),
+    body: JSON.stringify(fixture.matches.map((match) => (saved && match.id === "ko-Q1" ? { ...match, result: { setsA: 2, setsB: 1 }, status: "realizado" } : match))),
   }));
   await page.route(/\/api\/matches\/[^/]+\/result$/, (route) => {
     posts.push({ path: new URL(route.request().url()).pathname, body: route.request().postDataJSON() });
@@ -1774,37 +1784,36 @@ test("integrante da repescagem lança o resultado no chaveamento e vê o vencedo
   });
 
   await page.goto("/mata-mata");
-  const card = page.locator(".ko-cell-R1");
+  const card = page.locator(".ko-cell-Q1");
   await expect(card.locator(".ko-match-status")).toHaveText("A jogar");
   // "Sua vez": o confronto e o adversário aparecem no topo, com o botão de lançar.
   await expect(campaignPanel(page)).toContainText("Sua vez");
-  await expect(campaignPanel(page)).toContainText("Repescagem 1 · contra Dupla 9");
+  await expect(campaignPanel(page)).toContainText("Quartas 1 · contra Dupla 6");
   await expect(campaignPanel(page).getByRole("button", { name: "Lançar resultado" })).toBeVisible();
-  // A outra repescagem não é da dupla: só leitura.
-  await expect(page.locator(".ko-cell-R2").getByRole("button")).toHaveCount(0);
+  // As outras quartas não são da dupla: só leitura.
+  await expect(page.locator(".ko-cell-Q2").getByRole("button")).toHaveCount(0);
 
   await card.getByRole("button", { name: "Lançar resultado" }).click();
   await card.getByRole("button", { name: "2x1", exact: true }).click();
   await card.getByRole("button", { name: "Confirmar resultado" }).click();
 
   await expect(card.locator(".ko-side-sets")).toHaveText(["2", "1"]);
-  expect(posts).toEqual([{ path: "/api/matches/ko-R1/result", body: { setsA: 2, setsB: 1 } }]);
+  expect(posts).toEqual([{ path: "/api/matches/ko-Q1/result", body: { setsA: 2, setsB: 1 } }]);
   await expect(card.locator(".ko-side-winner")).toContainText("Dupla 3");
   await expect(card.locator(".ko-match-status")).toHaveText("Encerrado");
   await expect(card.getByRole("button", { name: "Editar resultado" })).toBeVisible();
   // Toast e destaque dizem a mesma coisa; nada de "classificação do seu grupo".
-  await expect(campaignPanel(page).getByRole("heading", { name: "Classificados para as quartas de final!" })).toBeVisible();
+  await expect(campaignPanel(page).getByRole("heading", { name: "Classificados para a semifinal!" })).toBeVisible();
   await expect(page.getByText(/classificação do seu grupo/)).toHaveCount(0);
-  await expect(campaignPanel(page)).toContainText("Vocês aguardam o fim da Repescagem 2");
   expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
 });
 
 test("quem não joga a partida vê o chaveamento sem nenhum botão de resultado", async ({ page }) => {
-  // Dupla 1: líder do Grupo A, espera na semifinal.
+  // Dupla 1: líder do grupo, espera na semifinal.
   await mockKnockout(page, 1);
   await page.goto("/mata-mata");
-  await expect(page.locator(".ko-cell-R2 .ko-match-status")).toHaveText("A jogar");
-  await expect(page.locator(".ko-cell-R1 .ko-match-status")).toHaveText("Encerrado");
+  await expect(page.locator(".ko-cell-Q2 .ko-match-status")).toHaveText("A jogar");
+  await expect(page.locator(".ko-cell-Q1 .ko-match-status")).toHaveText("Encerrado");
   await expect(resultButtons(page)).toHaveCount(0);
   await expect(page.locator(".ko-match-actions")).toHaveCount(0);
   await expect(campaignPanel(page)).toContainText("Vocês aguardam o vencedor das Quartas 2, na Semifinal 1.");
@@ -1812,14 +1821,14 @@ test("quem não joga a partida vê o chaveamento sem nenhum botão de resultado"
 
 test("cadeado fechado deixa o chaveamento só para leitura, com aviso", async ({ page }) => {
   await mockKnockout(page, 1);
-  await asTeam(page, "team-8");
+  await asTeam(page, "team-5");
   await mockResultsLock(page, true);
   await page.goto("/mata-mata");
-  await expect(page.locator(".ko-cell-R2 .ko-match-status")).toHaveText("A jogar");
+  await expect(page.locator(".ko-cell-Q2 .ko-match-status")).toHaveText("A jogar");
   await expect(page.locator(".results-lock-notice")).toHaveText(LOCKED_MESSAGE);
   await expect(resultButtons(page)).toHaveCount(0);
   // O confronto da dupla continua destacado, só sem ação.
-  await expect(campaignPanel(page)).toContainText("Repescagem 2 · contra Dupla 4");
+  await expect(campaignPanel(page)).toContainText("Quartas 2 · contra Dupla 4");
 });
 
 test("editar resultado no chaveamento pede confirmação e mostra a recusa da API", async ({ page }) => {
@@ -1832,7 +1841,7 @@ test("editar resultado no chaveamento pede confirmação e mostra a recusa da AP
     return route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ message: refusal }) });
   });
   await page.goto("/mata-mata");
-  const card = page.locator(".ko-cell-R1");
+  const card = page.locator(".ko-cell-Q1");
   await expect(card.locator(".ko-side-sets")).toHaveText(["2", "0"]);
   await card.getByRole("button", { name: "Editar resultado" }).click();
   await card.getByRole("button", { name: "1x2", exact: true }).click();
@@ -1858,7 +1867,7 @@ test("recusa 403 da API fecha o formulário e o chaveamento passa a mostrar o ca
   await asTeam(page, "team-3");
   const lock = await mockResultsLock(page, false);
   await page.goto("/mata-mata");
-  const card = page.locator(".ko-cell-R1");
+  const card = page.locator(".ko-cell-Q1");
   await card.getByRole("button", { name: "Lançar resultado" }).click();
   // O administrador fecha o cadeado com a tela aberta.
   lock.locked = true;
@@ -1871,13 +1880,13 @@ test("recusa 403 da API fecha o formulário e o chaveamento passa a mostrar o ca
 });
 
 test("quem vence as quartas vê Classificados para a semifinal, e o destaque sobrevive ao reload", async ({ page }) => {
-  // Quartas 2: Dupla 7 vence a Dupla 3 e pega a Dupla 1 na Semifinal 1.
-  await mockKnockout(page, 4);
-  await asTeam(page, "team-7");
+  // Quartas 2: Dupla 4 vence a Dupla 5 e pega a Dupla 1 na Semifinal 1.
+  await mockKnockout(page, 2);
+  await asTeam(page, "team-4");
   await page.goto("/mata-mata");
   const headline = campaignPanel(page).getByRole("heading", { name: "Classificados para a semifinal!" });
   await expect(headline).toBeVisible();
-  await expect(campaignPanel(page)).toContainText("Quartas 2: Dupla 7 2 × 0 Dupla 3");
+  await expect(campaignPanel(page)).toContainText("Quartas 2: Dupla 4 2 × 0 Dupla 5");
   await expect(campaignPanel(page)).toContainText("Semifinal 1 · contra Dupla 1");
   await expect(campaignPanel(page).getByRole("button", { name: "Lançar resultado" })).toBeVisible();
   await page.reload();
@@ -1885,61 +1894,77 @@ test("quem vence as quartas vê Classificados para a semifinal, e o destaque sob
   expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
 });
 
-test("quem perde no mata-mata vê o fim da campanha, sem festa", async ({ page }) => {
-  await mockKnockout(page, 4);
-  await asTeam(page, "team-3");
+test("quem perde nas quartas vê o fim da campanha, sem festa", async ({ page }) => {
+  await mockKnockout(page, 2);
+  await asTeam(page, "team-6");
   await page.goto("/mata-mata");
   await expect(campaignPanel(page).getByRole("heading", { name: "Fim da campanha nesta edição" })).toBeVisible();
   await expect(campaignPanel(page)).not.toContainText(/Classificados|Sua vez/);
 });
 
-test("final encerrada mostra o campeão e nenhum botão de resultado para jogador", async ({ page }) => {
-  await mockKnockout(page, 7);
-  await asTeam(page, "team-6");
+test("quem perde a semifinal vai para a disputa de 3º lugar, com o botão de lançar", async ({ page }) => {
+  // Semifinal 2: Dupla 2 vence a Dupla 3, que joga o 3º lugar contra a Dupla 4.
+  await mockKnockout(page, 4);
+  await asTeam(page, "team-3");
   await page.goto("/mata-mata");
-  await expect(page.locator(".ko-champion-decided .ko-champion-name")).toHaveText("Dupla 6");
+  await expect(campaignPanel(page).getByRole("heading", { name: "Vocês vão disputar o 3º lugar" })).toBeVisible();
+  await expect(campaignPanel(page)).toContainText("Disputa de 3º lugar · contra Dupla 4");
+  await expect(campaignPanel(page).getByRole("button", { name: "Lançar resultado" })).toBeVisible();
+  await expect(page.locator(".ko-cell-F").getByRole("button")).toHaveCount(0);
+  expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
+});
+
+test("edição encerrada mostra campeão, vice e 3º lugar, e nenhum botão de resultado para jogador", async ({ page }) => {
+  await mockKnockout(page, 6);
+  await asTeam(page, "team-2");
+  await page.goto("/mata-mata");
+  await expect(page.locator(".ko-champion-decided .ko-champion-name")).toHaveText("Dupla 2");
   await expect(campaignPanel(page).getByRole("heading", { name: "Campeões da 5ª edição!" })).toBeVisible();
-  await expect(page.locator(".ko-match-played")).toHaveCount(7);
+  await expect(page.locator(".ko-match-played")).toHaveCount(6);
   await expect(resultButtons(page)).toHaveCount(0);
   await page.reload();
   await expect(campaignPanel(page).getByRole("heading", { name: "Campeões da 5ª edição!" })).toBeVisible();
   await expect(resultButtons(page)).toHaveCount(0);
 
-  // O vice vê a despedida, também sem botão.
+  // O vice vê o vice-campeonato, também sem botão.
   await asTeam(page, "team-1");
   await page.reload();
-  await expect(campaignPanel(page).getByRole("heading", { name: "Fim da campanha nesta edição" })).toBeVisible();
+  await expect(campaignPanel(page).getByRole("heading", { name: "Vice-campeões da 5ª edição!" })).toBeVisible();
+  await expect(resultButtons(page)).toHaveCount(0);
+
+  // O 3º colocado vê o pódio; quem perdeu o 3º lugar termina em 4º.
+  await asTeam(page, "team-4");
+  await page.reload();
+  await expect(campaignPanel(page).getByRole("heading", { name: "3º lugar da 5ª edição!" })).toBeVisible();
+  await asTeam(page, "team-3");
+  await page.reload();
+  await expect(campaignPanel(page).getByRole("heading", { name: "Fim da campanha nesta edição: 4º lugar" })).toBeVisible();
   await expect(resultButtons(page)).toHaveCount(0);
 });
 
-test("Jogos tem o filtro Mata-mata: vazio antes dos jogos existirem e com os confrontos depois", async ({ page }) => {
+test("Jogos ganha a aba Mata-mata quando os confrontos existem", async ({ page }) => {
   await mockCoreApi(page, "jogador");
   await asTeam(page, "team-3");
   await page.goto("/jogos");
-  const tab = page.getByRole("tab", { name: "Mata-mata" });
-  await expect(tab).toBeVisible();
-  await tab.click();
-  await expect(tab).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByRole("heading", { name: "O mata-mata ainda não começou" })).toBeVisible();
-  await expect(page.locator(".match-card")).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: "Mata-mata" })).toHaveCount(0);
 
-  // Repescagens encerradas: as quartas existem e a Dupla 3 joga as Quartas 2.
+  // Quartas encerradas: as semifinais existem e a Dupla 3 joga a Semifinal 2.
   const fixture = knockoutFixture(2);
   await page.route("**/api/matches", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([...matches, ...fixture.matches]) }));
   await page.reload();
   await page.getByRole("tab", { name: "Mata-mata" }).click();
   await expect(page.locator(".match-card")).toHaveCount(4);
-  await expect(page.locator(".match-card-round")).toHaveText(["Repescagem 1", "Repescagem 2", "Quartas 1", "Quartas 2"]);
+  await expect(page.locator(".match-card-round")).toHaveText(["Quartas 1", "Quartas 2", "Semifinal 1", "Semifinal 2"]);
   // Mata-mata não rende pontos de grupo.
   await expect(page.locator(".match-card-points")).toHaveCount(0);
   // Uma seção por fase, na ordem do chaveamento.
-  await expect(page.locator(".match-group-title")).toContainText(["Repescagem", "Quartas de final"]);
-  const mine = page.locator(".match-card").filter({ hasText: "Quartas 2" });
+  await expect(page.locator(".match-group-title")).toContainText(["Quartas de final", "Semifinal"]);
+  const mine = page.locator(".match-card").filter({ hasText: "Semifinal 2" });
   await expect(mine.getByRole("button", { name: "Lançar resultado" })).toBeVisible();
-  await expect(page.locator(".match-card").filter({ hasText: "Quartas 1" }).getByRole("button")).toHaveCount(0);
+  await expect(page.locator(".match-card").filter({ hasText: "Semifinal 1" }).getByRole("button")).toHaveCount(0);
 
   // Editar um jogo de mata-mata em Jogos usa o mesmo fluxo, com o texto do mata-mata.
-  const played = page.locator(".match-card").filter({ hasText: "Repescagem 1" });
+  const played = page.locator(".match-card").filter({ hasText: "Quartas 1" });
   await played.getByRole("button", { name: "Editar resultado" }).click();
   await played.getByRole("button", { name: "2x1", exact: true }).click();
   await played.getByRole("button", { name: "Salvar correção" }).click();
@@ -1977,11 +2002,11 @@ test("com o cadeado fechado o jogador vê tudo, mas não lança nem edita result
   await page.route("**/rest/v1/truco_history**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(ANIMATED_HISTORY) }));
   await page.route("**/rest/v1/truco_championships**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ edition: 5, year: 2026 }]) }));
   await page.goto("/jogos");
-  await expect(page.locator(".match-card")).toHaveCount(4);
+  await expect(page.locator(".round-match")).toHaveCount(6);
   await expect(page.locator(".results-lock-notice")).toHaveText(LOCKED_MESSAGE);
   await expect(page.getByRole("button", { name: /Lançar resultado|Editar resultado/ })).toHaveCount(0);
   // O placar já lançado continua visível.
-  await expect(page.locator(".match-card-outcome-win")).toHaveCount(1);
+  await expect(page.locator(".round-match.is-done")).toHaveCount(1);
 
   // As outras telas abrem normalmente.
   for (const [path, heading] of [["/inicio", /Olá, Jogador 1/], ["/minha-dupla", "Minha Dupla"], ["/grupos", "Grupos"], ["/mata-mata", "Mata-mata"], ["/hall-da-fama", "Hall da Fama"], ["/maiores-campeoes", "Maiores Campeões"]] as const) {
@@ -2063,7 +2088,7 @@ test("sem resposta sobre o cadeado a tela do jogador fica bloqueada, nunca liber
   await mockCoreApi(page, "jogador");
   await page.route("**/api/matches/lock", (route) => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "falha" }) }));
   await page.goto("/jogos");
-  await expect(page.locator(".match-card")).toHaveCount(4);
+  await expect(page.locator(".round-match")).toHaveCount(6);
   await expect(page.locator(".results-lock-notice")).toBeVisible();
   await expect(page.getByRole("button", { name: /Lançar resultado|Editar resultado/ })).toHaveCount(0);
 });
@@ -2080,13 +2105,14 @@ test("placar salvo com avanço pendente fecha o formulário, recarrega o placar 
     return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ code: "progression_pending", resultSaved: true, retryable: true, message: "O placar foi gravado. O avanço está pendente. Não reenvie o resultado." }) });
   });
   await page.goto("/jogos");
-  await page.getByRole("button", { name: "Lançar resultado" }).first().click();
-  await page.getByRole("button", { name: "2x0" }).click();
-  await page.getByRole("button", { name: "Confirmar resultado" }).click();
+  // Dupla 1 × Dupla 2 é o jogo que a API simulada passa a devolver com placar.
+  const savedCard = page.locator(".round-match").filter({ has: page.locator(".round-team-name", { hasText: /^Dupla 2$/ }) });
+  await savedCard.getByRole("button", { name: "Lançar resultado" }).click();
+  await savedCard.getByRole("button", { name: "2x0" }).click();
+  await savedCard.getByRole("button", { name: "Confirmar resultado" }).click();
   await expect(page.getByText(/O placar foi gravado/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Confirmar resultado" })).toHaveCount(0);
-  const savedCard = page.locator(".match-card").filter({ has: page.locator(".match-card-team-name", { hasText: /^Dupla 2$/ }) });
-  await expect(savedCard.locator(".match-card-team-result > strong")).toHaveText(["2", "0"]);
+  await expect(savedCard.locator(".round-team-sets")).toHaveText(["2", "0"]);
   expect(posts).toBe(1);
   await page.reload();
   expect(posts).toBe(1);
@@ -2105,4 +2131,100 @@ test("final salva com campeão pendente mantém placar e não anuncia campeonato
   await expect(page.getByRole("button", { name: /Lançar resultado|Editar resultado/ })).toHaveCount(0);
   await page.reload();
   await expect(page.getByText("Final salva; título em confirmação")).toBeVisible();
+});
+
+// ---------- Senhas: troca pelo jogador e "Redefinir senha" do administrador ----------
+
+test("admin acompanha quantos criaram a senha e redefine um acesso, sem ver senha nenhuma", async ({ page }) => {
+  await mockCoreApi(page, "admin");
+  const access = players.map((player, index) => ({ playerId: player.id, hasAccount: true, setupPending: index >= 9, setupCompletedAt: index >= 9 ? null : "2026-10-20T12:00:00Z" }));
+  await page.route("**/api/players", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(players.map((player, index) => ({ ...player, teamId: teams[Math.floor(index / 2)].id }))) }));
+  await page.route("**/api/admin/players/access", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(access) }));
+  const resets: string[] = [];
+  await page.route("**/api/admin/players/*/reset-access", (route) => {
+    resets.push(new URL(route.request().url()).pathname);
+    access[0].setupPending = true;
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ playerId: "player-1", playerName: "Jogador 1", accountCreated: false }) });
+  });
+  await page.goto("/admin/jogadores");
+  await expect(page.locator(".access-summary-count")).toHaveText("9 de 14");
+  const row = (name: string) => page.getByRole("row", { name: new RegExp("^" + name + " ") });
+  await expect(row("Jogador 1")).toContainText("Senha criada");
+  await expect(row("Jogador 10")).toContainText("Aguardando criação de senha");
+  await row("Jogador 1").getByRole("button", { name: "Redefinir acesso" }).click();
+  await expect(page.getByRole("alertdialog")).toContainText("A senha atual deixa de valer");
+  expect(resets).toHaveLength(0);
+  await page.getByRole("alertdialog").getByRole("button", { name: "Redefinir acesso" }).click();
+  expect(resets).toEqual(["/api/admin/players/player-1/reset-access"]);
+  await expect(page.locator(".access-summary-count")).toHaveText("8 de 14");
+  await expect(row("Jogador 1")).toContainText("Aguardando criação de senha");
+  expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
+});
+
+test("primeiro acesso: a carta de quem ainda não criou a senha leva a \"Crie sua senha\" e entra direto", async ({ page }) => {
+  await mockLeagueWithAccounts(page, fictionalLeague);
+  await page.route("**/api/players/roster", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(players.map(({ id, name }) => ({ id, name, needsSetup: id === "player-1" }))) }));
+  const sent: unknown[] = [];
+  await page.route("**/api/auth/first-access", (route) => {
+    sent.push(route.request().postDataJSON());
+    const user = { id: "auth-player-1", playerId: "player-1", name: "Jogador 1", email: "x", role: "jogador", teamId: "team-1", mustChangePassword: false, avatarUrl: null };
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ user, token: tokenFor(user.id), refreshToken: "refresh:" + user.id }) });
+  });
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Ver lista de nomes" }).click();
+  await page.locator(".profile-card").filter({ has: page.locator(".profile-name", { hasText: /^Jogador 1$/ }) }).click();
+  await expect(page.getByRole("heading", { name: "Crie sua senha para a 5ª Edição" })).toBeVisible();
+  const form = page.getByRole("form", { name: "Crie sua senha" });
+  await form.getByLabel("Nova senha").fill("minha-senha");
+  await form.getByLabel("Repita a senha").fill("minha-senhx");
+  await expect(form.getByRole("button", { name: "Criar senha e entrar" })).toBeDisabled();
+  await form.getByLabel("Repita a senha").fill("minha-senha");
+  await form.getByRole("button", { name: "Criar senha e entrar" }).click();
+  await expect(page).toHaveURL(/\/(abertura|inicio)$/);
+  expect(sent).toEqual([{ playerId: "player-1", newPassword: "minha-senha" }]);
+  expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
+});
+
+test("primeiro acesso: se outra pessoa já criou a senha da carta, a tela avisa e pede a senha", async ({ page }) => {
+  await mockLeagueWithAccounts(page, fictionalLeague);
+  await page.route("**/api/players/roster", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(players.map(({ id, name }) => ({ id, name, needsSetup: id === "player-1" }))) }));
+  await page.route("**/api/auth/first-access", (route) => route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ message: "Este jogador já criou a senha. Entre com ela. Se não foi você, avise o administrador.", code: "already_configured" }) }));
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Ver lista de nomes" }).click();
+  await page.locator(".profile-card").filter({ has: page.locator(".profile-name", { hasText: /^Jogador 1$/ }) }).click();
+  const form = page.getByRole("form", { name: "Crie sua senha" });
+  await form.getByLabel("Nova senha").fill("minha-senha");
+  await form.getByLabel("Repita a senha").fill("minha-senha");
+  await form.getByRole("button", { name: "Criar senha e entrar" }).click();
+  await expect(page.locator(".login-error")).toContainText("Se não foi você, avise o administrador.");
+  await expect(page.getByLabel("Senha")).toBeVisible();
+});
+
+test("jogador altera a própria senha no Perfil informando a atual, e vê a recusa quando erra", async ({ page }) => {
+  await mockCoreApi(page, "jogador");
+  const bodies: unknown[] = [];
+  await page.route("**/api/auth/change-password", (route) => {
+    const body = route.request().postDataJSON() as { currentPassword?: string };
+    bodies.push(body);
+    return body.currentPassword === "atual-certa"
+      ? route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ user: { id: "auth-user", playerId: "player-1", name: "Jogador 1", email: "x", role: "jogador", teamId: "team-1", mustChangePassword: false, avatarUrl: null } }) })
+      : route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ message: "A senha atual não confere." }) });
+  });
+  await page.goto("/perfil");
+  const form = page.getByRole("form", { name: "Alterar senha" });
+  const save = form.getByRole("button", { name: "Salvar nova senha" });
+  await form.getByLabel("Senha atual").fill("chute");
+  await form.getByLabel("Nova senha", { exact: true }).fill("minha-nova");
+  await form.getByLabel("Repita a nova senha").fill("minha-outra");
+  await expect(form.getByText("As duas senhas novas não são iguais.")).toBeVisible();
+  await expect(save).toBeDisabled();
+  await form.getByLabel("Repita a nova senha").fill("minha-nova");
+  await save.click();
+  await expect(form.getByText("A senha atual não confere.")).toBeVisible();
+  await form.getByLabel("Senha atual").fill("atual-certa");
+  await save.click();
+  await expect(form.getByText("Senha alterada. Use a nova senha no próximo login.")).toBeVisible();
+  await expect(form.getByLabel("Senha atual")).toHaveValue("");
+  expect(bodies).toEqual([{ newPassword: "minha-nova", currentPassword: "chute" }, { newPassword: "minha-nova", currentPassword: "atual-certa" }]);
+  expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
 });

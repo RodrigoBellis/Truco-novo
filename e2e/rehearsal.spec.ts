@@ -18,7 +18,7 @@ let TEAM_A1 = "ensaio-dupla-a1";
 
 test.describe.configure({ mode: "serial" });
 
-type GroupId = "A" | "B";
+type GroupId = "A";
 interface Score { setsA: number; setsB: number }
 interface Team { id: string; name: string; player1Id: string; player2Id: string; groupId: GroupId }
 interface Match { id: string; stage: string; round: string; order: number; groupId: GroupId | null; teamAId: string; teamBId: string; result: Score | null; status: string; queuePosition: number | null }
@@ -149,8 +149,8 @@ async function screenLogout(page: Page): Promise<void> {
 
 const team = (teamId: string) => teams.find((item) => item.id === teamId)!;
 const playersOf = (teamId: string) => [team(teamId).player1Id, team(teamId).player2Id];
-/** Cabeça de chave pelo nome fictício: "Jogador 1 & Jogador 2" é a 1ª do grupo, "Jogador 13 & Jogador 14" a 2ª. */
-const seedOf = (teamId: string) => ((Number(/\d+/.exec(team(teamId).name)![0]) - 1) % 10) / 2 + 1;
+/** Ordem pelo nome fictício: "Jogador 1 & Jogador 2" é a dupla 1, "Jogador 13 & Jogador 14" a dupla 7. */
+const seedOf = (teamId: string) => (Number(/\d+/.exec(team(teamId).name)![0]) + 1) / 2;
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const exact = (text: string) => new RegExp("^" + escapeRegExp(text) + "$");
 /** Placar com `winner` vencendo e o perdedor fazendo `loserSets` quedas. */
@@ -164,8 +164,8 @@ const toast = (page: Page, kind: "success" | "error", text: string | RegExp) => 
 
 /** Card de um jogo na tela Jogos, pelas duas duplas. */
 function matchCard(page: Page, match: Pick<Match, "teamAId" | "teamBId">): Locator {
-  const named = (teamId: string) => page.locator(".match-card-team-name", { hasText: exact(team(teamId).name) });
-  return page.locator(".match-card").filter({ has: named(match.teamAId) }).filter({ has: named(match.teamBId) });
+  const named = (teamId: string) => page.locator(".round-team-name", { hasText: exact(team(teamId).name) });
+  return page.locator(".round-match").filter({ has: named(match.teamAId) }).filter({ has: named(match.teamBId) });
 }
 const koCard = (page: Page, key: string) => page.locator(".ko-cell-" + key);
 
@@ -211,9 +211,9 @@ async function saveRefused(page: Page, scope: Locator, score: Score, message: Re
 }
 
 /** Tabela calculada só a partir dos placares que o roteiro lançou. */
-function expectedTable(group: GroupId): Record<string, { j: number; v: number; x20: number; d: number; saldo: number; pts: number }> {
+function expectedTable(): Record<string, { j: number; v: number; x20: number; d: number; saldo: number; pts: number }> {
   const table: ReturnType<typeof expectedTable> = {};
-  for (const item of teams.filter((row) => row.groupId === group)) {
+  for (const item of teams) {
     const row = { j: 0, v: 0, x20: 0, d: 0, saldo: 0, pts: 0 };
     for (const match of groupMatches) {
       const score = ledger.get(match.id);
@@ -232,50 +232,43 @@ function expectedTable(group: GroupId): Record<string, { j: number; v: number; x
 /** Lê a tabela da tela Grupos e confere pontos, vitórias, saldo e posição contra o cálculo independente. */
 async function checkStandingsOnScreen(page: Page): Promise<void> {
   await page.goto("/grupos");
-  for (const group of ["A", "B"] as const) {
-    await page.getByRole("tab", { name: new RegExp("^Grupo " + group) }).click();
-    await expect(page.getByRole("heading", { name: "Grupo " + group, exact: true })).toBeVisible();
-    const read = async () => {
-      const rows = await page.locator(".standings-row").evaluateAll((elements) => elements.map((element) => {
-        const cells = [...element.querySelectorAll("td")].map((cell) => cell.textContent ?? "");
-        const name = [...(element.querySelector(".standings-team-name")?.childNodes ?? [])].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join("").trim();
-        return { position: cells[0].trim(), name, j: Number(cells[2]), v: Number(cells[3]), x20: Number(cells[4]), d: Number(cells[5]), saldo: Number(cells[6]), pts: Number(cells[8]) };
-      }));
-      return rows;
-    };
-    const expected = expectedTable(group);
-    await expect.poll(async () => Object.fromEntries((await read()).map(({ name, position: _position, ...stats }) => [name, stats])), { message: "classificação do Grupo " + group + " na tela" }).toEqual(expected);
-    const rows = await read();
-    expect(rows.map((row) => row.position)).toEqual(["1º", "2º", "3º", "4º", "5º"]);
-    for (let index = 1; index < rows.length; index += 1) {
-      const [above, below] = [rows[index - 1], rows[index]];
-      expect(above.pts - below.pts || above.v - below.v || above.x20 - below.x20, `${above.name} acima de ${below.name}`).toBeGreaterThanOrEqual(0);
-    }
+  await expect(page.getByRole("heading", { name: "Grupo Único", exact: true })).toBeVisible();
+  const read = async () => page.locator(".standings-row").evaluateAll((elements) => elements.map((element) => {
+    const cells = [...element.querySelectorAll("td")].map((cell) => cell.textContent ?? "");
+    const name = [...(element.querySelector(".standings-team-name")?.childNodes ?? [])].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join("").trim();
+    return { position: cells[0].trim(), name, j: Number(cells[2]), v: Number(cells[3]), x20: Number(cells[4]), d: Number(cells[5]), saldo: Number(cells[6]), pts: Number(cells[8]) };
+  }));
+  await expect.poll(async () => Object.fromEntries((await read()).map(({ name, position: _position, ...stats }) => [name, stats])), { message: "classificação do grupo único na tela" }).toEqual(expectedTable());
+  const rows = await read();
+  expect(rows.map((row) => row.position)).toEqual(["1º", "2º", "3º", "4º", "5º", "6º", "7º"]);
+  for (let index = 1; index < rows.length; index += 1) {
+    const [above, below] = [rows[index - 1], rows[index]];
+    expect(above.pts - below.pts || above.v - below.v || above.x20 - below.x20, `${above.name} acima de ${below.name}`).toBeGreaterThanOrEqual(0);
   }
 }
 
 const bracketRows = async () => (await apiCall<BracketRow[]>("GET", "/api/bracket")).body;
 const knockoutMatches = async () => (await apiCall<Match[]>("GET", "/api/matches?stage=mata-mata")).body;
-const ROUND = { R: "Repescagem", Q: "Quartas de final", S: "Semifinal", F: "Final" } as const;
+const ROUND = { Q: "Quartas de final", S: "Semifinal", T: "Disputa de 3º lugar", F: "Final" } as const;
 async function ko(key: string): Promise<Match> {
   const match = (await knockoutMatches()).find((item) => item.round === ROUND[key[0] as keyof typeof ROUND] && item.order === (key.length > 1 ? Number(key[1]) - 1 : 0));
   expect(match, "jogo " + key + " deveria existir").toBeTruthy();
   return match!;
 }
 
-/** Sete confrontos distintos, no máximo um jogo por confronto, todos vinculados. */
+/** Seis confrontos distintos, no máximo um jogo por confronto, todos vinculados. */
 async function expectKnockoutIntegrity(expectedMatches: number): Promise<void> {
   const rows = await bracketRows();
   const games = await knockoutMatches();
-  expect(rows.length).toBe(7);
-  expect(new Set(rows.map((row) => row.round + "#" + row.order)).size).toBe(7);
+  expect(rows.length).toBe(6);
+  expect(new Set(rows.map((row) => row.round + "#" + row.order)).size).toBe(6);
   expect(games.length).toBe(expectedMatches);
   expect(new Set(games.map((game) => game.round + "#" + game.order)).size).toBe(games.length);
   expect(rows.flatMap((row) => (row.matchId ? [row.matchId] : [])).sort()).toEqual(games.map((game) => game.id).sort());
 }
 
-async function seeded(position: number, group: GroupId): Promise<string> {
-  return (await apiCall<StandingRow[]>("GET", `/api/groups/${group}/standings`)).body.find((row) => row.position === position)!.teamId;
+async function seeded(position: number): Promise<string> {
+  return (await apiCall<StandingRow[]>("GET", "/api/groups/A/standings")).body.find((row) => row.position === position)!.teamId;
 }
 
 /** Abre Mata-mata como `playerId` e lança/corrige o jogo `key` no próprio chaveamento. */
@@ -300,7 +293,7 @@ test("1. cadeado: jogador sem botão e API recusando; o administrador libera pel
   }
   teams = (await apiCall<Team[]>("GET", "/api/teams")).body;
   groupMatches = (await apiCall<Match[]>("GET", "/api/matches?stage=grupos")).body;
-  expect([teams.length, groupMatches.length]).toEqual([10, 20]);
+  expect([teams.length, groupMatches.length]).toEqual([7, 21]);
   ledger.clear();
   launchedMatchIds.clear();
 
@@ -308,7 +301,7 @@ test("1. cadeado: jogador sem botão e API recusando; o administrador libera pel
   const page = await newPage(browser, testInfo, null);
   await screenLogin(page, player);
   await page.goto("/jogos");
-  await expect(page.locator(".match-card")).toHaveCount(4);
+  await expect(page.locator(".round-match")).toHaveCount(6);
   await expect(page.locator(".results-lock-notice")).toBeVisible();
   await expect(resultButtons(page)).toHaveCount(0);
   const mine = groupMatches.find((match) => match.teamAId === TEAM_A1 || match.teamBId === TEAM_A1)!;
@@ -329,24 +322,23 @@ test("1. cadeado: jogador sem botão e API recusando; o administrador libera pel
 
   await screenLogin(page, player);
   await page.goto("/jogos");
-  await expect(resultButtons(page)).toHaveCount(4);
+  await expect(resultButtons(page)).toHaveCount(6);
   await expect(page.locator(".results-lock-notice")).toHaveCount(0);
   await page.reload();
-  await expect(resultButtons(page)).toHaveCount(4);
+  await expect(resultButtons(page)).toHaveCount(6);
 
   // O navegador fala com o ensaio também no que seria o Supabase (sessão).
   expect([...rehearsalPaths]).toEqual(expect.arrayContaining(["/auth/v1", "/api/auth", "/api/matches"]));
 });
 
-test("2. fase de grupos pelos botões: ordem embaralhada, edições, simultaneidade, falha de conexão; com 19 jogos não há mata-mata", async ({ browser }, testInfo) => {
-  // Ordem: embaralha com semente fixa, alterna os grupos e põe o jogo de MAIOR ordem do Grupo A primeiro.
+test("2. fase de grupos pelos botões: ordem embaralhada, edições, simultaneidade, falha de conexão; com 20 jogos não há mata-mata", async ({ browser }, testInfo) => {
+  // Ordem: embaralha com semente fixa e põe o jogo de MAIOR ordem primeiro.
   let seed = 20261025;
   const random = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
   const shuffled = (list: Match[]) => { const copy = [...list]; for (let i = copy.length - 1; i > 0; i -= 1) { const j = Math.floor(random() * (i + 1)); [copy[i], copy[j]] = [copy[j], copy[i]]; } return copy; };
-  const groupA = shuffled(groupMatches.filter((match) => match.groupId === "A")).sort((a, b) => Number(b.order === 9) - Number(a.order === 9));
-  const groupB = shuffled(groupMatches.filter((match) => match.groupId === "B"));
-  const order = groupA.flatMap((match, index) => [match, groupB[index]]);
-  expect(order[0].order).toBe(Math.max(...groupA.map((match) => match.order)));
+  const highest = Math.max(...groupMatches.map((match) => match.order));
+  const order = shuffled(groupMatches).sort((a, b) => Number(b.order === highest) - Number(a.order === highest));
+  expect(order[0].order).toBe(highest);
   const poster = (match: Match, index: number) => [...playersOf(match.teamAId), ...playersOf(match.teamBId)][index % 4];
   const planned = (match: Match, index: number) => scoreFor(match, favourite(match), index % 3 === 0 ? 1 : 0);
 
@@ -356,9 +348,9 @@ test("2. fase de grupos pelos botões: ordem embaralhada, edições, simultaneid
   const [b1] = playersOf(first.teamBId);
   let page = await openAs(browser, testInfo, a1, "/jogos");
   await saveScore(page, matchCard(page, first), first.id, { setsA: 2, setsB: 0 }, "Resultado registrado! A classificação do seu grupo já foi atualizada.");
-  await expect(matchCard(page, first).locator(".match-card-team-result > strong")).toHaveText(["2", "0"]);
+  await expect(matchCard(page, first).locator(".round-team-sets")).toHaveText(["2", "0"]);
   await checkStandingsOnScreen(page);
-  const lowest = groupA.find((match) => match.order === 0)!;
+  const lowest = groupMatches.find((match) => match.order === 0)!;
   expect((await apiCall<Match[]>("GET", "/api/matches?stage=grupos")).body.find((match) => match.id === lowest.id)!.status).toBe("pendente");
   await closePage(page);
 
@@ -368,34 +360,34 @@ test("2. fase de grupos pelos botões: ordem embaralhada, edições, simultaneid
   for (const [editor, score] of edits) {
     page = await openAs(browser, testInfo, editor, "/jogos");
     await saveScore(page, matchCard(page, first), first.id, score, "Resultado atualizado com sucesso! A classificação já foi recalculada.");
-    await expect(matchCard(page, first).locator(".match-card-team-result > strong")).toHaveText([String(score.setsA), String(score.setsB)]);
+    await expect(matchCard(page, first).locator(".round-team-sets")).toHaveText([String(score.setsA), String(score.setsB)]);
     await checkStandingsOnScreen(page);
     await closePage(page);
   }
   // O adversário (outra conta) vê o placar, e ele continua lá depois de recarregar.
   const current = ledger.get(first.id)!;
   page = await openAs(browser, testInfo, playersOf(first.teamBId)[1], "/jogos");
-  await expect(matchCard(page, first).locator(".match-card-team-result > strong")).toHaveText([String(current.setsA), String(current.setsB)]);
+  await expect(matchCard(page, first).locator(".round-team-sets")).toHaveText([String(current.setsA), String(current.setsB)]);
   await page.reload();
-  await expect(matchCard(page, first).locator(".match-card-team-result > strong")).toHaveText([String(current.setsA), String(current.setsB)]);
+  await expect(matchCard(page, first).locator(".round-team-sets")).toHaveText([String(current.setsA), String(current.setsB)]);
   await closePage(page);
   // Jogador de outra dupla enxerga o jogo, mas não tem botão nele.
-  const outsider = teams.find((item) => item.groupId === "A" && item.id !== first.teamAId && item.id !== first.teamBId)!;
+  const outsider = teams.find((item) => item.id !== first.teamAId && item.id !== first.teamBId)!;
   page = await openAs(browser, testInfo, outsider.player1Id, "/jogos");
-  await page.getByRole("tab", { name: "Grupo A" }).click();
+  await page.getByRole("tab", { name: "Todas as Rodadas" }).click();
   await expect(matchCard(page, first)).toHaveCount(1);
   await expect(matchCard(page, first).getByRole("button")).toHaveCount(0);
-  await expect(matchCard(page, first).locator(".match-card-team-result > strong")).toHaveText([String(current.setsA), String(current.setsB)]);
+  await expect(matchCard(page, first).locator(".round-team-sets")).toHaveText([String(current.setsA), String(current.setsB)]);
   await closePage(page);
   // Volta ao placar planejado.
   page = await openAs(browser, testInfo, a2, "/jogos");
   await saveScore(page, matchCard(page, first), first.id, planned(first, 0), /Resultado atualizado/);
   await closePage(page);
 
-  // --- Jogos 2 a 18.
-  const lastTwo = order.slice(18);
+  // --- Jogos 2 a 19.
+  const lastTwo = order.slice(19);
   for (const [index, match] of order.entries()) {
-    if (index === 0 || index >= 18) continue;
+    if (index === 0 || index >= 19) continue;
     const score = planned(match, index);
 
     if (index === 5) {
@@ -437,9 +429,9 @@ test("2. fase de grupos pelos botões: ordem embaralhada, edições, simultaneid
       await expect(toast(page, "error", /não foi possível confirmar a gravação/)).toBeVisible();
       expect((await apiCall<Match[]>("GET", "/api/matches?stage=grupos")).body.find((item) => item.id === match.id)!.result).toEqual(score);
       await expect(matchCard(page, match).getByRole("button", { name: "Confirmar resultado" })).toHaveCount(0);
-      await expect(matchCard(page, match).locator(".match-card-team-result > strong")).toHaveText([String(score.setsA), String(score.setsB)]);
+      await expect(matchCard(page, match).locator(".round-team-sets")).toHaveText([String(score.setsA), String(score.setsB)]);
       recordSaved(match.id, score, false);
-      expect((await apiCall<Match[]>("GET", "/api/matches?stage=grupos")).body.length).toBe(20);
+      expect((await apiCall<Match[]>("GET", "/api/matches?stage=grupos")).body.length).toBe(21);
     } else {
       await saveScore(page, matchCard(page, match), match.id, score, /Resultado registrado/);
     }
@@ -447,29 +439,28 @@ test("2. fase de grupos pelos botões: ordem embaralhada, edições, simultaneid
     await closePage(page);
   }
 
-  // --- Com 18 (celular) ou 19 (desktop) jogos: nada de mata-mata.
+  // --- Com 19 (celular) ou 20 (desktop) jogos: nada de mata-mata.
   if (!mobile) {
-    page = await openAs(browser, testInfo, poster(lastTwo[0], 18), "/jogos");
-    await saveScore(page, matchCard(page, lastTwo[0]), lastTwo[0].id, planned(lastTwo[0], 18), /Resultado registrado/);
+    page = await openAs(browser, testInfo, poster(lastTwo[0], 19), "/jogos");
+    await saveScore(page, matchCard(page, lastTwo[0]), lastTwo[0].id, planned(lastTwo[0], 19), /Resultado registrado/);
     await checkStandingsOnScreen(page);
     await closePage(page);
   }
   expect((await bracketRows()).length).toBe(0);
   expect((await knockoutMatches()).length).toBe(0);
-  expect(ledger.size).toBe(mobile ? 18 : 19);
-  // Tela Mata-mata de quem hoje está em 3º do Grupo A: repescagem ainda não criada, sem botão.
-  page = await openAs(browser, testInfo, playersOf(await seeded(3, "A"))[0], "/mata-mata");
-  await expect(koCard(page, "R1")).toBeVisible();
+  expect(ledger.size).toBe(mobile ? 19 : 20);
+  // Tela Mata-mata de quem hoje está em 3º: quartas ainda não criadas, sem botão.
+  page = await openAs(browser, testInfo, playersOf(await seeded(3))[0], "/mata-mata");
+  await expect(koCard(page, "Q1")).toBeVisible();
   await expect(resultButtons(page)).toHaveCount(0);
-  await expect(page.locator(".ko-match")).toHaveCount(7);
+  await expect(page.locator(".ko-match")).toHaveCount(6);
   await page.getByRole("link", { name: "Jogos" }).first().click().catch(() => page.goto("/jogos"));
   await page.goto("/jogos");
-  await page.getByRole("tab", { name: "Mata-mata" }).click();
-  await expect(page.getByRole("heading", { name: "O mata-mata ainda não começou" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Mata-mata" })).toHaveCount(0);
   await closePage(page);
 });
 
-test("3. o último jogo de grupo faz a repescagem nascer sozinha; corrigir um placar de grupo refaz o chaveamento sem duplicar", async ({ browser }, testInfo) => {
+test("3. o último jogo de grupo faz as quartas nascerem sozinhas; corrigir um placar de grupo refaz o chaveamento sem duplicar", async ({ browser }, testInfo) => {
   const pending = groupMatches.filter((match) => !ledger.has(match.id));
   expect(pending.length).toBe(mobile ? 2 : 1);
 
@@ -491,176 +482,103 @@ test("3. o último jogo de grupo faz a repescagem nascer sozinha; corrigir um pl
     await checkStandingsOnScreen(page);
     await closePage(page);
   }
-  expect(ledger.size).toBe(20);
+  expect(ledger.size).toBe(21);
 
-  // Sem nenhuma ação do administrador: chaveamento e repescagens existem.
+  // Sem nenhuma ação do administrador: chaveamento e as duas quartas existem.
   await expectKnockoutIntegrity(2);
-  const third = await seeded(3, "A");
-  const fourth = await seeded(4, "A");
-  let r1 = await ko("R1");
-  expect([r1.teamAId, r1.teamBId]).toEqual([third, await seeded(4, "B")]);
+  const third = await seeded(3);
+  const fourth = await seeded(4);
+  let q1 = await ko("Q1");
+  expect([q1.teamAId, q1.teamBId]).toEqual([third, await seeded(6)]);
+  const q2 = await ko("Q2");
+  expect([q2.teamAId, q2.teamBId]).toEqual([fourth, await seeded(5)]);
   let page = await openAs(browser, testInfo, playersOf(third)[0], "/mata-mata");
-  await expect(page.locator(".ko-match")).toHaveCount(7);
-  await expect(resultButtons(koCard(page, "R1"))).toHaveText("Lançar resultado");
+  await expect(page.locator(".ko-match")).toHaveCount(6);
+  await expect(resultButtons(koCard(page, "Q1"))).toHaveText("Lançar resultado");
   await expect(campaignPanel(page)).toContainText("Sua vez");
-  await expect(koCard(page, "R1").locator(".ko-side-team strong")).toHaveText([team(third).name, team(r1.teamBId).name]);
+  await expect(koCard(page, "Q1").locator(".ko-side-team strong")).toHaveText([team(third).name, team(q1.teamBId).name]);
   await checkStandingsOnScreen(page);
   await closePage(page);
 
-  // Correção de grupo antes de qualquer placar de mata-mata: 4º passa a vencer o 3º do Grupo A.
+  // Correção de grupo antes de qualquer placar de mata-mata: o 4º passa a vencer o 3º.
   const duel = groupMatches.find((match) => [match.teamAId, match.teamBId].sort().join() === [third, fourth].sort().join())!;
   page = await openAs(browser, testInfo, playersOf(fourth)[1], "/jogos");
   await saveScore(page, matchCard(page, duel), duel.id, scoreFor(duel, fourth, 0), /Resultado atualizado/);
   await checkStandingsOnScreen(page);
   await expectKnockoutIntegrity(2);
-  const newThird = await seeded(3, "A");
+  const newThird = await seeded(3);
   expect(newThird).not.toBe(third);
-  r1 = await ko("R1");
-  expect(r1.teamAId).toBe(newThird);
+  q1 = await ko("Q1");
+  expect(q1.teamAId).toBe(newThird);
   await page.goto("/mata-mata");
-  await expect(page.locator(".ko-match")).toHaveCount(7);
-  await expect(koCard(page, "R1").locator(".ko-side-team strong").first()).toHaveText(team(newThird).name);
+  await expect(page.locator(".ko-match")).toHaveCount(6);
+  await expect(koCard(page, "Q1").locator(".ko-side-team strong").first()).toHaveText(team(newThird).name);
   await expect(resultButtons(page).first()).toBeVisible();
   await closePage(page);
 });
 
-test("4. mata-mata lançado no próprio chaveamento: avanço, despedida, espera, correções aceitas e recusadas, até o campeão", async ({ browser }, testInfo) => {
-  const [a1, a2, a3, a4, a5] = await Promise.all([1, 2, 3, 4, 5].map((position) => seeded(position, "A")));
-  const [b1, b2, b3, b4] = await Promise.all([1, 2, 3, 4].map((position) => seeded(position, "B")));
+test("4. mata-mata lançado no próprio chaveamento: avanço, despedida, espera, correções aceitas e recusadas, até o campeão e o 3º lugar", async ({ browser }, testInfo) => {
+  const [p1, p2, p3, p4, p5, p6, p7] = await Promise.all([1, 2, 3, 4, 5, 6, 7].map((position) => seeded(position)));
   const name = (teamId: string) => team(teamId).name;
 
-  // 1º e 2º colocados aguardam: sem jogo, sem botão.
-  let page = await openAs(browser, testInfo, playersOf(a1)[0], "/mata-mata");
+  // 1º e 2º colocados aguardam na semifinal: sem jogo, sem botão. O 7º terminou fora das vagas.
+  let page = await openAs(browser, testInfo, playersOf(p1)[0], "/mata-mata");
   await expect(campaignPanel(page)).toContainText("Vocês aguardam o vencedor das Quartas 2, na Semifinal 1.");
   await expect(resultButtons(page)).toHaveCount(0);
   await closePage(page);
-  page = await openAs(browser, testInfo, playersOf(a2)[1], "/mata-mata");
-  await expect(campaignPanel(page)).toContainText("Vocês aguardam o vencedor da repescagem, nas Quartas 1.");
+  page = await openAs(browser, testInfo, playersOf(p2)[1], "/mata-mata");
+  await expect(campaignPanel(page)).toContainText("Vocês aguardam o vencedor das Quartas 1, na Semifinal 2.");
   await expect(resultButtons(page)).toHaveCount(0);
   await closePage(page);
-  // O 5º colocado terminou fora das vagas.
-  page = await openAs(browser, testInfo, playersOf(a5)[0], "/mata-mata");
+  page = await openAs(browser, testInfo, playersOf(p7)[0], "/mata-mata");
   await expect(campaignPanel(page)).toContainText("Fim da campanha nesta edição");
   await expect(resultButtons(page)).toHaveCount(0);
   await closePage(page);
 
-  // --- Repescagem 1 (3º A × 4º B): um integrante lança, a tela mostra o avanço e ele persiste.
-  let r1 = await ko("R1");
-  await launchKnockout(browser, testInfo, playersOf(a3)[0], "R1", scoreFor(r1, a3), "Classificados para as quartas de final!", async (winnerPage) => {
-    await expect(campaignPanel(winnerPage).getByRole("heading")).toHaveText("Classificados para as quartas de final!");
+  // --- Quartas 1 (3º × 6º): um integrante lança, a tela mostra o avanço e ele persiste.
+  let q1 = await ko("Q1");
+  await launchKnockout(browser, testInfo, playersOf(p3)[0], "Q1", scoreFor(q1, p3), "Classificados para a semifinal!", async (winnerPage) => {
+    await expect(campaignPanel(winnerPage).getByRole("heading")).toHaveText("Classificados para a semifinal!");
     await winnerPage.reload();
-    await expect(campaignPanel(winnerPage).getByRole("heading")).toHaveText("Classificados para as quartas de final!");
-    await expect(campaignPanel(winnerPage)).toContainText("Vocês aguardam o fim da Repescagem 2 para conhecer o adversário das quartas de final.");
-    await expect(koCard(winnerPage, "R1").locator(".ko-side-sets")).toHaveText(["2", "0"]);
+    await expect(campaignPanel(winnerPage).getByRole("heading")).toHaveText("Classificados para a semifinal!");
+    // A Semifinal 2 (2º × vencedor das Quartas 1) já nasceu: é a vez da dupla.
+    await expect(campaignPanel(winnerPage)).toContainText("Semifinal 2 · contra " + name(p2));
+    await expect(koCard(winnerPage, "Q1").locator(".ko-side-sets")).toHaveText(["2", "0"]);
   });
   // O parceiro corrige mantendo o vencedor.
-  await launchKnockout(browser, testInfo, playersOf(a3)[1], "R1", scoreFor(r1, a3, 1), "Classificados para as quartas de final!");
+  await launchKnockout(browser, testInfo, playersOf(p3)[1], "Q1", scoreFor(q1, p3, 1), "Classificados para a semifinal!");
   // Quem perdeu vê a despedida.
-  page = await openAs(browser, testInfo, playersOf(b4)[0], "/mata-mata");
+  page = await openAs(browser, testInfo, playersOf(p6)[0], "/mata-mata");
   await expect(campaignPanel(page).getByRole("heading")).toHaveText("Fim da campanha nesta edição");
   await closePage(page);
-  // Uma repescagem só: quartas não existem.
-  await expectKnockoutIntegrity(2);
-  page = await openAs(browser, testInfo, playersOf(a2)[0], "/mata-mata");
-  await expect(resultButtons(page)).toHaveCount(0);
-  await closePage(page);
+  await expectKnockoutIntegrity(3);
 
   // Correção de grupo depois do primeiro placar de mata-mata: recusada, com a mensagem na tela.
-  const anyGroupMatch = groupMatches.find((match) => match.teamAId === a5 || match.teamBId === a5)!;
+  const anyGroupMatch = groupMatches.find((match) => match.teamAId === p7 || match.teamBId === p7)!;
   const before = ledger.get(anyGroupMatch.id)!;
-  page = await openAs(browser, testInfo, playersOf(a5)[1], "/jogos");
-  await saveRefused(page, matchCard(page, anyGroupMatch), { setsA: before.setsB, setsB: before.setsA }, /mata-mata já tem placar lançado \(Repescagem 1\).*não podem mais ser alterados/);
+  page = await openAs(browser, testInfo, playersOf(p7)[1], "/jogos");
+  await saveRefused(page, matchCard(page, anyGroupMatch), { setsA: before.setsB, setsB: before.setsA }, /mata-mata já tem placar lançado \(Quartas 1\).*não podem mais ser alterados/);
   await closePage(page);
   expect((await apiCall<Match[]>("GET", "/api/matches?stage=grupos")).body.find((match) => match.id === anyGroupMatch.id)!.result).toEqual(before);
 
-  if (!mobile) {
-    // Troca de vencedor da Repescagem 1 antes de existir a fase seguinte: aceita.
-    await launchKnockout(browser, testInfo, playersOf(b4)[1], "R1", scoreFor(r1, b4), "Classificados para as quartas de final!");
-    page = await openAs(browser, testInfo, playersOf(a3)[0], "/mata-mata");
-    await expect(campaignPanel(page).getByRole("heading")).toHaveText("Fim da campanha nesta edição");
-    await closePage(page);
-  }
-  const r1Winner = mobile ? a3 : b4;
-
-  // --- Repescagem 2 (3º B × 4º A): lançada por integrante da outra dupla (o 4º A), que vence.
-  const r2 = await ko("R2");
-  await launchKnockout(browser, testInfo, playersOf(a4)[0], "R2", scoreFor(r2, a4, 1), "Classificados para as quartas de final!");
-  await expectKnockoutIntegrity(4);
-  let q1 = await ko("Q1");
-  let q2 = await ko("Q2");
-  if (mobile) {
-    // Venceram 3º A e 4º A (os dois do Grupo A): reencontro inevitável, cruzamento padrão.
-    expect([[q1.teamAId, q1.teamBId], [q2.teamAId, q2.teamBId]]).toEqual([[a2, a4], [b2, a3]]);
-  } else {
-    // Venceram os dois 4º colocados: o cruzamento é trocado para evitar os dois reencontros.
-    expect([[q1.teamAId, q1.teamBId], [q2.teamAId, q2.teamBId]]).toEqual([[a2, b4], [b2, a4]]);
-    // Troca do vencedor da Repescagem 2 antes de as quartas terem placar: as quartas se ajustam.
-    await launchKnockout(browser, testInfo, playersOf(b3)[0], "R2", scoreFor(r2, b3), "Classificados para as quartas de final!");
-    await expectKnockoutIntegrity(4);
-    q1 = await ko("Q1");
-    q2 = await ko("Q2");
-    expect([[q1.teamAId, q1.teamBId], [q2.teamAId, q2.teamBId]]).toEqual([[a2, b3], [b2, b4]]);
-  }
-  const r2Winner = mobile ? a4 : b3;
-  // O 2º colocado passa a ter adversário e botão; o chaveamento mostra as duplas certas.
-  page = await openAs(browser, testInfo, playersOf(a2)[0], "/mata-mata");
-  await expect(campaignPanel(page)).toContainText("Sua vez");
-  await expect(koCard(page, "Q1").locator(".ko-side-team strong")).toHaveText([name(q1.teamAId), name(q1.teamBId)]);
-  await expect(resultButtons(koCard(page, "Q1"))).toHaveText("Lançar resultado");
-  await expect(page.locator(".ko-match")).toHaveCount(7);
-
-  // --- Quartas 1: a conexão cai no primeiro clique; o jogador tenta de novo; nada duplica.
-  await page.route("**/api/matches/*/result", (route) => route.abort("connectionfailed"), { times: 1 });
-  const form = await prepareScore(page, koCard(page, "Q1"), scoreFor(q1, a2));
-  await form.submit();
-  await expect(toast(page, "error", /não foi possível confirmar a gravação/)).toBeVisible();
-  expect((await ko("Q1")).result).toBeNull();
-  const retry = await prepareScore(page, koCard(page, "Q1"), scoreFor(q1, a2));
-  await retry.submit();
-  await expect(toast(page, "success", "Classificados para a semifinal!")).toBeVisible();
-  recordSaved(q1.id, scoreFor(q1, a2), false);
-  await expect(campaignPanel(page).getByRole("heading")).toHaveText("Classificados para a semifinal!");
-  await page.reload();
-  await expect(campaignPanel(page).getByRole("heading")).toHaveText("Classificados para a semifinal!");
-  await closePage(page);
-  await expectKnockoutIntegrity(5);
-
-  // Troca do vencedor de uma repescagem com as quartas já disputadas: recusada, mensagem na tela.
-  r1 = await ko("R1");
-  const r1Loser = r1Winner === r1.teamAId ? r1.teamBId : r1.teamAId;
-  page = await openAs(browser, testInfo, playersOf(r1Loser)[0], "/mata-mata");
-  await saveRefused(page, koCard(page, "R1"), scoreFor(r1, r1Loser), /Não é possível trocar o vencedor: Quartas 1 já foi disputada/);
-  await closePage(page);
-  expect((await ko("R1")).result).toEqual(r1.result);
-  // Correção das Quartas 1 pelo parceiro, mantendo o vencedor: aceita.
-  await launchKnockout(browser, testInfo, playersOf(a2)[1], "Q1", scoreFor(q1, a2, 1), "Classificados para a semifinal!");
-
-  // 1º do Grupo B já tem adversário (Semifinal 2); 1º do Grupo A continua aguardando as Quartas 2.
-  page = await openAs(browser, testInfo, playersOf(b1)[0], "/mata-mata");
-  await expect(campaignPanel(page)).toContainText("Sua vez");
-  await expect(resultButtons(koCard(page, "S2"))).toHaveCount(1);
-  await closePage(page);
-  page = await openAs(browser, testInfo, playersOf(a1)[1], "/mata-mata");
-  await expect(campaignPanel(page)).toContainText("Vocês aguardam o vencedor das Quartas 2, na Semifinal 1.");
-  await expect(resultButtons(page)).toHaveCount(0);
-  await closePage(page);
-
-  let q1Winner = a2;
+  let q1Winner = p3;
   if (!mobile) {
     // Troca do vencedor das Quartas 1 antes de a semifinal ter placar: a semifinal troca de dupla.
-    await launchKnockout(browser, testInfo, playersOf(q1.teamBId)[0], "Q1", scoreFor(q1, q1.teamBId), "Classificados para a semifinal!");
-    q1Winner = q1.teamBId;
-    expect((await ko("S2")).teamBId).toBe(q1Winner);
-    page = await openAs(browser, testInfo, playersOf(a2)[0], "/mata-mata");
+    await launchKnockout(browser, testInfo, playersOf(p6)[1], "Q1", scoreFor(q1, p6), "Classificados para a semifinal!");
+    q1Winner = p6;
+    expect((await ko("S2")).teamBId).toBe(p6);
+    page = await openAs(browser, testInfo, playersOf(p3)[0], "/mata-mata");
     await expect(campaignPanel(page).getByRole("heading")).toHaveText("Fim da campanha nesta edição");
-    await expect(koCard(page, "S2").locator(".ko-side-team strong")).toHaveText([name(b1), name(q1Winner)]);
+    await expect(koCard(page, "S2").locator(".ko-side-team strong")).toHaveText([name(p2), name(p6)]);
     await closePage(page);
   }
+  q1 = await ko("Q1");
 
-  // --- Quartas 2: as duas duplas salvam o mesmo placar no mesmo instante.
+  // --- Quartas 2 (4º × 5º): as duas duplas salvam o mesmo placar no mesmo instante.
+  const q2 = await ko("Q2");
   {
-    const [left, right] = await Promise.all([playersOf(q2.teamAId)[1], playersOf(q2.teamBId)[0]].map((playerId) => openAs(browser, testInfo, playerId, "/mata-mata")));
-    const score = scoreFor(q2, b2);
+    const [left, right] = await Promise.all([playersOf(p4)[1], playersOf(p5)[0]].map((playerId) => openAs(browser, testInfo, playerId, "/mata-mata")));
+    const score = scoreFor(q2, p4);
     const forms = [await prepareScore(left, koCard(left, "Q2"), score), await prepareScore(right, koCard(right, "Q2"), score)];
     await Promise.all(forms.map((item) => item.submit()));
     await expect(toast(left, "success", "Classificados para a semifinal!")).toBeVisible();
@@ -669,61 +587,105 @@ test("4. mata-mata lançado no próprio chaveamento: avanço, despedida, espera,
     await closePage(left);
     await closePage(right);
   }
-  await expectKnockoutIntegrity(6);
-  expect([r1Winner, r2Winner]).toContain(q2.teamBId);
+  await expectKnockoutIntegrity(4);
+  // O parceiro do 4º corrige o placar mantendo o vencedor.
+  await launchKnockout(browser, testInfo, playersOf(p4)[0], "Q2", scoreFor(q2, p4, 1), "Classificados para a semifinal!");
 
   // --- Semifinais: os dois jogos da fase salvos no mesmo instante, em dois navegadores.
   const s1 = await ko("S1");
   const s2 = await ko("S2");
-  expect([[s1.teamAId, s1.teamBId], [s2.teamAId, s2.teamBId]]).toEqual([[a1, b2], [b1, q1Winner]]);
+  expect([[s1.teamAId, s1.teamBId], [s2.teamAId, s2.teamBId]]).toEqual([[p1, p4], [p2, q1Winner]]);
   {
-    const [left, right] = await Promise.all([playersOf(a1)[0], playersOf(b1)[1]].map((playerId) => openAs(browser, testInfo, playerId, "/mata-mata")));
-    const forms = [await prepareScore(left, koCard(left, "S1"), scoreFor(s1, a1)), await prepareScore(right, koCard(right, "S2"), scoreFor(s2, b1, 1))];
+    const [left, right] = await Promise.all([playersOf(p1)[0], playersOf(p2)[1]].map((playerId) => openAs(browser, testInfo, playerId, "/mata-mata")));
+    const forms = [await prepareScore(left, koCard(left, "S1"), scoreFor(s1, p1)), await prepareScore(right, koCard(right, "S2"), scoreFor(s2, p2, 1))];
     await Promise.all(forms.map((item) => item.submit()));
     await expect(toast(left, "success", "Vocês estão na final!")).toBeVisible();
     await expect(toast(right, "success", "Vocês estão na final!")).toBeVisible();
-    recordSaved(s1.id, scoreFor(s1, a1), false);
-    recordSaved(s2.id, scoreFor(s2, b1, 1), false);
+    recordSaved(s1.id, scoreFor(s1, p1), false);
+    recordSaved(s2.id, scoreFor(s2, p2, 1), false);
     await left.reload();
     await expect(campaignPanel(left).getByRole("heading")).toHaveText("Vocês estão na final!");
     await expect(campaignPanel(left)).toContainText("Sua vez");
     await closePage(left);
     await closePage(right);
   }
-  await expectKnockoutIntegrity(7);
+  // Final (vencedores) e disputa de 3º lugar (perdedores) nascem juntas.
+  await expectKnockoutIntegrity(6);
   let final = await ko("F");
-  expect([final.teamAId, final.teamBId]).toEqual([a1, b1]);
-  page = await openAs(browser, testInfo, playersOf(b2)[0], "/mata-mata");
-  await expect(campaignPanel(page).getByRole("heading")).toHaveText("Fim da campanha nesta edição");
+  let third = await ko("T");
+  expect([[final.teamAId, final.teamBId], [third.teamAId, third.teamBId]]).toEqual([[p1, p2], [p4, q1Winner]]);
+  page = await openAs(browser, testInfo, playersOf(p4)[0], "/mata-mata");
+  await expect(campaignPanel(page).getByRole("heading")).toHaveText("Vocês vão disputar o 3º lugar");
+  await expect(campaignPanel(page)).toContainText("Sua vez");
+  await expect(campaignPanel(page)).toContainText("Disputa de 3º lugar · contra " + name(q1Winner));
+  await expect(resultButtons(koCard(page, "F"))).toHaveCount(0);
   await closePage(page);
+
+  // Troca do vencedor das Quartas 1 com a Semifinal 2 já disputada: recusada, mensagem na tela.
+  const q1Loser = q1Winner === q1.teamAId ? q1.teamBId : q1.teamAId;
+  page = await openAs(browser, testInfo, playersOf(q1Loser)[0], "/mata-mata");
+  await saveRefused(page, koCard(page, "Q1"), scoreFor(q1, q1Loser), /Não é possível trocar o vencedor: Semifinal 2 já foi disputada/);
+  await closePage(page);
+  expect((await ko("Q1")).result).toEqual(q1.result);
 
   if (!mobile) {
-    // Troca do vencedor da Semifinal 2 antes de a final ter placar: a final troca de dupla.
+    // Troca do vencedor da Semifinal 2 antes da final e do 3º lugar terem placar: as duas trocam de dupla.
     await launchKnockout(browser, testInfo, playersOf(q1Winner)[1], "S2", scoreFor(s2, q1Winner), "Vocês estão na final!");
     final = await ko("F");
-    expect([final.teamAId, final.teamBId]).toEqual([a1, q1Winner]);
-    await expectKnockoutIntegrity(7);
+    third = await ko("T");
+    expect([[final.teamAId, final.teamBId], [third.teamAId, third.teamBId]]).toEqual([[p1, q1Winner], [p4, p2]]);
+    await expectKnockoutIntegrity(6);
   }
+  const finalist = final.teamBId;
+  const thirdOpponent = third.teamBId;
 
-  // --- Final.
+  // --- Final: o campeão aparece na hora; a edição continua aberta até o 3º lugar.
   expect((await apiCall("GET", "/api/bracket/status")).body.editionFinished).toBe(false);
-  page = await openAs(browser, testInfo, playersOf(a1)[1], "/mata-mata");
+  page = await openAs(browser, testInfo, playersOf(p1)[1], "/mata-mata");
   await expect(page.locator(".ko-champion-name")).toHaveText("A definir");
-  await saveScore(page, koCard(page, "F"), final.id, scoreFor(final, a1, 1), "Campeões da 5ª edição!");
+  await saveScore(page, koCard(page, "F"), final.id, scoreFor(final, p1, 1), "Campeões da 5ª edição!");
   await expect(campaignPanel(page).getByRole("heading")).toHaveText("Campeões da 5ª edição!");
-  await expect(page.locator(".ko-champion-name")).toHaveText(name(a1));
+  await expect(page.locator(".ko-champion-name")).toHaveText(name(p1));
   await expect(page.locator(".ko-champion-note")).toHaveText("Campeão da 5ª edição");
+  // Sem o 3º lugar a edição está aberta: os finalistas ainda podem corrigir a final.
+  await expect(resultButtons(koCard(page, "F"))).toHaveText("Editar resultado");
+  await page.reload();
+  await expect(page.locator(".ko-champion-name")).toHaveText(name(p1));
+  await expect(campaignPanel(page).getByRole("heading")).toHaveText("Campeões da 5ª edição!");
+  await closePage(page);
+  let status = (await apiCall("GET", "/api/bracket/status")).body;
+  expect([status.editionFinished, status.champion?.teamId, status.phase]).toEqual([false, p1, "Mata-mata"]);
+  page = await openAs(browser, testInfo, playersOf(finalist)[0], "/mata-mata");
+  await expect(campaignPanel(page).getByRole("heading")).toHaveText("Vice-campeões da 5ª edição!");
+  await closePage(page);
+
+  // --- Disputa de 3º lugar: a conexão cai no primeiro clique; o jogador tenta de novo; nada duplica.
+  page = await openAs(browser, testInfo, playersOf(p4)[1], "/mata-mata");
+  await page.route("**/api/matches/*/result", (route) => route.abort("connectionfailed"), { times: 1 });
+  const form = await prepareScore(page, koCard(page, "T"), scoreFor(third, p4));
+  await form.submit();
+  await expect(toast(page, "error", /não foi possível confirmar a gravação/)).toBeVisible();
+  expect((await ko("T")).result).toBeNull();
+  const retry = await prepareScore(page, koCard(page, "T"), scoreFor(third, p4));
+  await retry.submit();
+  await expect(toast(page, "success", "3º lugar da 5ª edição!")).toBeVisible();
+  recordSaved(third.id, scoreFor(third, p4), false);
+  await expect(campaignPanel(page).getByRole("heading")).toHaveText("3º lugar da 5ª edição!");
+  // Edição encerrada: pódio completo e nenhum botão.
+  const podium = page.getByRole("region", { name: "Pódio e premiação" });
+  await expect(podium.locator(".knockout-podium-team")).toHaveText([name(p1), name(finalist), name(p4)]);
+  await expect(podium.locator(".knockout-podium-title")).toHaveText(["Campeões · R$ 400 por dupla", "Vice-campeões · R$ 200 por dupla", "Terceiro lugar · R$ 100 por dupla"]);
   await expect(resultButtons(page)).toHaveCount(0);
   await page.reload();
-  await expect(page.locator(".ko-champion-name")).toHaveText(name(a1));
-  await expect(campaignPanel(page).getByRole("heading")).toHaveText("Campeões da 5ª edição!");
   await expect(resultButtons(page)).toHaveCount(0);
   await closePage(page);
-  page = await openAs(browser, testInfo, playersOf(final.teamBId)[0], "/mata-mata");
-  await expect(campaignPanel(page).getByRole("heading")).toHaveText("Fim da campanha nesta edição");
+  page = await openAs(browser, testInfo, playersOf(thirdOpponent)[0], "/mata-mata");
+  await expect(campaignPanel(page).getByRole("heading")).toHaveText("Fim da campanha nesta edição: 4º lugar");
   await expect(resultButtons(page)).toHaveCount(0);
   await closePage(page);
-  await expectKnockoutIntegrity(7);
+  status = (await apiCall("GET", "/api/bracket/status")).body;
+  expect([status.editionFinished, status.champion?.teamId, status.phase]).toEqual([true, p1, "Campeonato Finalizado"]);
+  await expectKnockoutIntegrity(6);
 });
 
 test("5. edição encerrada: jogador sem botões e API recusando; Hall da Fama e Maiores Campeões mostram o título da 5ª edição", async ({ browser }, testInfo) => {
@@ -744,15 +706,15 @@ test("5. edição encerrada: jogador sem botões e API recusando; Hall da Fama e
   const page = await newPage(browser, testInfo, null);
   await screenLogin(page, championPlayer);
   await page.goto("/jogos");
-  await expect(page.locator(".match-card").first()).toBeVisible();
+  await expect(page.locator(".round-match").first()).toBeVisible();
   await expect(resultButtons(page)).toHaveCount(0);
-  for (const tab of ["Mata-mata", "Todos"]) {
+  for (const tab of ["Mata-mata", "Todas as Rodadas"]) {
     await page.getByRole("tab", { name: tab, exact: true }).click();
-    await expect(page.locator(".match-card").first()).toBeVisible();
+    await expect(page.locator(".match-card, .round-match").first()).toBeVisible();
     await expect(resultButtons(page)).toHaveCount(0);
   }
   await page.getByRole("tab", { name: "Mata-mata", exact: true }).click();
-  await expect(page.locator(".match-group-title")).toContainText(["Repescagem", "Quartas de final", "Semifinal", "Final"]);
+  await expect(page.locator(".match-group-title")).toContainText(["Quartas de final", "Semifinal", "Disputa de 3º lugar", "Final"]);
   await page.goto("/mata-mata");
   await expect(page.locator(".ko-champion-name")).toHaveText(champion.name);
   await expect(resultButtons(page)).toHaveCount(0);
@@ -785,10 +747,10 @@ test("5. edição encerrada: jogador sem botões e API recusando; Hall da Fama e
 
   // Sair e entrar com outro usuário (eliminado na fase de grupos): também sem botões.
   await screenLogout(page);
-  const eliminated = playersOf(await seeded(5, "B"))[1];
+  const eliminated = playersOf(await seeded(7))[1];
   await screenLogin(page, eliminated);
   await page.goto("/jogos");
-  await expect(page.locator(".match-card").first()).toBeVisible();
+  await expect(page.locator(".round-match").first()).toBeVisible();
   await expect(resultButtons(page)).toHaveCount(0);
   await page.goto("/mata-mata");
   await expect(page.locator(".ko-champion-name")).toHaveText(champion.name);

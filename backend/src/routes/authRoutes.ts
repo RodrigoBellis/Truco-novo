@@ -2,6 +2,7 @@ import { Router } from "express";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { login, changePassword } from "../services/authService.js";
 import { requireAuth } from "../middleware/requireAuth.js";
+import { AccessError, createFirstPassword } from "../services/accessService.js";
 
 export const authRoutes = Router();
 
@@ -23,8 +24,24 @@ authRoutes.post(
   "/change-password",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { newPassword } = req.body ?? {};
-    const user = await changePassword(req.authUser!.id, String(newPassword ?? ""));
+    const { newPassword, currentPassword } = req.body ?? {};
+    const user = await changePassword(req.authUser!.id, String(newPassword ?? ""), currentPassword === undefined ? undefined : String(currentPassword));
     res.json({ user });
+  }),
+);
+
+// Primeiro acesso da 5ª edição: o jogador escolhe a carta e cria a própria senha. Só funciona
+// enquanto a conta está "Aguardando criação de senha" e uma única vez.
+authRoutes.post(
+  "/first-access",
+  asyncHandler(async (req, res) => {
+    const { playerId, newPassword } = req.body ?? {};
+    try {
+      res.setHeader("Cache-Control", "no-store");
+      res.json(await createFirstPassword(String(playerId ?? ""), String(newPassword ?? ""), req.ip ?? "desconhecido"));
+    } catch (error) {
+      if (!(error instanceof AccessError)) throw error;
+      res.status(error.status).json({ message: error.message, code: error.code });
+    }
   }),
 );

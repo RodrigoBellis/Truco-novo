@@ -89,8 +89,9 @@ test("repositório real: desfazer o mata-mata, gravar o campeão uma vez por edi
   // Unicidade recusada pelo banco vira StoreConflictError (a sincronização relê e segue).
   db.bracketConflict = true;
   await assert.rejects(
-    () => store.createBracketMatches("edicao-5", [{ id: "b1", round: "repescagem", label: "Repescagem 1", order: 0, slotA: { type: "direct", teamId: "a3" }, slotB: { type: "direct", teamId: "b4" } }]),
+    () => store.createBracketMatches("edicao-5", [{ id: "b1", round: "terceiro", label: "Disputa de 3º lugar", order: 0, slotA: { type: "loser", bracketMatchId: "s1" }, slotB: { type: "loser", bracketMatchId: "s2" } }]),
     StoreConflictError,
   );
-  assert.equal(of("truco_bracket_matches", "POST")[0].body[0].round, "oitavas", "a repescagem continua gravada como 'oitavas' no enum do banco");
+  const row = of("truco_bracket_matches", "POST")[0].body[0];
+  assert.deepEqual([row.round, row.slot_a_type, row.slot_a_source_id, row.slot_b_source_id], ["terceiro", "loser", "s1", "s2"], "o 3º lugar é gravado com a fase 'terceiro' e os perdedores das semifinais como origem");
 });

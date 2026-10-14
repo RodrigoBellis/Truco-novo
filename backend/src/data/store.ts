@@ -16,7 +16,7 @@ import type {
   KnockoutStep,
   EditionChampionRecord,
 } from "@truco/shared";
-import { MATCHES_PER_GROUP } from "@truco/shared";
+import { EDITION_GROUP_IDS, MATCHES_PER_GROUP, groupDisplayName } from "@truco/shared";
 import { supabaseAdmin } from "./supabaseClient.js";
 import type { Database } from "../types/database.js";
 import { EditionSetupError } from "../services/editionSetupError.js";
@@ -60,21 +60,21 @@ function mapMatch(row: MatchRow): Match {
 
 function mapBracketSlot(type: BracketRow["slot_a_type"], teamId: string | null, sourceId: string | null): BracketSlotSource {
   if (type === "direct") return { type: "direct", teamId: teamId ?? "" };
-  if (type === "winner") return { type: "winner", bracketMatchId: sourceId ?? "" };
+  if (type === "winner" || type === "loser") return { type, bracketMatchId: sourceId ?? "" };
   return { type: "tbd" };
 }
 
 /**
- * O enum do banco (truco_bracket_round) ainda chama a primeira fase de "oitavas"; no app ela é
- * a repescagem. A tradução fica só aqui, na fronteira com o banco.
+ * O enum do banco (truco_bracket_round) ainda tem "oitavas", da antiga repescagem; o formato de
+ * 14/10/2026 não usa essa fase. A tradução fica só aqui, na fronteira com o banco.
  */
-const ROUND_FROM_DB: Record<BracketRow["round"], BracketMatch["round"]> = { oitavas: "repescagem", quartas: "quartas", semifinal: "semifinal", final: "final" };
-const ROUND_TO_DB: Record<BracketMatch["round"], BracketRow["round"]> = { repescagem: "oitavas", quartas: "quartas", semifinal: "semifinal", final: "final" };
+const ROUND_FROM_DB: Record<Exclude<BracketRow["round"], "oitavas">, BracketMatch["round"]> = { quartas: "quartas", semifinal: "semifinal", terceiro: "terceiro", final: "final" };
+const ROUND_TO_DB: Record<BracketMatch["round"], BracketRow["round"]> = { quartas: "quartas", semifinal: "semifinal", terceiro: "terceiro", final: "final" };
 
 function mapBracket(row: BracketRow): BracketMatch {
   return {
     id: row.truco_id,
-    round: ROUND_FROM_DB[row.round],
+    round: row.round === "oitavas" ? "quartas" : ROUND_FROM_DB[row.round],
     label: row.label,
     order: row.match_order,
     slotA: mapBracketSlot(row.slot_a_type, row.slot_a_team_id, row.slot_a_source_id),
@@ -383,9 +383,10 @@ class TrucoRepository {
       .eq("truco_championship_id", championshipId);
     if (teamsError) fail("listar duplas dos grupos", teamsError);
 
-    return (groups ?? []).map((g: GroupRow) => ({
+    // Só os grupos do formato atual (o banco ainda pode ter a linha do antigo Grupo B, vazia).
+    return (groups ?? []).filter((g: GroupRow) => (EDITION_GROUP_IDS as readonly string[]).includes(g.label)).map((g: GroupRow) => ({
       id: g.label as GroupId,
-      name: g.name,
+      name: groupDisplayName(g.label as GroupId),
       teamIds: (teams ?? []).filter((t) => t.status === "aprovada" && t.truco_group_id === g.truco_id).map((t) => t.truco_id),
     }));
   }
@@ -445,10 +446,9 @@ class TrucoRepository {
     const { data } = await supabaseAdmin.from("truco_groups").select("truco_id").eq("truco_championship_id", championshipId);
     if (data && data.length > 0) return;
 
-    const { error } = await supabaseAdmin.from("truco_groups").insert([
-      { truco_championship_id: championshipId, label: "A", name: "Grupo A" },
-      { truco_championship_id: championshipId, label: "B", name: "Grupo B" },
-    ]);
+    const { error } = await supabaseAdmin.from("truco_groups").insert(
+      EDITION_GROUP_IDS.map((groupId) => ({ truco_championship_id: championshipId, label: groupId, name: groupDisplayName(groupId) })),
+    );
     if (error) fail("criar grupos", error);
   }
 
@@ -543,13 +543,11 @@ class TrucoRepository {
   }
 
   async createAllGroupMatches(championshipId: string, fixtures: Record<GroupId, Array<{ teamAId: string; teamBId: string; order: number }>>): Promise<void> {
-    if (fixtures.A.length !== MATCHES_PER_GROUP || fixtures.B.length !== MATCHES_PER_GROUP) throw new RangeError(`A edição deve gerar ${MATCHES_PER_GROUP} partidas por grupo.`);
+    if (EDITION_GROUP_IDS.some((groupId) => fixtures[groupId].length !== MATCHES_PER_GROUP)) throw new RangeError(`A edição deve gerar ${MATCHES_PER_GROUP} partidas por grupo.`);
     await this.ensureGroups(championshipId);
-    const groupIds = new Map<GroupId, string>([
-      ["A", await this.getGroupRowId(championshipId, "A")],
-      ["B", await this.getGroupRowId(championshipId, "B")],
-    ]);
-    const rows = (["A", "B"] as const).flatMap((groupId) => fixtures[groupId].map((pair) => ({
+    const groupIds = new Map<GroupId, string>();
+    for (const groupId of EDITION_GROUP_IDS) groupIds.set(groupId, await this.getGroupRowId(championshipId, groupId));
+    const rows = EDITION_GROUP_IDS.flatMap((groupId) => fixtures[groupId].map((pair) => ({
       truco_id: this.newId(),
       truco_championship_id: championshipId,
       stage: "grupos" as const,
@@ -695,7 +693,7 @@ class TrucoRepository {
     const toColumns = (slot: BracketSlotSource) => ({
       type: slot.type,
       teamId: slot.type === "direct" ? slot.teamId : null,
-      sourceId: slot.type === "winner" ? slot.bracketMatchId : null,
+      sourceId: slot.type === "winner" || slot.type === "loser" ? slot.bracketMatchId : null,
     });
 
     const payload = rows.map((row) => {
@@ -718,14 +716,6 @@ class TrucoRepository {
 
     const { error } = await supabaseAdmin.from("truco_bracket_matches").insert(payload);
     if (error) fail("criar o mata-mata", error);
-  }
-
-  /** Regrava de qual confronto vem o lado B (usado para o cruzamento das quartas). */
-  async setBracketSlotBSource(bracketMatchId: string, sourceBracketMatchId: string): Promise<void> {
-    const { error } = await supabaseAdmin.from("truco_bracket_matches")
-      .update({ slot_b_type: "winner", slot_b_team_id: null, slot_b_source_id: sourceBracketMatchId })
-      .eq("truco_id", bracketMatchId);
-    if (error) fail("atualizar o cruzamento das quartas", error);
   }
 
   /** Remove um jogo do mata-mata ainda sem placar; o vínculo no chaveamento é desfeito pelo banco. */

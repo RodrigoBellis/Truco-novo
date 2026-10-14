@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { GroupId, Player, Team } from "@truco/shared";
-import { EDITION_TEAM_COUNT, TEAMS_PER_GROUP, isValidTeamStrength } from "@truco/shared";
+import { EDITION_TEAM_COUNT, SINGLE_GROUP_NAME, TEAMS_PER_GROUP, isValidTeamStrength } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Loading } from "../../components/ui/Loading";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -81,12 +81,12 @@ export function AdminTeamsPage() {
 
   return (
     <div className="page-enter">
-      <PageHeader title="Duplas da 5ª edição" subtitle={`${data.teams.filter((team) => team.status === "aprovada").length} de ${EDITION_TEAM_COUNT} duplas · ${data.teams.filter((team) => team.status === "aprovada" && team.groupId === "A").length}/${TEAMS_PER_GROUP} no Grupo A · ${data.teams.filter((team) => team.status === "aprovada" && team.groupId === "B").length}/${TEAMS_PER_GROUP} no Grupo B`} />
+      <PageHeader title="Duplas da 5ª edição" subtitle={`${data.teams.filter((team) => team.status === "aprovada").length} de ${EDITION_TEAM_COUNT} duplas · ${data.teams.filter((team) => team.status === "aprovada" && team.groupId === "A").length}/${TEAMS_PER_GROUP} no ${SINGLE_GROUP_NAME}`} />
 
       <section id="team-editor" className="admin-teams-editor" aria-labelledby="team-editor-title">
         <div>
           <h2 id="team-editor-title">{editingTeam ? "Editar participação" : "Montar uma dupla"}</h2>
-          <p>Escolha dois jogadores livres nesta edição e defina grupo e força da dupla.</p>
+          <p>Escolha dois jogadores livres nesta edição e defina a força da dupla. Todas jogam no grupo único.</p>
         </div>
         <div className="admin-teams-editor-grid">
           <label><span>Nome da dupla</span><input value={name} onChange={(event) => setName(event.target.value)} maxLength={80} /></label>
@@ -97,7 +97,7 @@ export function AdminTeamsPage() {
             <option value="">Selecione um jogador</option>{availablePlayers.map((player) => <option key={player.id} value={player.id} disabled={player.id === player1Id}>{player.name}</option>)}
           </select></label>
           <label><span>Grupo</span><select value={groupId} onChange={(event) => setGroupId(event.target.value as GroupId)}>
-            <option value="A">Grupo A</option><option value="B">Grupo B</option>
+            <option value="A">{SINGLE_GROUP_NAME}</option>
           </select></label>
           <label><span>Força da dupla</span><select value={strength} onChange={(event) => setStrength(Number(event.target.value))}>
             {[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{"★".repeat(value)} ({value}/5)</option>)}

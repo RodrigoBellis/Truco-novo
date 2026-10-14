@@ -1,4 +1,4 @@
-import type { KnockoutMatchView, QuarterfinalPairing } from "./bracket.js";
+import type { KnockoutMatchView } from "./bracket.js";
 import type { StandingRow } from "./group.js";
 import type { GroupId, QualificationZone } from "./team.js";
 
@@ -25,13 +25,11 @@ export interface SimulationGroupSummary {
   teamNames: string[];
   /** Tabela final do grupo, já com a zona de cada posição. */
   standings: SimulationStandingRow[];
-  /** 1º: direto na semifinal. */
-  qualifiedDirect: string | null;
-  /** 2º: direto nas quartas de final. */
-  qualifiedQuarter: string | null;
-  /** 3º e 4º: repescagem. */
-  qualifiedPlayoff: string[];
-  /** 5º: eliminado. */
+  /** 1º e 2º: direto na semifinal. */
+  qualifiedDirect: string[];
+  /** 3º a 6º: quartas de final. */
+  qualifiedQuarter: string[];
+  /** 7º: eliminado. */
   eliminated: string | null;
   /** Houve empate exato e o simulador fez o papel do administrador para decidir as posições. */
   tieResolvedManually: boolean;
@@ -41,6 +39,8 @@ export interface SimulationFinalSummary {
   championTeamName: string | null;
   runnerUpTeamName: string | null;
   finalScore: string | null;
+  thirdPlaceTeamName: string | null;
+  thirdPlaceScore: string | null;
 }
 
 export interface SimulationReport {
@@ -50,10 +50,8 @@ export interface SimulationReport {
   totalTeams: number;
   approvedTeams: number;
   groups: SimulationGroupSummary[];
-  /** Chaveamento completo, na ordem do plano oficial (repescagem → final). */
+  /** Chaveamento completo, na ordem do plano oficial (quartas → final). */
   knockout: KnockoutMatchView[];
-  /** Como as quartas foram cruzadas para evitar reencontros da fase de grupos. */
-  quarterfinals: QuarterfinalPairing | null;
   groupMatches: number;
   knockoutMatches: number;
   totalMatches: number;

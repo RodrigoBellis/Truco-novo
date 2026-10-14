@@ -13,38 +13,28 @@ interface SeedPlayer {
   name: string;
 }
 
+// Lista oficial da 5ª edição (14/10/2026): 7 duplas, 14 jogadores. Rafinha é o antigo "Rafael"
+// (mesmo id); Digão é o pai do Diguinho, outra pessoa.
 const rosterPlayers: SeedPlayer[] = [
-  { id: "p-bagriel", name: "Bagriel" },
+  { id: "p-pigas", name: "Pigas" },
   { id: "p-diguinho", name: "Diguinho" },
-  { id: "p-xablauu", name: "Xablauu" },
-  { id: "p-alexandre", name: "Alexandre" },
-  { id: "p-vito", name: "Vito" },
-  { id: "p-luizao", name: "Luizão" },
-  { id: "p-pg", name: "PG" },
-  { id: "p-caio", name: "Caio" },
   { id: "p-ronaldo", name: "Ronaldo" },
   { id: "p-rodrigo", name: "Rodrigo" },
-  { id: "p-marcelo", name: "Marcelo" },
-  { id: "p-juninho", name: "Juninho" },
-  { id: "p-bitula", name: "Bitula" },
-  { id: "p-galao", name: "Galão" },
-  { id: "p-rafael", name: "Rafael" },
-  { id: "p-pigas", name: "Pigas" },
+  { id: "p-jp", name: "JP" },
+  { id: "p-anderson", name: "Anderson" },
+  { id: "p-saulo", name: "Saulo" },
+  { id: "p-vitor", name: "Vitor" },
+  { id: "p-pg", name: "PG" },
+  { id: "p-alexandre", name: "Alexandre" },
   { id: "p-rogerio", name: "Rogério" },
   { id: "p-waguinho", name: "Waguinho" },
-  { id: "p-vitor", name: "Vitor" },
-  { id: "p-fernando", name: "Fernando" },
-  { id: "p-jp", name: "JP" },
-  { id: "p-davi", name: "Davi" },
-  { id: "p-bruno", name: "Bruno" },
-  { id: "p-thiaguinho", name: "Thiaguinho" },
+  { id: "p-digao", name: "Digão" },
+  { id: "p-rafael", name: "Rafinha" },
 ];
 
 const pendingRosterPlayers: SeedPlayer[] = [
   { id: "p-kaka", name: "Kaká" },
   { id: "p-nenem", name: "Neném" },
-  { id: "p-zeca", name: "Zeca" },
-  { id: "p-duda", name: "Duda" },
 ];
 
 function toPlayer(seedPlayer: SeedPlayer, teamId: string): Player {
@@ -64,24 +54,23 @@ interface SeedTeam {
   seeded: boolean;
   isPlaceholder: boolean;
   status: "pendente" | "aprovada";
+  strength: number;
 }
 
+const team = (id: string, first: number, strength: number, seeded = false): SeedTeam => ({
+  id, player1: rosterPlayers[first], player2: rosterPlayers[first + 1], seeded, isPlaceholder: false, status: "aprovada", strength,
+});
+
 const seedTeams: SeedTeam[] = [
-  { id: "t-bagriel-diguinho", player1: rosterPlayers[0], player2: rosterPlayers[1], seeded: true, isPlaceholder: false, status: "aprovada" },
-  { id: "t-xablauu-alexandre", player1: rosterPlayers[2], player2: rosterPlayers[3], seeded: false, isPlaceholder: false, status: "aprovada" },
-  { id: "t-vito-luizao", player1: rosterPlayers[4], player2: rosterPlayers[5], seeded: false, isPlaceholder: false, status: "aprovada" },
-  { id: "t-pg-caio", player1: rosterPlayers[6], player2: rosterPlayers[7], seeded: false, isPlaceholder: false, status: "aprovada" },
-  { id: "t-ronaldo-rodrigo", player1: rosterPlayers[8], player2: rosterPlayers[9], seeded: true, isPlaceholder: false, status: "aprovada" },
-  { id: "t-marcelo-juninho", player1: rosterPlayers[10], player2: rosterPlayers[11], seeded: false, isPlaceholder: true, status: "aprovada" },
-  { id: "t-bitula-galao", player1: rosterPlayers[12], player2: rosterPlayers[13], seeded: false, isPlaceholder: false, status: "aprovada" },
-  { id: "t-rafael-pigas", player1: rosterPlayers[14], player2: rosterPlayers[15], seeded: false, isPlaceholder: false, status: "aprovada" },
-  { id: "t-rogerio-waguinho", player1: rosterPlayers[16], player2: rosterPlayers[17], seeded: false, isPlaceholder: false, status: "aprovada" },
-  { id: "t-vitor-fernando", player1: rosterPlayers[18], player2: rosterPlayers[19], seeded: false, isPlaceholder: false, status: "aprovada" },
-  // A edição tem 10 duplas (5 por grupo): estas ficam fora da simulação, como inscrições pendentes.
-  { id: "t-jp-davi", player1: rosterPlayers[20], player2: rosterPlayers[21], seeded: false, isPlaceholder: false, status: "pendente" },
-  { id: "t-bruno-thiaguinho", player1: rosterPlayers[22], player2: rosterPlayers[23], seeded: false, isPlaceholder: true, status: "pendente" },
-  { id: "t-kaka-nenem", player1: pendingRosterPlayers[0], player2: pendingRosterPlayers[1], seeded: false, isPlaceholder: false, status: "pendente" },
-  { id: "t-zeca-duda", player1: pendingRosterPlayers[2], player2: pendingRosterPlayers[3], seeded: false, isPlaceholder: false, status: "pendente" },
+  team("t-pigas-diguinho", 0, 4),
+  team("t-ronaldo-rodrigo", 2, 5, true),
+  team("t-jp-anderson", 4, 3),
+  team("t-saulo-vitor", 6, 3),
+  team("t-pg-alexandre", 8, 2),
+  team("t-rogerio-waguinho", 10, 2),
+  team("t-digao-rafinha", 12, 2),
+  // A edição tem 7 duplas: esta fica fora da simulação, como inscrição pendente.
+  { id: "t-kaka-nenem", player1: pendingRosterPlayers[0], player2: pendingRosterPlayers[1], seeded: false, isPlaceholder: false, status: "pendente", strength: 3 },
 ];
 
 export const SEED_PLAYERS: Player[] = [
@@ -98,7 +87,7 @@ export const SEED_TEAMS: Team[] = seedTeams.map((team) => ({
   seeded: team.seeded,
   isPlaceholder: team.isPlaceholder,
   groupId: null,
-  strength: 3,
+  strength: team.strength,
 }));
 
 /**
@@ -145,6 +134,8 @@ const HALL_OF_FAME: HallOfFameEdition[] = [
  * Entram só no histórico e no ranking; nunca viram dupla nem conta da simulação.
  */
 const historicPlayers: SeedPlayer[] = [
+  { id: "p-bagriel", name: "Bagriel" },
+  { id: "p-bitula", name: "Bitula" },
   { id: "p-vinicius", name: "Vinícius" },
 ];
 

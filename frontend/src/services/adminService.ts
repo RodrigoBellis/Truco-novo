@@ -19,3 +19,20 @@ export function resetTournament(): Promise<void> {
 export function setResultsLock(locked: boolean): Promise<ResultsLockState> {
   return apiRequest<ResultsLockState>("/admin/results-lock", { method: "POST", body: { locked } });
 }
+
+export interface PlayerAccess { playerId: string; hasAccount: boolean; setupPending: boolean; setupCompletedAt: string | null }
+
+/** Situação de acesso de cada jogador (nunca a senha). */
+export function getPlayersAccess(): Promise<PlayerAccess[]> {
+  return apiRequest<PlayerAccess[]>("/admin/players/access");
+}
+
+/** "Redefinir acesso": a senha atual deixa de valer e o jogador cria outra na próxima entrada. */
+export function resetPlayerAccess(playerId: string): Promise<{ playerId: string; playerName: string; accountCreated: boolean }> {
+  return apiRequest(`/admin/players/${encodeURIComponent(playerId)}/reset-access`, { method: "POST" });
+}
+
+/** Reinicia o acesso de todos os participantes da edição (só com o cadeado de resultados fechado). */
+export function restartAllAccess(): Promise<{ restarted: number; created: number }> {
+  return apiRequest("/admin/access/restart", { method: "POST" });
+}

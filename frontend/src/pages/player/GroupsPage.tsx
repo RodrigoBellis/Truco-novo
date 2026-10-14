@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
-import type { GroupId, Player, StandingRow, Team } from "@truco/shared";
-import { TEAMS_PER_GROUP } from "@truco/shared";
+import type { Player, StandingRow, Team } from "@truco/shared";
+import { MATCHES_PER_GROUP, SINGLE_GROUP_NAME, TEAMS_PER_GROUP } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Loading } from "../../components/ui/Loading";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -17,49 +16,36 @@ import "./GroupsPage.css";
 interface Data {
   teams: Team[];
   players: Player[];
-  myGroupId: GroupId | null;
-  standings: Record<GroupId, StandingRow[]>;
+  standings: StandingRow[];
 }
 
+const SUBTITLE = `${SINGLE_GROUP_NAME} · ${TEAMS_PER_GROUP} duplas, todos contra todos (${MATCHES_PER_GROUP} jogos) · 5ª Edição 2026`;
+
+/** Classificação da fase de grupos: desde 14/10/2026 a 5ª edição tem um grupo único. */
 export function GroupsPage() {
   const { user } = useAuth();
   const { data, isLoading, error, refetch } = useFetchData<Data>(async () => {
-    const [teams, players] = await Promise.all([getTeams(), getPlayers()]);
-    const myGroupId = teams.find((team) => team.id === user?.teamId)?.groupId ?? null;
-    const [a, b] = await Promise.all([getStandings("A"), getStandings("B")]);
-    return { teams, players, myGroupId, standings: { A: a, B: b } };
+    const [teams, players, standings] = await Promise.all([getTeams(), getPlayers(), getStandings("A")]);
+    return { teams, players, standings };
   }, [user?.teamId]);
-  const [selectedGroup, setSelectedGroup] = useState<GroupId | null>(null);
-
-  useEffect(() => {
-    if (data) setSelectedGroup((current) => current ?? data.myGroupId ?? "A");
-  }, [data]);
   useRealtimeMatches(refetch);
 
-  if (isLoading) return <Loading fullHeight label="Carregando grupos..." />;
-  if (error) return <EmptyState icon={<Icon name="group" size={36} />} tone="danger" title="Não foi possível carregar os grupos" description={error} />;
+  if (isLoading) return <Loading fullHeight label="Carregando a classificação..." />;
+  if (error) return <EmptyState icon={<Icon name="group" size={36} />} tone="danger" title="Não foi possível carregar a classificação" description={error} />;
 
-  const activeGroup = selectedGroup ?? data?.myGroupId ?? "A";
-  if (!data?.standings[activeGroup].length) {
-    return <div className="page-enter"><PageHeader title="Grupos" subtitle="Classificação dos Grupos A e B · 5ª Edição 2026" /><GroupTabs selected={activeGroup} myGroup={data?.myGroupId ?? null} onSelect={setSelectedGroup} /><EmptyState icon={<Icon name="group" size={36} />} title="Grupos ainda não definidos" description="As classificações aparecerão aqui assim que as duplas forem organizadas pelo administrador." /></div>;
+  if (!data?.standings.length) {
+    return <div className="page-enter"><PageHeader title="Grupos" subtitle={SUBTITLE} /><EmptyState icon={<Icon name="group" size={36} />} title="Grupo ainda não definido" description="A classificação aparece aqui assim que as duplas forem organizadas pelo administrador." /></div>;
   }
 
+  const inGroup = data.standings.some((row) => row.teamId === user?.teamId);
+  const missing = TEAMS_PER_GROUP - data.standings.length;
   return (
     <div className="page-enter">
-      <PageHeader title="Grupos" subtitle="Acompanhe a classificação completa dos dois grupos" />
-      <GroupTabs selected={activeGroup} myGroup={data.myGroupId} onSelect={setSelectedGroup} />
-      <section key={activeGroup} className="groups-standings groups-standings-enter" aria-labelledby="groups-standings-title">
-        <div className="groups-standings-heading"><div><h2 id="groups-standings-title">Grupo {activeGroup}</h2><p>{data.standings[activeGroup].length} duplas na disputa{data.standings[activeGroup].length < TEAMS_PER_GROUP ? ` · ${TEAMS_PER_GROUP - data.standings[activeGroup].length === 1 ? "1 vaga aguardando dupla" : `${TEAMS_PER_GROUP - data.standings[activeGroup].length} vagas aguardando duplas`}` : ""} · classificação atualizada pelos resultados</p></div>{activeGroup === data.myGroupId ? <span className="groups-own-badge">Seu grupo</span> : <span className="groups-other-note">{data.myGroupId ? `Sua dupla está no Grupo ${data.myGroupId}` : "Sua dupla ainda não tem grupo"}</span>}</div>
-        <StandingsTable rows={data.standings[activeGroup]} teams={data.teams} players={data.players} highlightTeamId={user?.teamId} />
+      <PageHeader title="Grupos" subtitle={SUBTITLE} />
+      <section className="groups-standings groups-standings-enter" aria-labelledby="groups-standings-title">
+        <div className="groups-standings-heading"><div><h2 id="groups-standings-title">{SINGLE_GROUP_NAME}</h2><p>{data.standings.length} duplas na disputa{missing > 0 ? ` · ${missing === 1 ? "1 vaga aguardando dupla" : `${missing} vagas aguardando duplas`}` : ""} · 1º e 2º na semifinal · 3º a 6º nas quartas · 7º eliminado</p></div>{inGroup && <span className="groups-own-badge">Sua dupla está aqui</span>}</div>
+        <StandingsTable rows={data.standings} teams={data.teams} players={data.players} highlightTeamId={user?.teamId} />
       </section>
     </div>
   );
-}
-
-function GroupTabs({ selected, myGroup, onSelect }: { selected: GroupId; myGroup: GroupId | null; onSelect: (group: GroupId) => void }) {
-  return <div className="groups-tabs" role="tablist" aria-label="Escolher grupo">
-    {(["A", "B"] as const).map((group) => <button key={group} type="button" role="tab" aria-selected={selected === group} tabIndex={selected === group ? 0 : -1} onKeyDown={event => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); onSelect(group === "A" ? "B" : "A"); (event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("button")[group === "A" ? 1 : 0])?.focus(); } }} className={`groups-tab${selected === group ? " groups-tab-active" : ""}`} onClick={() => onSelect(group)}>
-      Grupo {group}{myGroup === group && <span> · Seu grupo</span>}
-    </button>)}
-  </div>;
 }

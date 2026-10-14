@@ -1,3 +1,4 @@
+import { groupDisplayName } from "@truco/shared";
 import type { CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import type { Player, StandingRow, Team } from "@truco/shared";
@@ -65,7 +66,7 @@ export function TeamProfileHero({ team, players, teams, standing, playerId }: Te
       <div className="team-profile-aside">
         <div className="team-profile-group">
           {team.groupId
-            ? <p className={`team-profile-group-mark ${groupToneClass(team.groupId)}`}><span>Grupo</span> <strong>{team.groupId}</strong></p>
+            ? <p className={`team-profile-group-mark ${groupToneClass(team.groupId)}`}><span>Grupo</span> <strong>{groupDisplayName(team.groupId).replace(/^Grupo /, "")}</strong></p>
             : <p className="team-profile-group-mark is-pending">Grupo a definir</p>}
           {standing && <p className="team-profile-position">{standing.position}º lugar</p>}
         </div>

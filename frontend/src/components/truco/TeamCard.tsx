@@ -1,3 +1,4 @@
+import { groupDisplayName } from "@truco/shared";
 import type { Team } from "@truco/shared";
 import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
@@ -16,7 +17,7 @@ export function TeamCard({ team, highlight = false }: TeamCardProps) {
       <div className="team-card-info">
         <strong>{team.name}</strong>
         <div className="team-card-badges">
-          {team.groupId && <Badge tone="green">Grupo {team.groupId}</Badge>}
+          {team.groupId && <Badge tone="green">{groupDisplayName(team.groupId)}</Badge>}
           <Badge tone="gold" aria-label={`Força ${team.strength} de 5`}>
             <span aria-hidden="true">{"★".repeat(team.strength)}</span>
             <span className="team-card-strength-label">Força {team.strength}/5</span>

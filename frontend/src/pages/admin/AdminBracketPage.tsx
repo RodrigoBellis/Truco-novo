@@ -12,7 +12,7 @@ import { ScoreForm } from "../../components/truco/ScoreForm";
 import { useFetchData } from "../../hooks/useFetchData";
 import { useResultEntry } from "../../hooks/useResultEntry";
 import { getPlayers } from "../../services/playersService";
-import { loadKnockoutData, quarterfinalRematchNote, summarizeKnockout, type KnockoutData } from "../../utils/knockout";
+import { loadKnockoutData, summarizeKnockout, type KnockoutData } from "../../utils/knockout";
 import { teamLabel } from "../../utils/teamHelpers";
 import "./AdminBracketPage.css";
 
@@ -20,7 +20,7 @@ interface Data extends KnockoutData {
   players: Player[];
 }
 
-const SUBTITLE = "Repescagem, quartas, semifinais e final da 5ª Edição";
+const SUBTITLE = "Quartas, semifinais, disputa de 3º lugar e final da 5ª Edição";
 
 export function AdminBracketPage() {
   const { data, isLoading, error, refetch } = useFetchData<Data>(async () => {
@@ -52,19 +52,18 @@ export function AdminBracketPage() {
   const summary = summarizeKnockout(data);
   const generated = data.bracket.length > 0;
   const groupsComplete = summary.groupsComplete;
-  const rematchNote = quarterfinalRematchNote(summary.view);
 
   const note = data.status?.syncPending
     ? "Placar salvo. O avanço ou o registro do título está pendente; o servidor tentará concluir automaticamente. Se persistir, revise a configuração antes de corrigir resultados."
     : generated
     ? summary.phase === "encerrado"
       ? "Todos os confrontos do mata-mata já foram disputados. O campeão está registrado e a edição foi encerrada."
-      : rematchNote ?? "As fases nascem sozinhas: cada resultado promove o vencedor, as quartas são montadas quando as duas repescagens terminam e a final registra o campeão. As duplas lançam os próprios resultados; aqui você pode registrar ou corrigir um placar."
+      : "As fases nascem sozinhas: cada resultado promove o vencedor, a final e a disputa de 3º lugar nascem com as duas semifinais, a final registra o campeão e a edição encerra quando final e 3º lugar tiverem resultado. As duplas lançam os próprios resultados; aqui você pode registrar ou corrigir um placar."
     : summary.tiePending
-      ? "Há empate que sobreviveu a todos os critérios (pontos, vitórias, vitórias por 2x0, confronto direto e saldo de quedas). A repescagem nasce sozinha logo depois que você decidir as posições."
+      ? "Há empate que sobreviveu a todos os critérios (pontos, vitórias, vitórias por 2x0, confronto direto e saldo de quedas). As quartas nascem sozinhas logo depois que você decidir as posições."
       : groupsComplete
-        ? "Fase de grupos encerrada. A repescagem nasce sozinha a partir da classificação final: não é preciso gerar nada. Os confrontos abaixo já seguem essa ordem."
-        : "Chaveamento provisório, pela classificação de hoje. A repescagem nasce sozinha quando todos os jogos de grupo terminarem; o administrador só precisa manter o cadeado de resultados aberto.";
+        ? "Fase de grupos encerrada. As quartas nascem sozinhas a partir da classificação final: não é preciso gerar nada. Os confrontos abaixo já seguem essa ordem."
+        : "Chaveamento provisório, pela classificação de hoje. As quartas nascem sozinhas quando os 21 jogos do grupo terminarem; o administrador só precisa manter o cadeado de resultados aberto.";
 
   return (
     <div className="page-enter">
@@ -88,7 +87,7 @@ export function AdminBracketPage() {
       )}
 
       <section className="admin-bracket-view" aria-label="Chaveamento">
-        <KnockoutBracket view={summary.view} championConfirmed={data.status?.editionFinished === true} provisionalLabel={groupsComplete && !summary.tiePending ? "classificação final" : undefined} />
+        <KnockoutBracket view={summary.view} championConfirmed={Boolean(data.status?.champion)} provisionalLabel={groupsComplete && !summary.tiePending ? "classificação final" : undefined} />
       </section>
 
       {generated && data.matches.length > 0 && (

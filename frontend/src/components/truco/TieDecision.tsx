@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { GroupId, StandingRow, Team } from "@truco/shared";
+import { groupDisplayName, type GroupId, type StandingRow, type Team } from "@truco/shared";
 import { Button } from "../ui/Button";
 import { teamLabel } from "../../utils/teamHelpers";
 import "./TieDecision.css";
@@ -33,8 +33,8 @@ export function TieDecision({ groupId, cluster, teams, isSaving, onConfirm }: Ti
   }
 
   return (
-    <section className="tie-decision" aria-label={`Decidir empate do Grupo ${groupId}`}>
-      <h3>Empate a decidir no Grupo {groupId}</h3>
+    <section className="tie-decision" aria-label={`Decidir empate do ${groupDisplayName(groupId)}`}>
+      <h3>Empate a decidir no {groupDisplayName(groupId)}</h3>
       <p>
         Estas duplas terminaram iguais em tudo: {sample.pontos} pontos, {sample.vitorias} {sample.vitorias === 1 ? "vitória" : "vitórias"}, {sample.vitorias2x0} por 2x0,
         confronto direto empatado e o mesmo saldo de quedas. Não há outro critério de desempate. Ponha na ordem final e confirme; o mata-mata só pode ser gerado depois disso.
@@ -54,7 +54,7 @@ export function TieDecision({ groupId, cluster, teams, isSaving, onConfirm }: Ti
           );
         })}
       </ol>
-      <Button isLoading={isSaving} onClick={() => onConfirm(order)}>Confirmar posições do Grupo {groupId}</Button>
+      <Button isLoading={isSaving} onClick={() => onConfirm(order)}>Confirmar posições do {groupDisplayName(groupId)}</Button>
     </section>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BRACKET_ROUNDS, BRACKET_ROUND_LABEL, KNOCKOUT_PLAN, RESULTS_LOCKED_MESSAGE, type GroupId, type Match, type Player, type StandingRow, type Team } from "@truco/shared";
+import { BRACKET_ROUNDS, BRACKET_ROUND_LABEL, KNOCKOUT_PLAN, MATCHES_PER_GROUP, RESULTS_LOCKED_MESSAGE, buildGroupRounds, pairKey, type Match, type Player, type StandingRow, type Team } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Loading } from "../../components/ui/Loading";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -7,8 +7,7 @@ import { Button } from "../../components/ui/Button";
 import { Icon } from "../../components/ui/Icon";
 import { MatchGroupsList } from "../../components/truco/MatchGroupsList";
 import { ScoreForm } from "../../components/truco/ScoreForm";
-import { MatchesHero } from "../../components/truco/MatchesHero";
-import { buildOpponentInsight, type OpponentInsight } from "../../utils/opponentInsight";
+import { StandingsTable } from "../../components/truco/StandingsTable";
 import { useAuth } from "../../hooks/useAuth";
 import { useFetchData } from "../../hooks/useFetchData";
 import { useRealtimeMatches } from "../../hooks/useRealtimeMatches";
@@ -19,8 +18,6 @@ import { getMatches } from "../../services/matchesService";
 import { getPlayers } from "../../services/playersService";
 import { getStandings } from "../../services/groupsService";
 import { teamLabel } from "../../utils/teamHelpers";
-import { teamHue } from "../../utils/teamColor";
-import { groupToneClass } from "../../utils/groupColor";
 import "./PlayerMatchesPage.css";
 import "../../components/truco/ResultsLockControl.css";
 
@@ -28,184 +25,201 @@ interface Data {
   teams: Team[];
   matches: Match[];
   players: Player[];
-  groupId: GroupId | null;
   standings: StandingRow[];
 }
 
-type GroupFilter = "mine" | GroupId | "knockout" | "all";
+type Tab = "mine" | "rounds" | "knockout";
 
-const FILTERS: ReadonlyArray<{ value: GroupFilter; label: string }> = [
-  { value: "mine", label: "Meus Jogos" },
-  { value: "A", label: "Grupo A" },
-  { value: "B", label: "Grupo B" },
-  { value: "knockout", label: "Mata-mata" },
-  { value: "all", label: "Todos" },
-];
-
-/** No mata-mata a tabela do grupo não diz nada sobre o confronto: só a fase e o que está em jogo. */
-function knockoutInsight(match: Match): OpponentInsight {
-  return { tone: "abertura", message: "Mata-mata: quem vence avança, quem perde se despede da edição.", positionLabel: match.round, medal: null };
+/** Um confronto da fase de grupos com a mesa e a rodada de referência. */
+interface PlacedMatch {
+  match: Match;
+  round: number;
+  table: number;
 }
-type StatusFilter = "all" | "upcoming" | "finished";
 
+/**
+ * Jogos: Meus Jogos (o que a dupla joga e lança), Todas as Rodadas (organização presencial em 7
+ * rodadas de 3 mesas, com a dupla que descansa) e Mata-mata. Rodadas e mesas são só referência:
+ * todo jogo pode ter o placar lançado a qualquer momento, em qualquer ordem — o único limite é o
+ * cadeado global. A classificação vem da API (a mesma regra oficial), atualizada a cada placar.
+ */
 export function PlayerMatchesPage() {
   const { user } = useAuth();
-
   const myTeamId = user?.teamId ?? null;
 
   const { data, isLoading, error, refetch } = useFetchData<Data>(async () => {
-    const [teams, matches, players] = await Promise.all([getTeams(), getMatches(), getPlayers()]);
-    const myTeam = teams.find((t) => t.id === myTeamId);
-    const groupId = myTeam?.groupId ?? null;
-    // Classificação real do grupo — base das mensagens do próximo confronto.
-    const standings = groupId ? await getStandings(groupId) : [];
-    return { teams, players, groupId, standings, matches };
+    const [teams, matches, players, standings] = await Promise.all([getTeams(), getMatches(), getPlayers(), getStandings("A")]);
+    return { teams, matches, players, standings };
   }, [myTeamId]);
 
   useRealtimeMatches(refetch);
-  // Cadeado global: fechado, o jogador vê tudo mas não lança nem edita placar.
   const resultsLock = useResultsLock();
-
-  const [groupFilter, setGroupFilter] = useState<GroupFilter>("mine");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  // Mesmo fluxo de lançar/corrigir da tela Mata-mata (confirmação, toasts por fase, 403).
+  const [tab, setTab] = useState<Tab>("mine");
   const entry = useResultEntry({ onSaved: refetch, onForbidden: resultsLock.refetch });
 
   if (isLoading) return <Loading fullHeight label="Carregando jogos..." />;
-  if (error) return <EmptyState icon={<Icon name="matches" size={36} />} tone="danger" title="Não foi possível carregar os jogos" description={error} />;
+  if (error || !data) return <EmptyState icon={<Icon name="matches" size={36} />} tone="danger" title="Não foi possível carregar os jogos" description={error ?? ""} />;
 
-  // Próximo confronto da dupla: o pendente de menor posição na fila.
-  const nextMatch = myTeamId
-    ? (data?.matches ?? [])
-        .filter((m) => m.status === "pendente" && (m.teamAId === myTeamId || m.teamBId === myTeamId))
-        .sort((a, b) => (a.queuePosition ?? a.order) - (b.queuePosition ?? b.order))[0]
-    : undefined;
+  const groupMatches = data.matches.filter((match) => match.stage === "grupos");
+  const knockoutMatches = data.matches.filter((match) => match.stage === "mata-mata");
+  const done = groupMatches.filter((match) => match.result).length;
+  const decided = (round: string) => knockoutMatches.some((match) => match.round === round && match.result !== null);
+  const editionOver = decided(BRACKET_ROUND_LABEL.final) && decided(BRACKET_ROUND_LABEL.terceiro);
+  const isMine = (match: Match) => myTeamId !== null && (match.teamAId === myTeamId || match.teamBId === myTeamId);
+  const name = (teamId: string | null) => (teamId ? teamLabel(data.teams, teamId) : "—");
 
-  const opponentId = nextMatch
-    ? nextMatch.teamAId === myTeamId
-      ? nextMatch.teamBId
-      : nextMatch.teamAId
-    : null;
+  // Rodadas visuais: duplas do grupo único em ordem alfabética, para todos verem as mesmas rodadas.
+  const groupTeams = data.teams.filter((team) => team.status === "aprovada" && team.groupId === "A").sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  const byPair = new Map(groupMatches.map((match) => [pairKey(match.teamAId, match.teamBId), match]));
+  const rounds = buildGroupRounds(groupTeams.map((team) => team.id)).map((round) => ({
+    ...round,
+    placed: round.tables.flatMap((table) => {
+      const match = byPair.get(pairKey(table.teamAId, table.teamBId));
+      return match ? [{ match, round: round.round, table: table.table }] : [];
+    }),
+  }));
+  const placedById = new Map(rounds.flatMap((round) => round.placed).map((item) => [item.match.id, item]));
+  const roundsComplete = rounds.length > 0 && rounds.every((round) => round.placed.length === round.tables.length);
 
-  const myTeam = myTeamId ? data?.teams.find((team) => team.id === myTeamId) : undefined;
-  const myPendingCount = myTeamId
-    ? (data?.matches ?? []).filter((m) => m.status === "pendente" && (m.teamAId === myTeamId || m.teamBId === myTeamId)).length
-    : 0;
+  /** Lançar/editar: só a própria dupla, cadeado aberto e edição em disputa. A API confere tudo de novo. */
+  function action(match: Match) {
+    if (!isMine(match) || resultsLock.locked || editionOver) return null;
+    if (entry.openKey === match.id) {
+      return (
+        <ScoreForm
+          teamAName={name(match.teamAId)}
+          teamBName={name(match.teamBId)}
+          isSubmitting={entry.isSubmitting}
+          currentResult={match.result}
+          onCancel={entry.close}
+          onSubmit={(result) => entry.submit({ matchId: match.id, stage: match.stage, hasResult: match.result !== null }, result)}
+        />
+      );
+    }
+    return (
+      <Button variant={match.result ? "ghost" : "primary"} size="sm" onClick={() => entry.open(match.id)}>
+        {match.result ? "Editar resultado" : "Lançar resultado"}
+      </Button>
+    );
+  }
 
-  const isMineMatch = (match: Match) => myTeamId !== null && (match.teamAId === myTeamId || match.teamBId === myTeamId);
-  const queueOrder = (match: Match) => match.queuePosition ?? match.order + 1;
+  // Função de renderização (não componente): o formulário de placar aberto não é remontado a cada atualização.
+  function renderRow(item: PlacedMatch) {
+    const { match } = item;
+    const mine = isMine(match);
+    const winner = match.result ? (match.result.setsA > match.result.setsB ? match.teamAId : match.teamBId) : null;
+    const side = (teamId: string, sets: number | null) => (
+      <span className={`round-team${winner === teamId ? " is-winner" : ""}${teamId === myTeamId ? " is-mine" : ""}`}>
+        <span className="round-team-name">{name(teamId)}</span>
+        {sets !== null && <strong className="round-team-sets">{sets}</strong>}
+      </span>
+    );
+    return (
+      <li key={match.id} className={`round-match${mine ? " round-match-mine" : ""}${match.result ? " is-done" : ""}`} aria-label={`Rodada ${item.round}, mesa ${item.table}: ${name(match.teamAId)} contra ${name(match.teamBId)}`}>
+        <div className="round-match-head">
+          <span className="round-table">{tab === "mine" && item.round > 0 ? `Rodada ${item.round} · ` : ""}Mesa {item.table}</span>
+          <span className={`round-status${match.result ? " is-done" : ""}`}>{match.result ? "Finalizado" : "Pendente"}</span>
+        </div>
+        <div className="round-match-teams">
+          {side(match.teamAId, match.result?.setsA ?? null)}
+          <span className="round-versus" aria-hidden="true">×</span>
+          {side(match.teamBId, match.result?.setsB ?? null)}
+        </div>
+        {(() => { const node = action(match); return node ? <div className="round-match-action">{node}</div> : null; })()}
+      </li>
+    );
+  }
 
-  const visibleMatches = (data?.matches ?? []).filter((match) => {
-    const inSelectedGroup = groupFilter === "all" || (groupFilter === "mine"
-      ? isMineMatch(match)
-      : groupFilter === "knockout"
-        ? match.stage === "mata-mata"
-        : match.groupId === groupFilter);
-    const inSelectedStatus = statusFilter === "all" || (statusFilter === "upcoming" ? match.status === "pendente" : match.status === "realizado");
-    return inSelectedGroup && inSelectedStatus;
-  });
+  const myMatches = groupMatches.filter(isMine)
+    .map((match) => placedById.get(match.id) ?? { match, round: 0, table: 0 })
+    .sort((a, b) => Number(Boolean(a.match.result)) - Number(Boolean(b.match.result)) || a.round - b.round);
+  const myKnockout = knockoutMatches.filter(isMine);
 
-  // Filtro Mata-mata: uma seção por fase, na ordem do chaveamento. O backend grava em
-  // match.round o nome da fase ("Repescagem", "Quartas de final", "Semifinal", "Final"). Se algum
-  // jogo vier com outro nome de rodada, vale o agrupamento padrão para ele não sumir.
   const roundOf = (match: Match) => BRACKET_ROUNDS.find((round) => BRACKET_ROUND_LABEL[round] === match.round) ?? KNOCKOUT_PLAN.find((fixture) => fixture.label === match.round)?.round;
-  // Final com placar: a edição acabou e a API recusa qualquer lançamento de jogador.
-  const editionOver = (data?.matches ?? []).some((match) => match.stage === "mata-mata" && match.round === BRACKET_ROUND_LABEL.final && match.result !== null);
-  const knockoutSections = groupFilter === "knockout" && visibleMatches.every((match) => roundOf(match))
-    ? BRACKET_ROUNDS.map((round) => ({ title: BRACKET_ROUND_LABEL[round], matches: visibleMatches.filter((match) => roundOf(match) === round).sort((a, b) => a.order - b.order) }))
-    : undefined;
+  const knockoutSections = BRACKET_ROUNDS.map((round) => ({ title: BRACKET_ROUND_LABEL[round], matches: knockoutMatches.filter((match) => roundOf(match) === round).sort((a, b) => a.order - b.order) }));
+
+  const tabs: Array<{ value: Tab; label: string }> = [
+    { value: "mine", label: "Meus Jogos" },
+    { value: "rounds", label: "Todas as Rodadas" },
+    ...(knockoutMatches.length > 0 || tab === "knockout" ? [{ value: "knockout" as Tab, label: "Mata-mata" }] : []),
+  ];
 
   return (
-    <div className="page-enter">
-      <PageHeader title="Jogos" subtitle="Acompanhe a ordem, os confrontos e os placares da edição" />
-
-      {data && myTeam && (
-        <MatchesHero
-          teamName={myTeam.name}
-          hue={teamHue(myTeam.id, data.teams)}
-          groupId={data.groupId}
-          standing={data.standings.find((row) => row.teamId === myTeam.id)}
-          pendingCount={myPendingCount}
-          next={
-            nextMatch && opponentId && nextMatch.stage === "mata-mata"
-              ? { opponentName: teamLabel(data.teams, opponentId), insight: knockoutInsight(nextMatch) }
-              : nextMatch && opponentId && data.groupId
-              ? {
-                  opponentName: teamLabel(data.teams, opponentId),
-                  insight: buildOpponentInsight({
-                    matchId: nextMatch.id,
-                    groupId: data.groupId,
-                    myTeamId: myTeam.id,
-                    opponentTeamId: opponentId,
-                    standings: data.standings,
-                  }),
-                }
-              : null
-          }
-        />
-      )}
+    <div className="page-enter matches-page">
+      <PageHeader title="Jogos" subtitle="Rodadas e mesas são só referência: jogue e lance o resultado em qualquer ordem" />
 
       {resultsLock.locked && !resultsLock.isLoading && (
         <p className="results-lock-notice" role="status"><Icon name="lock" size={20} />{RESULTS_LOCKED_MESSAGE}</p>
       )}
 
-      <div className="matches-filter-section">
-        <div className="matches-group-filters" role="tablist" aria-label="Filtrar jogos por grupo">
-          {FILTERS.map((filter) => <button key={filter.value} type="button" role="tab" aria-selected={groupFilter === filter.value} className={`matches-filter-chip${groupFilter === filter.value ? " matches-filter-chip-active" : ""}`} onClick={() => setGroupFilter(filter.value)}>{(filter.value === "A" || filter.value === "B") && <span className={`matches-filter-dot ${groupToneClass(filter.value)}`} aria-hidden="true" />}{filter.label}</button>)}
-        </div>
-        <label className="matches-status-filter">Situação <select aria-label="Filtrar por situação" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}><option value="all">Todos</option><option value="upcoming">Próximos</option><option value="finished">Finalizados</option></select></label>
+      <section className="matches-progress" aria-label="Andamento da fase de grupos">
+        <p><strong>{done} de {MATCHES_PER_GROUP}</strong> partidas concluídas</p>
+        <progress max={MATCHES_PER_GROUP} value={done} aria-label="Partidas concluídas" />
+      </section>
+
+      <div className="matches-tabs" role="tablist" aria-label="Ver jogos">
+        {tabs.map((item) => (
+          <button key={item.value} type="button" role="tab" aria-selected={tab === item.value} className={`matches-tab${tab === item.value ? " is-active" : ""}`} onClick={() => setTab(item.value)}>
+            {item.label}
+          </button>
+        ))}
       </div>
 
-      {data && visibleMatches.length > 0 ? (
-        <MatchGroupsList
-          matches={visibleMatches}
-          teams={data.teams}
-          players={data.players}
-          highlightTeamId={user?.teamId}
-          liveMatchId={entry.openKey}
-          sections={
-            // Em Meus Jogos o que importa é o que falta jogar e o que já foi jogado (mais recente primeiro).
-            groupFilter === "mine"
-              ? [
-                  { title: "Próximos confrontos", matches: visibleMatches.filter((m) => m.status === "pendente").sort((a, b) => queueOrder(a) - queueOrder(b)) },
-                  { title: "Já jogados", matches: visibleMatches.filter((m) => m.status === "realizado").sort((a, b) => queueOrder(b) - queueOrder(a)) },
-                ]
-              : knockoutSections
-          }
-          renderActions={(match) => {
-            // Só a própria dupla lança/corrige o placar. Jogos realizados de outras duplas
-            // podem aparecer na lista (classificação do grupo), mas sem ação disponível.
-            if (!isMineMatch(match)) return null;
-            // Com o cadeado fechado não há ação: o aviso no topo da tela explica o motivo.
-            if (resultsLock.locked || editionOver) return null;
-
-            return (
-              <div>
-                {entry.openKey === match.id ? (
-                  <ScoreForm
-                    teamAName={teamLabel(data.teams, match.teamAId)}
-                    teamBName={teamLabel(data.teams, match.teamBId)}
-                    isSubmitting={entry.isSubmitting}
-                    currentResult={match.result}
-                    onCancel={entry.close}
-                    onSubmit={(result) => entry.submit({ matchId: match.id, stage: match.stage, hasResult: match.status === "realizado" }, result)}
-                  />
-                ) : (
-                  <Button variant={match.status === "realizado" ? "ghost" : "primary"} size="sm" onClick={() => entry.open(match.id)}>
-                    {match.status === "realizado" ? "Editar resultado" : "Lançar resultado"}
-                  </Button>
-                )}
-              </div>
-            );
-          }}
-        />
-      ) : (
-        groupFilter === "knockout" && statusFilter === "all" ? (
-        <EmptyState icon={<Icon name="bracket" size={36} />} title="O mata-mata ainda não começou" description="Os jogos da repescagem aparecem aqui sozinhos quando a fase de grupos terminar. Quartas, semifinais e final entram conforme cada fase é decidida." />
-      ) : (
-        <EmptyState icon={<Icon name="matches" size={36} />} title="Nenhum jogo neste filtro" description={groupFilter === "mine" ? "Sua dupla ainda não tem jogos nesta situação. Você também pode consultar os Grupos A e B." : "Não encontramos partidas com esses filtros."} />
-      )
+      {tab === "mine" && (
+        myTeamId === null ? (
+          <EmptyState icon={<Icon name="matches" size={36} />} title="Você não está em uma dupla" description="Veja todos os confrontos em Todas as Rodadas." />
+        ) : (
+          <section aria-label="Meus jogos">
+            <ul className="round-list">
+              {myMatches.map(renderRow)}
+            </ul>
+            {myMatches.length > 0 && <p className="matches-hint">Pendente ou finalizado, qualquer jogo pode ter o placar lançado a qualquer momento.</p>}
+            {myKnockout.length > 0 && (
+              <MatchGroupsList matches={myKnockout} teams={data.teams} players={data.players} highlightTeamId={myTeamId} liveMatchId={entry.openKey} sections={[{ title: "Meus jogos no mata-mata", matches: myKnockout }]} renderActions={action} />
+            )}
+          </section>
+        )
       )}
+
+      {tab === "rounds" && (
+        roundsComplete ? (
+          <div className="rounds">
+            {rounds.map((round) => {
+              const finished = round.placed.filter((item) => item.match.result).length;
+              const hasMine = round.placed.some((item) => isMine(item.match));
+              return (
+                <details key={round.round} className={`round${hasMine ? " round-has-mine" : ""}`} open={finished < round.placed.length || hasMine}>
+                  <summary>
+                    <span className="round-title">Rodada {round.round}</span>
+                    <span className="round-count">{finished}/{round.placed.length} finalizados</span>
+                  </summary>
+                  <ul className="round-list">
+                    {round.placed.map(renderRow)}
+                  </ul>
+                  {round.restingTeamId && (
+                    <p className={`round-rest${round.restingTeamId === myTeamId ? " is-mine" : ""}`}><span aria-hidden="true">💤</span> Descansa: <strong>{name(round.restingTeamId)}</strong></p>
+                  )}
+                </details>
+              );
+            })}
+          </div>
+        ) : (
+          <EmptyState icon={<Icon name="matches" size={36} />} title="Jogos ainda não gerados" description="As rodadas aparecem aqui quando o administrador gerar os 21 confrontos do grupo único." />
+        )
+      )}
+
+      {tab === "knockout" && (
+        knockoutMatches.length > 0 ? (
+          <MatchGroupsList matches={knockoutMatches} teams={data.teams} players={data.players} highlightTeamId={myTeamId} liveMatchId={entry.openKey} sections={knockoutSections} renderActions={action} />
+        ) : (
+          <EmptyState icon={<Icon name="bracket" size={36} />} title="O mata-mata ainda não começou" description="Os jogos das quartas aparecem aqui sozinhos quando a fase de grupos terminar. Semifinais, disputa de 3º lugar e final entram conforme cada fase é decidida." />
+        )
+      )}
+
+      <section className="matches-standings" aria-labelledby="matches-standings-title">
+        <h2 id="matches-standings-title">Classificação ao vivo</h2>
+        <StandingsTable rows={data.standings} teams={data.teams} players={data.players} highlightTeamId={myTeamId} />
+      </section>
 
       {entry.dialog}
     </div>

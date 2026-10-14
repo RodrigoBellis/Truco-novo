@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
 // Autenticação FICTÍCIA do modo homologação. Não cria, lê nem altera contas no Supabase Auth:
 // as identidades são as linhas fictícias de truco_profiles do banco local, todas com a mesma
@@ -16,17 +16,18 @@ const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("
 const sign = (text: string) => createHmac("sha256", secret).update(text).digest("base64url");
 const sameText = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
-export interface FictitiousUser { id: string; email: string }
+export interface FictitiousUser { id: string; email: string; authTime?: number }
 
 const userPayload = (user: FictitiousUser) => ({ id: user.id, aud: "authenticated", role: "authenticated", email: user.email, app_metadata: {}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z" });
 
-export function issueFictitiousSession(user: FictitiousUser) {
+export function issueFictitiousSession(user: FictitiousUser, authTime?: number) {
   const now = Math.floor(Date.now() / 1000);
   const body = `${encode({ alg: "HS256", typ: "JWT" })}.${encode({
     iss: "truco-homologacao", sub: user.id, aud: "authenticated", role: "authenticated", email: user.email,
-    iat: now, exp: now + ACCESS_TOKEN_SECONDS, session_id: user.id,
+    iat: now, exp: now + ACCESS_TOKEN_SECONDS, session_id: user.id, amr: [{ method: "password", timestamp: authTime ?? now }],
   })}`;
-  const refreshBody = `homologacao-refresh.${encode(user)}`;
+  // A renovação preserva o horário do login (como o Supabase faz em amr).
+  const refreshBody = `homologacao-refresh.${encode({ ...user, authTime: authTime ?? now })}`;
   return {
     access_token: `${body}.${sign(body)}`,
     refresh_token: `${refreshBody}.${sign(refreshBody)}`,
@@ -39,6 +40,19 @@ export function issueFictitiousSession(user: FictitiousUser) {
 
 export function signInFictitious(user: FictitiousUser, password: string) {
   return (passwords.get(user.id) ?? FICTITIOUS_PASSWORD) === password ? issueFictitiousSession(user) : null;
+}
+
+/** Hash de senha individual da homologação: "scrypt$sal$hash" (base64url). A senha nunca é guardada. */
+export function hashPassword(password: string, salt = randomBytes(16)): string {
+  return `scrypt$${salt.toString("base64url")}$${scryptSync(password, salt, 32).toString("base64url")}`;
+}
+
+export function verifyPasswordHash(password: string, stored: string): boolean {
+  const [scheme, salt, hash] = stored.split("$");
+  if (scheme !== "scrypt" || !salt || !hash) return false;
+  const expected = Buffer.from(hash, "base64url");
+  const actual = scryptSync(password, Buffer.from(salt, "base64url"), expected.length);
+  return timingSafeEqual(actual, expected);
 }
 
 export function changeFictitiousPassword(userId: string, password: string): void {

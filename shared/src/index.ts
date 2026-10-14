@@ -10,3 +10,4 @@ export * from "./simulation.js";
 export * from "./majorChampions.js";
 export * from "./schedule.js";
 export * from "./progression.js";
+export * from "./tables.js";

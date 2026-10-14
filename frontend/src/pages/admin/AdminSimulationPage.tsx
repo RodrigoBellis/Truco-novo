@@ -18,7 +18,7 @@ import "./AdminSimulationPage.css";
 
 type PendingAction = "run" | "reset";
 
-const ZONE_TONE: Record<QualificationZone, "green" | "info" | "gold" | "danger"> = { semifinal: "green", quartas: "info", repescagem: "gold", eliminado: "danger" };
+const ZONE_TONE: Record<QualificationZone, "green" | "info" | "gold" | "danger"> = { semifinal: "green", quartas: "info", eliminado: "danger" };
 
 export function AdminSimulationPage() {
   const { data: availability, isLoading } = useFetchData(getSimulationAvailability);
@@ -92,8 +92,8 @@ export function AdminSimulationPage() {
 
       <Card className="simulation-intro">
         <p className="text-muted">
-          Executa o campeonato inteiro com duplas e placares de teste: sorteio, fase de grupos, classificação com os cinco critérios,
-          repescagem, quartas, semifinais, final e campeão — validando cada regra ao final. Tudo acontece na memória do
+          Executa o campeonato inteiro com duplas e placares de teste: grupo único com 7 duplas (21 jogos), classificação com os
+          cinco critérios, quartas, semifinais, disputa de 3º lugar, final e campeão (27 partidas) — validando cada regra ao final. Tudo acontece na memória do
           servidor local: os placares reais do campeonato não são lidos nem alterados.
         </p>
       </Card>
@@ -158,7 +158,7 @@ export function AdminSimulationPage() {
 
           <div className="simulation-columns">
             <Card>
-              <h3>Campeão e vice</h3>
+              <h3>Pódio</h3>
               <dl className="simulation-final">
                 <div>
                   <dt>Campeão</dt>
@@ -171,6 +171,10 @@ export function AdminSimulationPage() {
                 <div>
                   <dt>Resultado da final</dt>
                   <dd>{report.final.finalScore ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt>3º lugar</dt>
+                  <dd>{report.final.thirdPlaceTeamName ?? "—"}{report.final.thirdPlaceScore ? ` (${report.final.thirdPlaceScore})` : ""}</dd>
                 </div>
               </dl>
             </Card>
@@ -197,13 +201,6 @@ export function AdminSimulationPage() {
 
           <Card>
             <h3>Mata-mata da simulação</h3>
-            {report.quarterfinals && (
-              <p className="text-muted simulation-group-note">
-                Quartas: {report.quarterfinals.swapped ? "cruzamento trocado para evitar reencontro" : "cruzamento padrão"}
-                {report.quarterfinals.avoided > 0 && ` · ${report.quarterfinals.avoided} reencontros evitados`}
-                {report.quarterfinals.inevitable ? " · 1 reencontro inevitável (os dois vencedores da repescagem são do mesmo grupo)" : " · nenhum reencontro"}
-              </p>
-            )}
             <KnockoutBracket view={report.knockout} />
           </Card>
 
