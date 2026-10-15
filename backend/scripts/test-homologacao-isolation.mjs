@@ -64,7 +64,7 @@ try {
   assert.equal(sql('local_installer', 'select marker from public.official_mock'), 'local_definer');
   console.log('CONFIRMED LOCAL: domínio avaliado dentro do trigger escreveu na tabela protegida com identidade do definer');
 
-  assert.throws(() => run('psql', [...connection('local_installer'), '-f', join(root, 'supabase/migrations/202610090003_homologacao_runtime_role.sql')]), /Isolamento reprovado/);
+  assert.throws(() => run('psql', [...connection('local_installer'), '-f', join(root, 'supabase/homologacao/arquivo/202610090003_homologacao_runtime_role.sql')]), /Isolamento reprovado/);
   assert.equal(sql('local_installer', "select count(*) from pg_roles where rolname='truco_homologacao_runtime'"), '0');
   console.log('PASS LOCAL: migration de homologação recusou o ambiente inseguro antes de criar o papel');
 

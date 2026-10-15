@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FocusEvent, type FormEvent, type InputHTMLAttributes } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Logo } from "../components/ui/Logo";
 import { Button } from "../components/ui/Button";
@@ -23,6 +23,28 @@ import heroImageAvif from "../assets/truco-5-edicao.avif";
 import heroImageWebp from "../assets/truco-5-edicao.webp";
 import lightHeroImage from "../assets/truco-5-edicao.png";
 import "./LoginPage.css";
+
+/** Teclado do celular: o campo em foco sobe para o meio da tela, junto com o aviso logo abaixo dele. */
+function keepFieldVisible(event: FocusEvent<HTMLInputElement>) {
+  const field = event.currentTarget;
+  if (!window.matchMedia("(max-width: 600px)").matches) return;
+  window.setTimeout(() => field.scrollIntoView({ block: "center", behavior: "smooth" }), 300);
+}
+
+/** Campo de senha com o olho para mostrar/ocultar o que foi digitado. */
+function PasswordInput(props: Omit<InputHTMLAttributes<HTMLInputElement>, "type">) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <span className="login-password">
+      <input {...props} type={visible ? "text" : "password"} onFocus={keepFieldVisible} />
+      <button type="button" className="login-password-toggle" onClick={() => setVisible((value) => !value)} aria-label={visible ? "Ocultar o que foi digitado" : "Mostrar o que foi digitado"} aria-pressed={visible}>
+        <Icon name={visible ? "eye-off" : "eye"} size={20} />
+      </button>
+    </span>
+  );
+}
+
+const byName = (a: RosterPlayer, b: RosterPlayer) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
 
 const ADMIN_IDENTITY: Identity = { name: "Administrador", credential: { email: "admin@trucodonovo.com" } };
 
@@ -56,7 +78,9 @@ export function LoginPage() {
   /** Última carta escolhida: ao voltar da senha, o baralho reabre nela. */
   const [lastPlayerId, setLastPlayerId] = useState<string | null>(null);
 
-  const { data: players, isLoading: playersLoading, error: playersError, refetch: refetchPlayers } = useFetchData<RosterPlayer[]>(getRoster, []);
+  const { data: roster, isLoading: playersLoading, error: playersError, refetch: refetchPlayers } = useFetchData<RosterPlayer[]>(getRoster, []);
+  // Baralho e lista na mesma ordem alfabética.
+  const players = useMemo(() => roster ? [...roster].sort(byName) : roster, [roster]);
 
   if (!isLoading && user) {
     return <Navigate to={user.mustChangePassword ? "/criar-senha" : entryPathForUser(user)} replace />;
@@ -111,6 +135,7 @@ export function LoginPage() {
 
   const isPlayerIdentity = identity !== null && "playerId" in identity.credential;
   const setupMismatch = confirmation.length > 0 && password !== confirmation;
+  const shortBy = password.length > 0 && password.length < 6 ? 6 - password.length : 0;
 
   async function handleSetup(event: FormEvent) {
     event.preventDefault();
@@ -207,7 +232,7 @@ export function LoginPage() {
             <button type="button" className="login-back" onClick={backToDeck}>
               ← Voltar às cartas
             </button>
-            <h1>Selecione seu perfil</h1>
+            <h1>Selecione seu nome</h1>
             <p className="text-muted">Toque no seu nome para continuar</p>
 
             {playersLoading ? (
@@ -231,6 +256,7 @@ export function LoginPage() {
                       <button key={player.id} type="button" className="profile-card" onClick={() => choosePlayer(player)}>
                         <span className="profile-avatar">{player.name.slice(0, 1).toUpperCase()}</span>
                         <span className="profile-name">{player.name}</span>
+                        {player.needsSetup && <span className="profile-setup">Criar senha</span>}
                       </button>
                     ))}
                   </div>
@@ -245,7 +271,7 @@ export function LoginPage() {
         {step === "setup" && identity && (
           <div className={`login-step login-step-password${identity.card ? " login-auth" : ""}`}>
             <button type="button" className="login-back" onClick={backToDeck}>
-              ← Voltar
+              ← Voltar às cartas
             </button>
             <div className="login-auth-identity">
               {identity.card && (
@@ -254,27 +280,29 @@ export function LoginPage() {
                 </div>
               )}
               <span className="login-auth-kicker">Primeiro acesso</span>
-              <h1>Crie sua senha para a 5ª Edição</h1>
+              <h1 className="login-setup-title">Crie sua senha para a 5ª&nbsp;Edição</h1>
               <p className="text-muted">{identity.name}, escolha a senha que quiser. É ela que você vai usar nas próximas entradas.</p>
             </div>
             <form onSubmit={handleSetup} className="login-form" aria-label="Crie sua senha">
-              <label className="login-field">
-                <span>Nova senha</span>
-                <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={6} required autoFocus autoComplete="new-password" />
-              </label>
-              <label className="login-field">
-                <span>Repita a senha</span>
-                <input type="password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} minLength={6} required autoComplete="new-password" aria-invalid={setupMismatch} />
-              </label>
-              <p className="login-setup-hint text-faint">Pelo menos 6 caracteres. Só você deve saber esta senha.</p>
-              {setupMismatch && <p className="login-error" role="alert">As duas senhas não são iguais.</p>}
+              <div className="login-field">
+                <label htmlFor="login-new-password">Nova senha</label>
+                <PasswordInput id="login-new-password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={6} required autoFocus autoComplete="new-password" aria-describedby="login-new-password-hint" />
+                <p id="login-new-password-hint" className={`login-field-hint${shortBy > 0 ? " is-warning" : ""}`}>
+                  {shortBy > 0 ? `Faltam ${shortBy} caractere${shortBy === 1 ? "" : "s"}.` : "Pelo menos 6 caracteres. Só você deve saber esta senha."}
+                </p>
+              </div>
+              <div className="login-field">
+                <label htmlFor="login-confirm-password">Repita a senha</label>
+                <PasswordInput id="login-confirm-password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} minLength={6} required autoComplete="new-password" aria-invalid={setupMismatch} aria-describedby={setupMismatch ? "login-confirm-error" : undefined} />
+                {setupMismatch && <p id="login-confirm-error" className="login-field-error" role="alert">As duas senhas não são iguais. Confira e digite de novo.</p>}
+              </div>
               {error && <p className="login-error" role="alert">{error}</p>}
               <Button type="submit" isLoading={isSubmitting} disabled={password.length < 6 || password !== confirmation} className="login-submit">
                 Criar senha e entrar
               </Button>
             </form>
             <button type="button" className="login-switch-user" onClick={backToDeck}>
-              Não é você? Escolher outro jogador
+              Não é você? Escolher outra carta
             </button>
           </div>
         )}
@@ -282,7 +310,7 @@ export function LoginPage() {
         {step === "password" && identity && (
           <div className={`login-step login-step-password${identity.card ? " login-auth" : ""}`}>
             <button type="button" className="login-back" onClick={backToDeck}>
-              ← Voltar
+              ← Voltar às cartas
             </button>
 
             {identity.card ? (
@@ -303,23 +331,24 @@ export function LoginPage() {
             )}
 
             <form onSubmit={handleSubmit} className="login-form">
-              <label className="login-field">
-                <span>Senha</span>
-                <input
-                  type="password"
+              <div className="login-field">
+                <label htmlFor="login-password">Senha</label>
+                <PasswordInput
+                  id="login-password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  placeholder="••••"
                   required
                   autoFocus
                   autoComplete="current-password"
                 />
-              </label>
+              </div>
 
               {error && (
-                <p className="login-error" role="alert">
-                  {error}
-                </p>
+                <div className="login-error" role="alert">
+                  <p>{error}</p>
+                  {/* Orientação genérica: vale para qualquer recusa e não revela nada sobre a conta. */}
+                  {isPlayerIdentity && <p className="login-error-help">Esqueceu a senha? Peça ao administrador para redefinir seu acesso. Depois é só escolher sua carta e criar uma nova.</p>}
+                </div>
               )}
 
               <Button type="submit" isLoading={isSubmitting} className="login-submit">
@@ -329,7 +358,7 @@ export function LoginPage() {
 
             {isPlayerIdentity && (
               <button type="button" className="login-switch-user" onClick={backToDeck}>
-                Não é você? Entrar com outro usuário
+                Não é você? Escolher outra carta
               </button>
             )}
           </div>

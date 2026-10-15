@@ -459,3 +459,58 @@
   .deck-arrow { width: 44px; height: 44px; }
   .deck-nav { grid-template-columns: 44px minmax(0, 1fr) 44px; }
 }
+
+/* ---------- Revisão do Login (14/10/2026) ---------- */
+.deck-pick {
+  min-height: 52px;
+  font-size: var(--text-md);
+  box-shadow: var(--shadow-accent);
+}
+
+.deck-hint {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.deck-info-setup {
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgb(var(--rgb-accent) / 0.45);
+  color: var(--color-accent-500);
+  font-weight: 700;
+}
+
+/* Celular: carta menor e o botão sempre à vista no rodapé, sem cobrir nada
+   (o painel ocupa o próprio espaço no fluxo; só gruda quando a tela é baixa). */
+@media (max-width: 600px) {
+  .deck { --card-w: clamp(128px, 40vw, 168px); }
+  .deck-scene { height: calc(var(--card-h) + 88px); }
+
+  .deck-panel {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    width: 100%;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-1) max(var(--space-3), env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--color-bg) 70%, transparent);
+  }
+
+  .deck-pick {
+    width: 100%;
+  }
+}
+
+/* Celular baixo (SE e similares): tudo encolhe para caber sem o painel cobrir a carta. */
+@media (max-width: 600px) and (max-height: 700px) {
+  .deck { --card-w: clamp(92px, 28vw, 116px); }
+  .deck-scene { height: calc(var(--card-h) + 56px); }
+  .deck-info-name { font-size: var(--text-md); }
+  .deck-arrow { width: 40px; height: 40px; }
+  .deck-nav { grid-template-columns: 40px minmax(0, 1fr) 40px; }
+  .deck-pick { min-height: 48px; }
+}
+
+@media (max-width: 600px) and (max-height: 620px) {
+  .deck-hint { display: none; }
+}

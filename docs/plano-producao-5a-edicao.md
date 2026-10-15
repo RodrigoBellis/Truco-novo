@@ -32,7 +32,7 @@ O que conferir antes de aceitar: a função `truco_fn_audit` não é alterada; o
 
 Foi escrita para criar um papel de homologação dentro do Supabase. Essa homologação não foi feita lá e o arquivo não foi aplicado. Deixá-lo em `supabase/migrations/` é um risco: uma aplicação em lote da pasta tentaria executá-lo no banco oficial.
 
-**Recomendação:** tirá-lo de `supabase/migrations/` (mover para `supabase/homologacao/arquivo/` como registro, ou apagar). O arquivo não está versionado, então a mudança não deixa rastro no git. Aguarda sua decisão.
+**Feito em 14/10/2026:** movida para `supabase/homologacao/arquivo/` com autorização do organizador. Não foi aplicada em nenhum banco oficial.
 
 ## 3. Aplicação segura
 

@@ -455,3 +455,152 @@
     animation: none;
   }
 }
+
+/* ---------- Revisão do Login (14/10/2026) ---------- */
+.login-field > label {
+  color: var(--color-text-muted);
+}
+
+/* Olho para mostrar/ocultar a senha, dentro do campo. */
+.login-password {
+  position: relative;
+  display: block;
+}
+
+.login-password input {
+  width: 100%;
+  padding-inline: 52px;
+}
+
+.login-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.login-password-toggle:hover,
+.login-password-toggle[aria-pressed="true"] {
+  color: var(--color-accent-500);
+}
+
+.login-password-toggle:focus-visible {
+  outline: 2px solid var(--color-accent-500);
+  outline-offset: -2px;
+}
+
+/* Aviso de cada campo fica logo abaixo dele. */
+.login-field-hint,
+.login-field-error {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.login-field-hint {
+  color: var(--color-text-faint);
+}
+
+.login-field-hint.is-warning {
+  color: var(--color-accent-500);
+}
+
+.login-field-error {
+  color: var(--color-danger);
+}
+
+.login-field input[aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+
+.login-error p {
+  margin: 0;
+}
+
+.login-error-help {
+  margin-top: var(--space-2) !important;
+  padding-top: var(--space-2);
+  border-top: 1px solid rgb(var(--rgb-danger) / 0.2);
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+/* Botão ainda indisponível: legível, sem parecer quebrado. */
+.login-submit:disabled {
+  opacity: 1;
+  background: var(--elev-1-bg);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.login-setup-title {
+  text-wrap: balance;
+}
+
+.login-step-password {
+  max-width: 380px;
+}
+
+/* Na lista, quem ainda vai criar a senha leva um selo discreto. */
+.profile-setup {
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgb(var(--rgb-accent) / 0.45);
+  color: var(--color-accent-500);
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+:root[data-theme="light"] .login-backdrop-image {
+  opacity: 0.14;
+}
+
+:root[data-theme="light"] .login-deck-header p {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .login-auth-card {
+    width: 96px;
+    margin-bottom: var(--space-2);
+  }
+
+  .login-auth-identity {
+    margin-bottom: var(--space-4);
+  }
+
+  .login-brand {
+    margin-bottom: var(--space-4);
+  }
+
+  /* Com o teclado aberto, sobra espaço para rolar o campo até o meio da tela. */
+  .login-form {
+    scroll-margin-bottom: 40vh;
+  }
+}
+
+/* hidden criaria um contêiner de rolagem e o painel das cartas não grudaria no rodapé. */
+.login-page-deck {
+  overflow: clip;
+}
+
+@media (max-width: 600px) and (max-height: 700px) {
+  .login-page-deck { padding-top: 52px; }
+  .login-deck-header h1 { font-size: var(--text-xl); }
+  .login-deck-header p { font-size: var(--text-sm); }
+  .login-deck-header .login-brand { margin-bottom: 0; }
+}

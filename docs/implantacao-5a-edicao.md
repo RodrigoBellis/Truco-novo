@@ -59,4 +59,4 @@ A homologação usa autenticação simulada. Estes pontos só se provam no Auth 
 ## Decisões pendentes
 - **Proxy:** atrás do Nginx, o backend vê todos os jogadores com o mesmo IP; o limite de tentativas por origem (60 em 10 minutos) passa a ser coletivo. Com 14 pessoas é suficiente. Se o backend estiver atrás de um único proxy, ativar `app.set("trust proxy", 1)` faz o limite valer por pessoa.
 - **Risco aceito:** sem verificação de identidade, quem tocar a carta de outro jogador antes dele cria a senha no lugar dele. O dono percebe ("já criou a senha") e o administrador usa "Redefinir acesso"; a auditoria registra quando cada senha foi criada.
-- **`202610090003_homologacao_runtime_role.sql`:** continua sem aplicar e deve sair de `supabase/migrations/` antes de qualquer aplicação em lote (ver `plano-producao-5a-edicao.md`).
+- **`202610090003_homologacao_runtime_role.sql`:** nunca aplicada; movida em 14/10/2026 para `supabase/homologacao/arquivo/`, fora da pasta de migrations oficiais.
