@@ -1,8 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { login, changePassword } from "../services/authService.js";
+import { adminLogin, login, changePassword } from "../services/authService.js";
 import { requireAuth } from "../middleware/requireAuth.js";
-import { AccessError, createFirstPassword } from "../services/accessService.js";
 
 export const authRoutes = Router();
 
@@ -13,7 +12,9 @@ authRoutes.post(
     const result = await login(
       { email: email ? String(email) : undefined, playerId: playerId ? String(playerId) : undefined },
       String(password ?? ""),
+      req.ip ?? "desconhecido",
     );
+    res.setHeader("Cache-Control", "no-store");
     res.json(result);
   }),
 );
@@ -30,18 +31,12 @@ authRoutes.post(
   }),
 );
 
-// Primeiro acesso da 5ª edição: o jogador escolhe a carta e cria a própria senha. Só funciona
-// enquanto a conta está "Aguardando criação de senha" e uma única vez.
+// Administrador: só a senha. A conta administrativa é resolvida no backend.
 authRoutes.post(
-  "/first-access",
+  "/admin-login",
   asyncHandler(async (req, res) => {
-    const { playerId, newPassword } = req.body ?? {};
-    try {
-      res.setHeader("Cache-Control", "no-store");
-      res.json(await createFirstPassword(String(playerId ?? ""), String(newPassword ?? ""), req.ip ?? "desconhecido"));
-    } catch (error) {
-      if (!(error instanceof AccessError)) throw error;
-      res.status(error.status).json({ message: error.message, code: error.code });
-    }
+    const result = await adminLogin(String(req.body?.password ?? ""), req.ip ?? "desconhecido");
+    res.setHeader("Cache-Control", "no-store");
+    res.json(result);
   }),
 );

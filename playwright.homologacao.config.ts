@@ -16,7 +16,7 @@ const BACKEND = "http://localhost:3101";
 export default defineConfig({
   metadata: { rehearsal: true, homologation: true },
   testDir: "./e2e",
-  testMatch: ["rehearsal.spec.ts", "primeiro-acesso.spec.ts"],
+  testMatch: ["rehearsal.spec.ts", "senha-fixa.spec.ts"],
   outputDir: "test-results/homologacao",
   fullyParallel: false,
   workers: 1,

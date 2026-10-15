@@ -326,9 +326,9 @@ async function mockLoginEntry(page: Page) {
     const url = new URL(route.request().url());
     let payload: unknown = {};
     if (url.pathname.endsWith("/players/roster")) payload = rosterPlayers;
-    else if (url.pathname.endsWith("/auth/login")) {
-      const body = route.request().postDataJSON() as { playerId?: string; email?: string };
-      loginBodies.push(body);
+    else if (url.pathname.endsWith("/auth/login") || url.pathname.endsWith("/auth/admin-login")) {
+      const body = route.request().postDataJSON() as { playerId?: string; password?: string };
+      loginBodies.push(url.pathname.endsWith("/auth/admin-login") ? { admin: true, ...body } : body);
       const player = rosterPlayers.find((candidate) => candidate.id === body.playerId);
       payload = {
         user: { id: "auth-user", playerId: player?.id ?? "", name: player?.name ?? "Administrador", email: "test@example.invalid", role: player ? "jogador" : "admin", teamId: player ? "team-2" : null, mustChangePassword: false, avatarUrl: null },
@@ -395,7 +395,7 @@ test("cartas navegam por arrasto e teclado e trocar de usuário volta à mesma c
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Jogador 2" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Não é você? Entrar com outro usuário" }).click();
+  await page.getByRole("button", { name: "Não é você? Escolher outra carta" }).click();
   await expect(page.getByRole("heading", { name: "Quem está entrando para jogar?" })).toBeVisible();
   await expect(activeCardName(page)).toHaveText("Jogador 2");
 });
@@ -404,16 +404,18 @@ test("entrada mantém a área administrativa e a lista simples de nomes", async 
   const loginBodies = await mockLoginEntry(page);
   await page.goto("/login");
   await page.getByRole("button", { name: "Ver lista de nomes" }).click();
-  await expect(page.getByRole("heading", { name: "Selecione seu perfil" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Selecione seu nome" })).toBeVisible();
   await page.getByRole("button", { name: "Jogador 5" }).click();
   await expect(page.getByRole("heading", { name: "Jogador 5" })).toBeVisible();
   await page.getByRole("button", { name: "← Voltar" }).click();
 
   await page.getByRole("button", { name: "Área administrativa" }).click();
-  await expect(page.getByRole("heading", { name: "Administrador" })).toBeVisible();
-  await page.getByLabel("Senha").fill("admin");
-  await page.getByRole("button", { name: "Entrar", exact: true }).click();
-  await expect.poll(() => loginBodies).toEqual([{ email: "admin@trucodonovo.com", password: "admin" }]);
+  await expect(page.getByRole("heading", { name: "Área administrativa" })).toBeVisible();
+  await expect(page.getByLabel(/e-mail/i)).toHaveCount(0);
+  await page.getByLabel("Senha do administrador").fill("admin");
+  await page.getByRole("button", { name: "Entrar como administrador" }).click();
+  // Só a senha vai para o backend, na rota do administrador: nenhum e-mail sai do navegador.
+  await expect.poll(() => loginBodies).toEqual([{ admin: true, password: "admin" }]);
 });
 
 test("com movimento reduzido as cartas ficam numa fila plana e a escolha continua igual", async ({ page }) => {
@@ -2135,7 +2137,7 @@ test("final salva com campeão pendente mantém placar e não anuncia campeonato
 
 // ---------- Senhas: troca pelo jogador e "Redefinir senha" do administrador ----------
 
-test("admin acompanha quantos criaram a senha e redefine um acesso, sem ver senha nenhuma", async ({ page }) => {
+test("admin acompanha quem tem a senha fixa gravada e redefine um acesso, sem ver senha nenhuma", async ({ page }) => {
   await mockCoreApi(page, "admin");
   const access = players.map((player, index) => ({ playerId: player.id, hasAccount: true, setupPending: index >= 9, setupCompletedAt: index >= 9 ? null : "2026-10-20T12:00:00Z" }));
   await page.route("**/api/players", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(players.map((player, index) => ({ ...player, teamId: teams[Math.floor(index / 2)].id }))) }));
@@ -2143,61 +2145,34 @@ test("admin acompanha quantos criaram a senha e redefine um acesso, sem ver senh
   const resets: string[] = [];
   await page.route("**/api/admin/players/*/reset-access", (route) => {
     resets.push(new URL(route.request().url()).pathname);
-    access[0].setupPending = true;
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ playerId: "player-1", playerName: "Jogador 1", accountCreated: false }) });
   });
   await page.goto("/admin/jogadores");
   await expect(page.locator(".access-summary-count")).toHaveText("9 de 14");
   const row = (name: string) => page.getByRole("row", { name: new RegExp("^" + name + " ") });
-  await expect(row("Jogador 1")).toContainText("Senha criada");
-  await expect(row("Jogador 10")).toContainText("Aguardando criação de senha");
+  await expect(row("Jogador 1")).toContainText("Senha fixa ativa");
+  await expect(row("Jogador 10")).toContainText("Senha fixa não gravada");
   await row("Jogador 1").getByRole("button", { name: "Redefinir acesso" }).click();
-  await expect(page.getByRole("alertdialog")).toContainText("A senha atual deixa de valer");
+  await expect(page.getByRole("alertdialog")).toContainText("volta a ser a fixa");
   expect(resets).toHaveLength(0);
   await page.getByRole("alertdialog").getByRole("button", { name: "Redefinir acesso" }).click();
   expect(resets).toEqual(["/api/admin/players/player-1/reset-access"]);
-  await expect(page.locator(".access-summary-count")).toHaveText("8 de 14");
-  await expect(row("Jogador 1")).toContainText("Aguardando criação de senha");
+  await expect(page.locator(".toast-success").filter({ hasText: "Acesso de Jogador 1 redefinido" })).toBeVisible();
+  await expect(row("Jogador 1")).toContainText("Senha fixa ativa");
   expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
 });
 
-test("primeiro acesso: a carta de quem ainda não criou a senha leva a \"Crie sua senha\" e entra direto", async ({ page }) => {
-  await mockLeagueWithAccounts(page, fictionalLeague);
-  await page.route("**/api/players/roster", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(players.map(({ id, name }) => ({ id, name, needsSetup: id === "player-1" }))) }));
-  const sent: unknown[] = [];
-  await page.route("**/api/auth/first-access", (route) => {
-    sent.push(route.request().postDataJSON());
-    const user = { id: "auth-player-1", playerId: "player-1", name: "Jogador 1", email: "x", role: "jogador", teamId: "team-1", mustChangePassword: false, avatarUrl: null };
-    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ user, token: tokenFor(user.id), refreshToken: "refresh:" + user.id }) });
-  });
+test("senha fixa: a carta pede só a senha, sem \"Crie sua senha\", e entra direto", async ({ page }) => {
+  const loginBodies = await mockLoginEntry(page);
   await page.goto("/login");
   await page.getByRole("button", { name: "Ver lista de nomes" }).click();
-  await page.locator(".profile-card").filter({ has: page.locator(".profile-name", { hasText: /^Jogador 1$/ }) }).click();
-  await expect(page.getByRole("heading", { name: "Crie sua senha para a 5ª Edição" })).toBeVisible();
-  const form = page.getByRole("form", { name: "Crie sua senha" });
-  await form.getByLabel("Nova senha").fill("minha-senha");
-  await form.getByLabel("Repita a senha").fill("minha-senhx");
-  await expect(form.getByRole("button", { name: "Criar senha e entrar" })).toBeDisabled();
-  await form.getByLabel("Repita a senha").fill("minha-senha");
-  await form.getByRole("button", { name: "Criar senha e entrar" }).click();
-  await expect(page).toHaveURL(/\/(abertura|inicio)$/);
-  expect(sent).toEqual([{ playerId: "player-1", newPassword: "minha-senha" }]);
-  expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
-});
-
-test("primeiro acesso: se outra pessoa já criou a senha da carta, a tela avisa e pede a senha", async ({ page }) => {
-  await mockLeagueWithAccounts(page, fictionalLeague);
-  await page.route("**/api/players/roster", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(players.map(({ id, name }) => ({ id, name, needsSetup: id === "player-1" }))) }));
-  await page.route("**/api/auth/first-access", (route) => route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ message: "Este jogador já criou a senha. Entre com ela. Se não foi você, avise o administrador.", code: "already_configured" }) }));
-  await page.goto("/login");
-  await page.getByRole("button", { name: "Ver lista de nomes" }).click();
-  await page.locator(".profile-card").filter({ has: page.locator(".profile-name", { hasText: /^Jogador 1$/ }) }).click();
-  const form = page.getByRole("form", { name: "Crie sua senha" });
-  await form.getByLabel("Nova senha").fill("minha-senha");
-  await form.getByLabel("Repita a senha").fill("minha-senha");
-  await form.getByRole("button", { name: "Criar senha e entrar" }).click();
-  await expect(page.locator(".login-error")).toContainText("Se não foi você, avise o administrador.");
-  await expect(page.getByLabel("Senha")).toBeVisible();
+  await page.getByRole("button", { name: "Jogador 5" }).click();
+  await expect(page.getByText(/Crie sua senha/)).toHaveCount(0);
+  await expect(page.getByLabel("Repita a senha")).toHaveCount(0);
+  await page.getByLabel("Senha").fill("TrucoJogador5");
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect.poll(() => loginBodies).toEqual([{ playerId: "player-5", password: "TrucoJogador5" }]);
+  await expect(page).not.toHaveURL(/\/login/);
 });
 
 test("jogador altera a própria senha no Perfil informando a atual, e vê a recusa quando erra", async ({ page }) => {

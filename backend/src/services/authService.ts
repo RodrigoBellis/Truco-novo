@@ -3,6 +3,7 @@ import { createLoginClient, supabaseAdmin } from "../data/supabaseClient.js";
 import { isRehearsalMode } from "../utils/rehearsalMode.js";
 import { rehearsalAuthUser, rehearsalLogin } from "../data/rehearsalAuth.js";
 import { rehearsalStore } from "../data/rehearsalStore.js";
+import { clearLoginFailures, loginBlocked, recordLoginFailure } from "../utils/loginAttempts.js";
 
 export class AuthError extends Error {}
 
@@ -56,28 +57,76 @@ async function emailForPlayerId(playerId: string): Promise<string> {
  *
  * Aceita `playerId` ou `email`. A tela de login usa playerId, porque a listagem pública
  * de jogadores (/players/roster) não devolve e-mails. */
-export async function login(identifier: { email?: string; playerId?: string }, password: string): Promise<LoginResponse> {
+export async function login(identifier: { email?: string; playerId?: string }, password: string, origin = "desconhecido"): Promise<LoginResponse> {
+  const account = identifier.email?.trim() ? "email:" + identifier.email.trim().toLowerCase() : "player:" + String(identifier.playerId ?? "");
+  return limitedLogin(account, origin, MAX_FAILURES_PER_ACCOUNT, () => signIn(identifier, password));
+}
+
+async function signIn(identifier: { email?: string; playerId?: string }, password: string): Promise<LoginResponse | null> {
   // Modo ensaio: contas fictícias em memória, sem Supabase Auth.
-  if (isRehearsalMode()) {
-    const session = await rehearsalLogin(identifier, password);
-    if (!session) throw new AuthError("Senha incorreta. Tente novamente.");
-    return session;
-  }
+  if (isRehearsalMode()) return rehearsalLogin(identifier, password);
 
   const email = identifier.email?.trim()
     ? identifier.email.trim().toLowerCase()
     : await emailForPlayerId(String(identifier.playerId ?? ""));
 
   const { data, error } = await createLoginClient().auth.signInWithPassword({ email, password });
-  if (error || !data.session || !data.user) {
-    throw new AuthError("Senha incorreta. Tente novamente.");
-  }
+  if (error || !data.session || !data.user) return null;
 
   return {
     user: await toAuthUser(data.user.id),
     token: data.session.access_token,
     refreshToken: data.session.refresh_token,
   };
+}
+
+/** Recusa de entrada por excesso de tentativas (a rota responde 429). */
+export class LoginBlockedError extends AuthError {}
+
+// Por conta: poucas recusas. Por origem: folgado, porque no dia todos podem estar no mesmo wi-fi.
+const MAX_FAILURES_PER_ACCOUNT = 5;
+const MAX_FAILURES_ADMIN = 5;
+const MAX_FAILURES_PER_ORIGIN = 60;
+
+async function limitedLogin(account: string, origin: string, maxForAccount: number, attempt: () => Promise<LoginResponse | null>): Promise<LoginResponse> {
+  const originKey = "origin:" + origin;
+  if (loginBlocked([[account, maxForAccount], [originKey, MAX_FAILURES_PER_ORIGIN]])) {
+    throw new LoginBlockedError("Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo.");
+  }
+  const session = await attempt();
+  if (!session) {
+    recordLoginFailure([account, originKey]);
+    throw new AuthError("Senha incorreta. Tente novamente.");
+  }
+  clearLoginFailures(account);
+  return session;
+}
+
+/**
+ * Entrada do administrador só com a senha (decisão de 15/10/2026). A conta administrativa é
+ * resolvida aqui no backend — TRUCO_ADMIN_EMAIL, ou a única conta superadmin —, e a senha é
+ * conferida pelo Supabase Auth, que guarda só o hash. O e-mail nunca vai para o navegador.
+ */
+export async function adminLogin(password: string, origin = "desconhecido"): Promise<LoginResponse> {
+  return limitedLogin("admin", origin, MAX_FAILURES_ADMIN, async () => {
+    const email = await adminEmail();
+    const session = await signIn({ email }, password);
+    if (session && session.user.role !== "admin" && session.user.role !== "superadmin") return null;
+    return session;
+  });
+}
+
+async function adminEmail(): Promise<string> {
+  const configured = process.env.TRUCO_ADMIN_EMAIL?.trim().toLowerCase();
+  if (configured) return configured;
+  if (isRehearsalMode()) {
+    const admin = rehearsalStore().accounts().find((account) => account.role === "superadmin");
+    if (!admin) throw new AuthError("Conta do administrador não configurada.");
+    return admin.email;
+  }
+  const { data, error } = await supabaseAdmin.from("truco_profiles").select("email").eq("role", "superadmin").limit(2);
+  if (error || !data || data.length !== 1 || !data[0].email) throw new AuthError("Conta do administrador não configurada.");
+  return data[0].email;
 }
 
 /** Mínimo exigido pela política de senhas do Supabase Auth deste projeto. */

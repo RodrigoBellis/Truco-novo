@@ -46,24 +46,24 @@ function PasswordInput(props: Omit<InputHTMLAttributes<HTMLInputElement>, "type"
 
 const byName = (a: RosterPlayer, b: RosterPlayer) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
 
-const ADMIN_IDENTITY: Identity = { name: "Administrador", credential: { email: "admin@trucodonovo.com" } };
+const ADMIN_IDENTITY: Identity = { name: "Administrador", credential: { admin: true } };
 
 /**
- * deck: cartas dos jogadores (entrada); players: lista simples de nomes; password: autenticação;
- * setup: primeiro acesso da 5ª edição, quando a conta ainda não criou a senha.
+ * deck: cartas dos jogadores (entrada); players: lista simples de nomes; password: autenticação.
+ * Desde 15/10/2026 cada jogador tem senha fixa: não existe mais a etapa de criar a senha.
  */
-type Step = "deck" | "players" | "password" | "setup";
+type Step = "deck" | "players" | "password";
 
 interface Identity {
   name: string;
-  /** Como o backend identifica quem está entrando: e-mail (admin) ou playerId (jogador). */
+  /** Como o backend identifica quem está entrando: playerId (jogador) ou só a senha (admin). */
   credential: LoginIdentifier;
   /** Carta do jogador escolhido — só visual; o admin entra sem carta. */
   card?: PlayerCardIdentity;
 }
 
 export function LoginPage() {
-  const { user, isLoading, login, createFirstPassword } = useAuth();
+  const { user, isLoading, login } = useAuth();
   const { theme } = useTheme();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -71,7 +71,6 @@ export function LoginPage() {
   const [step, setStep] = useState<Step>("deck");
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [password, setPassword] = useState("");
-  const [confirmation, setConfirmation] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [playerQuery, setPlayerQuery] = useState("");
@@ -88,6 +87,8 @@ export function LoginPage() {
 
   function chooseAdmin() {
     setIdentity(ADMIN_IDENTITY);
+    setError(null);
+    setPassword("");
     setStep("password");
   }
 
@@ -97,8 +98,7 @@ export function LoginPage() {
     setLastPlayerId(player.id);
     setError(null);
     setPassword("");
-    setConfirmation("");
-    setStep(player.needsSetup ? "setup" : "password");
+    setStep("password");
   }
 
   function backToDeck() {
@@ -134,32 +134,6 @@ export function LoginPage() {
   }
 
   const isPlayerIdentity = identity !== null && "playerId" in identity.credential;
-  const setupMismatch = confirmation.length > 0 && password !== confirmation;
-  const shortBy = password.length > 0 && password.length < 6 ? 6 - password.length : 0;
-
-  async function handleSetup(event: FormEvent) {
-    event.preventDefault();
-    if (!identity || !("playerId" in identity.credential) || password !== confirmation) return;
-    setError(null);
-    setIsSubmitting(true);
-    try {
-      const loggedInUser = await createFirstPassword(identity.credential.playerId!, password);
-      showToast("success", `Senha criada! Bem-vindo, ${loggedInUser.name}!`);
-      navigate(entryPathForUser(loggedInUser), { replace: true });
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        // Alguém já criou a senha desta conta (talvez o próprio jogador em outro aparelho).
-        setPassword("");
-        setConfirmation("");
-        setStep("password");
-        refetchPlayers();
-      }
-      setError(err instanceof ApiError ? err.message : "Não foi possível criar a senha. Tente novamente.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
   if (step === "deck") {
     return (
       <div className="login-page login-page-deck">
@@ -256,7 +230,6 @@ export function LoginPage() {
                       <button key={player.id} type="button" className="profile-card" onClick={() => choosePlayer(player)}>
                         <span className="profile-avatar">{player.name.slice(0, 1).toUpperCase()}</span>
                         <span className="profile-name">{player.name}</span>
-                        {player.needsSetup && <span className="profile-setup">Criar senha</span>}
                       </button>
                     ))}
                   </div>
@@ -265,45 +238,6 @@ export function LoginPage() {
                 )}
               </>
             )}
-          </div>
-        )}
-
-        {step === "setup" && identity && (
-          <div className={`login-step login-step-password${identity.card ? " login-auth" : ""}`}>
-            <button type="button" className="login-back" onClick={backToDeck}>
-              ← Voltar às cartas
-            </button>
-            <div className="login-auth-identity">
-              {identity.card && (
-                <div className="login-auth-card">
-                  <TrucoPlayerCard name={identity.name} identity={identity.card} />
-                </div>
-              )}
-              <span className="login-auth-kicker">Primeiro acesso</span>
-              <h1 className="login-setup-title">Crie sua senha para a 5ª&nbsp;Edição</h1>
-              <p className="text-muted">{identity.name}, escolha a senha que quiser. É ela que você vai usar nas próximas entradas.</p>
-            </div>
-            <form onSubmit={handleSetup} className="login-form" aria-label="Crie sua senha">
-              <div className="login-field">
-                <label htmlFor="login-new-password">Nova senha</label>
-                <PasswordInput id="login-new-password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={6} required autoFocus autoComplete="new-password" aria-describedby="login-new-password-hint" />
-                <p id="login-new-password-hint" className={`login-field-hint${shortBy > 0 ? " is-warning" : ""}`}>
-                  {shortBy > 0 ? `Faltam ${shortBy} caractere${shortBy === 1 ? "" : "s"}.` : "Pelo menos 6 caracteres. Só você deve saber esta senha."}
-                </p>
-              </div>
-              <div className="login-field">
-                <label htmlFor="login-confirm-password">Repita a senha</label>
-                <PasswordInput id="login-confirm-password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} minLength={6} required autoComplete="new-password" aria-invalid={setupMismatch} aria-describedby={setupMismatch ? "login-confirm-error" : undefined} />
-                {setupMismatch && <p id="login-confirm-error" className="login-field-error" role="alert">As duas senhas não são iguais. Confira e digite de novo.</p>}
-              </div>
-              {error && <p className="login-error" role="alert">{error}</p>}
-              <Button type="submit" isLoading={isSubmitting} disabled={password.length < 6 || password !== confirmation} className="login-submit">
-                Criar senha e entrar
-              </Button>
-            </form>
-            <button type="button" className="login-switch-user" onClick={backToDeck}>
-              Não é você? Escolher outra carta
-            </button>
           </div>
         )}
 
@@ -325,14 +259,14 @@ export function LoginPage() {
             ) : (
               <div className="password-identity">
                 <span className="profile-avatar profile-avatar-lg">{identity.name.slice(0, 1).toUpperCase()}</span>
-                <h1>{identity.name}</h1>
-                <p className="text-muted">Digite sua senha para continuar</p>
+                <h1>Área administrativa</h1>
+                <p className="text-muted">Digite a senha do administrador para continuar</p>
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="login-form">
               <div className="login-field">
-                <label htmlFor="login-password">Senha</label>
+                <label htmlFor="login-password">{isPlayerIdentity ? "Senha" : "Senha do administrador"}</label>
                 <PasswordInput
                   id="login-password"
                   value={password}
@@ -347,12 +281,12 @@ export function LoginPage() {
                 <div className="login-error" role="alert">
                   <p>{error}</p>
                   {/* Orientação genérica: vale para qualquer recusa e não revela nada sobre a conta. */}
-                  {isPlayerIdentity && <p className="login-error-help">Esqueceu a senha? Peça ao administrador para redefinir seu acesso. Depois é só escolher sua carta e criar uma nova.</p>}
+                  {isPlayerIdentity && <p className="login-error-help">Esqueceu a senha? Peça ao administrador para redefinir seu acesso.</p>}
                 </div>
               )}
 
               <Button type="submit" isLoading={isSubmitting} className="login-submit">
-                Entrar
+                {isPlayerIdentity ? "Entrar" : "Entrar como administrador"}
               </Button>
             </form>
 

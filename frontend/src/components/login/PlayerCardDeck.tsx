@@ -561,7 +561,6 @@ export function PlayerCardDeck({ players, initialPlayerId, onConfirm }: PlayerCa
                 )}
                 {activeIdentity?.manilha && <span className="deck-info-manilha">{activeIdentity.manilha}</span>}
                 <span>Carta {active + 1} de {players.length}</span>
-                {activePlayer?.needsSetup && <span className="deck-info-setup">Criar senha</span>}
               </span>
             </div>
             <button type="button" className="deck-arrow" aria-label="Próxima carta" onClick={() => step(1)} disabled={active === players.length - 1}>

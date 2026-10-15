@@ -5,8 +5,6 @@ import { apiRequest } from "./api";
 export interface RosterPlayer {
   id: string;
   name: string;
-  /** A conta ainda não criou a senha da 5ª edição: a carta leva a "Crie sua senha". */
-  needsSetup?: boolean;
 }
 
 /** Público: só id e nome. É o que a tela de login consegue ler sem sessão. */

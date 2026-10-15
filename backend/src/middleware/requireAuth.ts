@@ -69,9 +69,10 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     return;
   }
 
-  // Acesso reiniciado: a conta ainda não criou a senha desta edição. Nenhuma sessão vale.
+  // Conta ainda sem a senha fixa da 5ª edição gravada: nenhuma sessão vale até o administrador
+  // usar "Redefinir acesso".
   if (profile.access_setup_required) {
-    res.status(401).json({ message: "Crie sua senha para a 5ª Edição: escolha sua carta na tela de entrada.", code: "access_setup_required" });
+    res.status(401).json({ message: "Seu acesso ainda não foi liberado. Peça ao administrador para redefinir seu acesso.", code: "access_setup_required" });
     return;
   }
   // Sessões abertas antes do reinício do acesso (ou de outra criação de senha) não valem mais.

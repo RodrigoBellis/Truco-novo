@@ -472,14 +472,6 @@
   color: var(--color-text-muted);
 }
 
-.deck-info-setup {
-  padding: 1px 8px;
-  border-radius: var(--radius-full);
-  border: 1px solid rgb(var(--rgb-accent) / 0.45);
-  color: var(--color-accent-500);
-  font-weight: 700;
-}
-
 /* Celular: carta menor e o botão sempre à vista no rodapé, sem cobrir nada
    (o painel ocupa o próprio espaço no fluxo; só gruda quando a tela é baixa). */
 @media (max-width: 600px) {

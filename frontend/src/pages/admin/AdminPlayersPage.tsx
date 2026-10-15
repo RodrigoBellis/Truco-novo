@@ -54,7 +54,7 @@ export function AdminPlayersPage() {
     setIsResetting(true);
     try {
       await resetPlayerAccess(resetTarget.id);
-      showToast("success", `Acesso de ${resetTarget.name} redefinido. Na próxima entrada ele cria uma senha nova.`);
+      showToast("success", `Acesso de ${resetTarget.name} redefinido. A senha volta a ser a fixa e as sessões antigas foram encerradas.`);
       setResetTarget(null);
       refetch();
     } catch (err) {
@@ -66,7 +66,7 @@ export function AdminPlayersPage() {
     setIsResetting(true);
     try {
       const result = await restartAllAccess();
-      showToast("success", `Acesso reiniciado para ${result.restarted} jogadores. Cada um cria a própria senha ao entrar.`);
+      showToast("success", `Senha fixa gravada para ${result.restarted} jogadores. As sessões antigas foram encerradas.`);
       setConfirmAll(false);
       refetch();
     } catch (err) {
@@ -89,10 +89,10 @@ export function AdminPlayersPage() {
           <section className="access-summary" aria-label="Senhas da 5ª edição">
             <div>
               <strong className="access-summary-count">{created} de {participants.length}</strong>
-              <span>jogadores já criaram a senha da 5ª edição</span>
+              <span>jogadores com a senha fixa da 5ª edição gravada</span>
             </div>
-            <progress max={participants.length || 1} value={created} aria-label="Jogadores com senha criada" />
-            <Button size="sm" variant="ghost" onClick={() => setConfirmAll(true)}>Reiniciar acesso de todos</Button>
+            <progress max={participants.length || 1} value={created} aria-label="Jogadores com senha fixa gravada" />
+            <Button size="sm" variant="ghost" onClick={() => setConfirmAll(true)}>Gravar senha fixa de todos</Button>
           </section>
         );
       })()}
@@ -129,7 +129,7 @@ export function AdminPlayersPage() {
                     const pending = !access || access.setupPending;
                     return (
                       <span className="player-access">
-                        <Badge tone={pending ? "gold" : "green"}>{pending ? "Aguardando criação de senha" : "Senha criada"}</Badge>
+                        <Badge tone={pending ? "gold" : "green"}>{pending ? "Senha fixa não gravada" : "Senha fixa ativa"}</Badge>
                         <Button size="sm" variant="ghost" onClick={() => setResetTarget(player)}>Redefinir acesso</Button>
                       </span>
                     );
@@ -144,7 +144,7 @@ export function AdminPlayersPage() {
       <ConfirmDialog
         isOpen={resetTarget !== null}
         title={`Redefinir o acesso de ${resetTarget?.name ?? ""}?`}
-        description="A senha atual deixa de valer e as sessões abertas são encerradas. Na próxima entrada, o jogador escolhe a carta e cria uma senha nova. Use só se ele esqueceu a senha ou se outra pessoa criou a senha no lugar dele."
+        description="A senha do jogador volta a ser a fixa (Truco + nome da carta) e as sessões abertas em outros aparelhos são encerradas."
         confirmLabel="Redefinir acesso"
         tone="danger"
         isConfirming={isResetting}
@@ -154,9 +154,9 @@ export function AdminPlayersPage() {
 
       <ConfirmDialog
         isOpen={confirmAll}
-        title="Reiniciar o acesso de todos os participantes?"
-        description="Todas as senhas atuais dos participantes da 5ª edição deixam de valer e as sessões abertas caem. Cada jogador cria a própria senha na próxima entrada. Só funciona com o cadeado de resultados fechado. Duplas, jogos e histórico não mudam."
-        confirmLabel="Reiniciar todos"
+        title="Gravar a senha fixa de todos os participantes?"
+        description="Cada participante da 5ª edição passa a entrar com a senha fixa (Truco + nome da carta) e as sessões abertas caem. Só funciona com o cadeado de resultados fechado. Duplas, jogos e histórico não mudam."
+        confirmLabel="Gravar para todos"
         tone="danger"
         isConfirming={isResetting}
         onConfirm={() => void handleRestartAll()}

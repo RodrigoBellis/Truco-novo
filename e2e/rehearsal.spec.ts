@@ -128,7 +128,7 @@ async function screenLogin(page: Page, playerId: string): Promise<void> {
     await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
   }
   await page.getByLabel("Senha").fill(PASSWORD);
-  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await page.getByRole("button", { name: playerId === ADMIN ? "Entrar como administrador" : "Entrar", exact: true }).click();
   await expect(page).not.toHaveURL(/\/login/);
   counters.screenLogins += 1;
 }

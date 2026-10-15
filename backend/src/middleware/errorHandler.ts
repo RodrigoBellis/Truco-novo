@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { AuthError } from "../services/authService.js";
+import { AuthError, LoginBlockedError } from "../services/authService.js";
 import { DrawError } from "../services/drawService.js";
 import { BracketError, ProgressionPendingError } from "../services/bracketService.js";
 import { MatchError } from "../services/matchService.js";
@@ -11,6 +11,11 @@ const KNOWN_ERRORS = [AuthError, DrawError, BracketError, MatchError, Simulation
 
 // O Express identifica o middleware de erro pela aridade — os 4 parâmetros são obrigatórios.
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction): void {
+  if (err instanceof LoginBlockedError) {
+    res.status(429).json({ message: err.message, code: "rate_limited" });
+    return;
+  }
+
   if (err instanceof EditionSetupError) {
     res.status(503).json({ message: err.message });
     return;

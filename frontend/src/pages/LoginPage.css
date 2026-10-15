@@ -545,23 +545,8 @@
   cursor: not-allowed;
 }
 
-.login-setup-title {
-  text-wrap: balance;
-}
-
 .login-step-password {
   max-width: 380px;
-}
-
-/* Na lista, quem ainda vai criar a senha leva um selo discreto. */
-.profile-setup {
-  padding: 1px 8px;
-  border-radius: var(--radius-full);
-  border: 1px solid rgb(var(--rgb-accent) / 0.45);
-  color: var(--color-accent-500);
-  font-size: 0.68rem;
-  font-weight: 700;
-  white-space: nowrap;
 }
 
 :root[data-theme="light"] .login-backdrop-image {
