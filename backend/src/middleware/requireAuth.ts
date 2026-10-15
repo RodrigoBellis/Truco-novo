@@ -8,6 +8,8 @@ export interface AuthenticatedUser {
   id: string;
   role: UserRole;
   playerId: string;
+  /** Momento do login com senha (segundos), para revalidar a sessão dentro das gravações. */
+  authTime?: number | null;
 }
 
 declare global {
@@ -85,7 +87,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     return;
   }
 
-  req.authUser = { id: profile.truco_id, role: profile.role, playerId: profile.truco_player_id };
+  req.authUser = { id: profile.truco_id, role: profile.role, playerId: profile.truco_player_id, authTime: authTimeOf(token) };
   next();
 }
 
@@ -106,9 +108,12 @@ export function authTimeOf(token: string): number | null {
 
 /** Sessão autenticada antes de `validAfter` (com 1 s de tolerância de relógio). Sem horário legível, é recusada. */
 export function sessionPredates(token: string, validAfter: string | null | undefined): boolean {
+  return authTimePredates(authTimeOf(token), validAfter);
+}
+
+export function authTimePredates(authTime: number | null | undefined, validAfter: string | null | undefined): boolean {
   if (!validAfter) return false;
-  const authTime = authTimeOf(token);
-  return authTime === null || authTime * 1000 < new Date(validAfter).getTime() - 1000;
+  return authTime == null || authTime * 1000 < new Date(validAfter).getTime() - 1000;
 }
 
 /** Deve vir depois de requireAuth. Bloqueia quem não tem um dos papéis permitidos. */

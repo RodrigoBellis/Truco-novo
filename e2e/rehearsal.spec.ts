@@ -710,7 +710,7 @@ test("5. edição encerrada: jogador sem botões e API recusando; Hall da Fama e
   await expect(resultButtons(page)).toHaveCount(0);
   for (const tab of ["Mata-mata", "Todas as Rodadas"]) {
     await page.getByRole("tab", { name: tab, exact: true }).click();
-    await expect(page.locator(".match-card, .round-match").first()).toBeVisible();
+    await expect(page.locator(".match-card, .round-match").filter({ visible: true }).first()).toBeVisible();
     await expect(resultButtons(page)).toHaveCount(0);
   }
   await page.getByRole("tab", { name: "Mata-mata", exact: true }).click();

@@ -79,7 +79,7 @@ matchesRoutes.post(
     // Recusas: 403 = quem pede não pode (cadeado, não é da partida, edição encerrada);
     // 409 = o estado do campeonato não permite essa alteração; 400 = placar inválido.
     try {
-      await recordResult(championship.truco_id, matchId, { setsA: Number(setsA), setsB: Number(setsB) }, { id: req.authUser!.id, role: req.authUser!.role });
+      await recordResult(championship.truco_id, matchId, { setsA: Number(setsA), setsB: Number(setsB) }, { id: req.authUser!.id, role: req.authUser!.role, authTime: req.authUser!.authTime });
     } catch (error) {
       if (error instanceof ResultPermissionError) {
         res.status(403).json({ message: error.message, code: error.code });

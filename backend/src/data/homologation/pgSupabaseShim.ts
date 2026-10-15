@@ -315,6 +315,11 @@ export function createHomologationClient(): SupabaseClient<Database> {
           await run("insert into homologacao.credencial (truco_id, hash) values ($1, $2)", [id, hashPassword(attributes.password)]);
           return { data: { user: { id, email: attributes.email } }, error: null };
         },
+        deleteUser: async (id: string) => {
+          await run("delete from homologacao.credencial where truco_id = $1", [id]);
+          await run("delete from auth.users where id = $1", [id]);
+          return { data: { user: null }, error: null };
+        },
         updateUserById: async (id: string, attributes: { password?: string }) => {
           if (attributes.password !== undefined && attributes.password.length < 6) return { data: { user: null }, error: { message: "Password should be at least 6 characters.", code: "weak_password" } };
           if (attributes.password !== undefined) {

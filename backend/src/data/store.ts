@@ -123,11 +123,14 @@ class TrucoRepository {
     if (error) fail("avançar o mata-mata em transação", error);
     return true;
   }
-  async getResultActor(actorId: string): Promise<{ id: string; role: UserRole; playerId: string; mustChangePassword: boolean } | null> {
+  async getResultActor(actorId: string): Promise<{ id: string; role: UserRole; playerId: string; mustChangePassword: boolean; accessSetupRequired: boolean; sessionsValidAfter: string | null } | null> {
     const { data, error } = await supabaseAdmin.from("truco_profiles")
-      .select("truco_id, role, truco_player_id, must_change_password").eq("truco_id", actorId).maybeSingle();
+      .select("truco_id, role, truco_player_id, must_change_password, access_setup_required, sessions_valid_after").eq("truco_id", actorId).maybeSingle();
     if (error) fail("validar o jogador", error);
-    return data ? { id: data.truco_id, role: data.role, playerId: data.truco_player_id, mustChangePassword: data.must_change_password } : null;
+    return data ? {
+      id: data.truco_id, role: data.role, playerId: data.truco_player_id, mustChangePassword: data.must_change_password,
+      accessSetupRequired: data.access_setup_required, sessionsValidAfter: data.sessions_valid_after,
+    } : null;
   }
   newId(): string {
     return randomUUID();

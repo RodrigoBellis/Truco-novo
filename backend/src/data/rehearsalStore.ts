@@ -166,7 +166,7 @@ export class RehearsalRepository implements Store {
   async getResultActor(actorId: string) {
     await this.enter("getResultActor");
     const account = this.findAccount({ id: actorId });
-    return account ? { id: account.id, role: account.role, playerId: account.playerId, mustChangePassword: account.mustChangePassword } : null;
+    return account ? { id: account.id, role: account.role, playerId: account.playerId, mustChangePassword: account.mustChangePassword, accessSetupRequired: false, sessionsValidAfter: null as string | null } : null;
   }
   private state = buildSeed();
 

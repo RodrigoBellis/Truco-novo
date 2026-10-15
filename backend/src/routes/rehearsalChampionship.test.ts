@@ -782,6 +782,26 @@ for (const change of ["lock", "profile", "participants", "match", "edition"] as 
   });
 }
 
+for (const change of ["access_reset", "session_revoked"] as const) {
+  test(`pedido autenticado antes de redefinir o acesso é recusado na gravação: ${change}`, async () => {
+    await fresh();
+    const store = rehearsalStore();
+    const match = (await groupMatches())[0];
+    const account = store.findAccount({ playerId: playersOf(match.teamAId)[0] })!;
+    const original = store.getResultActor.bind(store);
+    const loginSeconds = Math.floor(Date.now() / 1000) - 60;
+    store.getResultActor = async (id: string) => {
+      const actor = await original(id);
+      if (!actor) return actor;
+      return change === "access_reset" ? { ...actor, accessSetupRequired: true } : { ...actor, sessionsValidAfter: new Date().toISOString() };
+    };
+    try {
+      await assert.rejects(recordResult(CHAMPIONSHIP, match.id, { setsA: 2, setsB: 0 }, { id: account.id, role: account.role, authTime: loginSeconds }), ResultPermissionError);
+    } finally { store.getResultActor = original; }
+    assert.equal((await store.getMatch(match.id))!.result, null);
+  });
+}
+
 test("refresh de Mata-mata e status nunca altera confrontos, placares ou histórico", async () => {
   await fresh();
   await finishGroupStage();

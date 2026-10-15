@@ -4,6 +4,7 @@ import { withChampionshipLock } from "../utils/championshipLock.js";
 import { syncKnockoutAfterWrite } from "./bracketService.js";
 import { canRecordEditionResult, resultsLockBlocks, editionFinishedBlocks } from "./matchAuthorization.js";
 import { StoreConflictError, StoreOperationError } from "../data/storeErrors.js";
+import { authTimePredates } from "../middleware/requireAuth.js";
 
 export class MatchError extends Error {}
 
@@ -22,6 +23,8 @@ const VALID_SCORES = new Set(["2-0", "2-1", "1-2", "0-2"]);
 export interface ResultActor {
   id: string;
   role: UserRole;
+  /** Momento do login (segundos). Pedido que passou pelo middleware antes de um reset é recusado aqui. */
+  authTime?: number | null;
 }
 
 /**
@@ -51,7 +54,8 @@ export async function recordResultUnlocked(championshipId: string, matchId: stri
 
   // Lido dentro da fila: quem chega logo depois do placar da final já encontra a edição encerrada.
   const currentActor = await store.getResultActor(actor.id);
-  if (!currentActor || currentActor.mustChangePassword) throw new ResultPermissionError("Seu perfil mudou. Entre novamente e confira suas permissões.");
+  const sessionRevoked = !!currentActor && (currentActor.accessSetupRequired || authTimePredates(actor.authTime, currentActor.sessionsValidAfter));
+  if (!currentActor || currentActor.mustChangePassword || sessionRevoked) throw new ResultPermissionError("Seu perfil mudou. Entre novamente e confira suas permissões.");
   if (championship.truco_id !== championshipId) throw new ResultPermissionError("A edição em andamento mudou. Atualize a página.");
   if (resultsLockBlocks(currentActor.role, store.isResultsLocked(championship))) throw new ResultPermissionError(RESULTS_LOCKED_MESSAGE, "results_locked");
   const participants = await store.getMatchPlayerIds(championshipId, match.teamAId, match.teamBId);

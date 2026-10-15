@@ -96,25 +96,30 @@ test("2. o jogador escolhe a carta, cria a senha e entra; sai, entra com a senha
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
 });
 
-test("3. a carta de quem já criou a senha não aceita novo cadastro, nem pela API", async ({ page }) => {
+test("3. a carta de quem já criou a senha não aceita novo cadastro, nem pela API", async ({ page, browser }) => {
   const player = accounts[0];
   const again = await api.post("/api/auth/first-access", { data: { playerId: player.playerId, newPassword: "tentando-de-novo" } });
   expect([again.status(), (await again.json()).code]).toEqual([409, "already_configured"]);
-  // Duas abas criando a senha da mesma carta: a segunda vê "já criou a senha" e cai na tela de senha.
+  // Dois aparelhos criando a senha da mesma carta: o segundo vê "já criou a senha" e cai na tela de senha.
+  // Contexto separado: no mesmo navegador, a sessão criada numa aba entra em todas.
   const second = accounts[1];
-  const [tabA, tabB] = [page, await page.context().newPage()];
+  const otherDevice = await browser.newContext({ baseURL: test.info().project.use.baseURL });
+  const [tabA, tabB] = [page, await otherDevice.newPage()];
   for (const tab of [tabA, tabB]) {
     await pickCard(tab, second.name);
     const form = tab.getByRole("form", { name: "Crie sua senha" });
     await form.getByLabel("Nova senha").fill(tab === tabA ? "senha-da-aba-a" : "senha-da-aba-b");
     await form.getByLabel("Repita a senha").fill(tab === tabA ? "senha-da-aba-a" : "senha-da-aba-b");
   }
+  // Aba em segundo plano não anima: sem trazê-la para frente o clique espera para sempre.
+  await tabA.bringToFront();
   await tabA.getByRole("button", { name: "Criar senha e entrar" }).click();
   await expect(tabA).not.toHaveURL(/\/login/);
+  await tabB.bringToFront();
   await tabB.getByRole("button", { name: "Criar senha e entrar" }).click();
   await expect(tabB.locator(".login-error")).toContainText("já criou a senha");
   await expect(tabB.getByLabel("Senha")).toBeVisible();
-  await tabB.close();
+  await otherDevice.close();
 });
 
 test("4. o administrador acompanha quem já criou a senha e redefine um acesso", async ({ page }) => {
@@ -127,6 +132,7 @@ test("4. o administrador acompanha quem já criou a senha e redefine um acesso",
   await page.getByRole("button", { name: "Área administrativa" }).click();
   await page.getByLabel("Senha").fill("ensaio-2026");
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin/);
   await page.goto("/admin/jogadores");
   await expect(page.locator(".access-summary-count")).toHaveText("14 de 14");
   const row = page.getByRole("row", { name: new RegExp("^" + accounts[0].name + " ") });

@@ -6,6 +6,7 @@ import { isRehearsalMode } from "../utils/rehearsalMode.js";
 import { rehearsalStore } from "../data/rehearsalStore.js";
 import { passwordProblem, toAuthUser } from "./authService.js";
 import type { AuthenticatedUser } from "../middleware/requireAuth.js";
+import { withAccountLock } from "../utils/accountLock.js";
 
 /**
  * Acesso dos jogadores na 5ª edição (decisão de 14/10/2026): cada um cria a própria senha na
@@ -90,6 +91,10 @@ export async function createFirstPassword(playerId: string, newPassword: string,
   }
   const problem = passwordProblem(newPassword);
   if (problem) throw new AccessError(problem, 400, "weak_password");
+  return withAccountLock(playerId, () => createFirstPasswordLocked(playerId, newPassword));
+}
+
+async function createFirstPasswordLocked(playerId: string, newPassword: string): Promise<LoginResponse> {
 
   // Reivindicação atômica: só a primeira requisição encontra access_setup_required = true.
   const now = new Date().toISOString();
@@ -162,7 +167,12 @@ async function resetOne(playerId: string, playerName: string): Promise<{ account
       truco_id: created.user.id, truco_player_id: playerId, email, role: "jogador", must_change_password: false,
       access_setup_required: true, access_setup_completed_at: null, sessions_valid_after: now,
     });
-    if (insertError) throw new AccessError(`O acesso de ${playerName} foi criado, mas o perfil não foi gravado. Tente de novo.`, 500);
+    if (insertError) {
+      // Desfaz a conta sem perfil: senão a próxima tentativa esbarra no mesmo e-mail já cadastrado.
+      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(created.user.id);
+      if (deleteError) console.warn("[acesso] conta sem perfil não removida:", created.user.id);
+      throw new AccessError(`Não foi possível gravar o acesso de ${playerName}. Tente de novo.`, 500);
+    }
     return { accountId: created.user.id, created: true };
   }
   // Primeiro a pendência e o corte de sessões; depois a senha desconhecida.
@@ -186,7 +196,7 @@ export async function resetPlayerAccess(actor: AuthenticatedUser, playerId: stri
   if (actor.role !== "admin" && actor.role !== "superadmin") throw new AccessError("Só o administrador redefine acessos.", 403);
   if (isRehearsalMode()) throw notInRehearsal();
   const name = await playerName(playerId);
-  const result = await resetOne(playerId, name);
+  const result = await withAccountLock(playerId, () => resetOne(playerId, name));
   await audit(result.created ? "access_created" : "access_reset", actor.id, result.accountId, { playerId, playerName: name });
   return { playerId, playerName: name, accountCreated: result.created };
 }
@@ -208,7 +218,8 @@ export async function restartEditionAccess(actor: AuthenticatedUser): Promise<{ 
   const playerIds = [...new Set((memberships ?? []).flatMap((row) => [row.truco_player_1_id, row.truco_player_2_id]))];
   let created = 0;
   for (const playerId of playerIds) {
-    const result = await resetOne(playerId, await playerName(playerId));
+    const name = await playerName(playerId);
+    const result = await withAccountLock(playerId, () => resetOne(playerId, name));
     if (result.created) created += 1;
   }
   await audit("access_restart_all", actor.id, null, { players: playerIds.length, created });
