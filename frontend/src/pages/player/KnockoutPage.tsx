@@ -1,25 +1,61 @@
-import { useEffect, useMemo } from "react";
-import { BRACKET_ROUNDS, BRACKET_ROUND_LABEL, EDITION_PRIZES, RESULTS_LOCKED_MESSAGE, knockoutChampion, knockoutThirdPlace, type KnockoutMatchView } from "@truco/shared";
+import { useEffect, useMemo, useState } from "react";
+import { EDITION_PRIZES, RESULTS_LOCKED_MESSAGE, knockoutChampion, knockoutThirdPlace, type BracketRound, type KnockoutMatchView } from "@truco/shared";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Loading } from "../../components/ui/Loading";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Icon } from "../../components/ui/Icon";
 import { Button } from "../../components/ui/Button";
 import { ScoreForm } from "../../components/truco/ScoreForm";
-import { KnockoutBracket } from "../../components/truco/KnockoutBracket";
+import { KnockoutBracket, type KnockoutFocus, type KnockoutTab } from "../../components/truco/KnockoutBracket";
 import { useAuth } from "../../hooks/useAuth";
 import { useFetchData } from "../../hooks/useFetchData";
 import { useRealtimeMatches } from "../../hooks/useRealtimeMatches";
 import { useResultsLock } from "../../hooks/useResultsLock";
 import { useResultEntry } from "../../hooks/useResultEntry";
-import { knockoutResultToast, loadKnockoutData, summarizeKnockout, teamKnockoutStatus, type KnockoutPhase } from "../../utils/knockout";
+import { knockoutResultToast, loadKnockoutData, summarizeKnockout, teamKnockoutStatus, type KnockoutPhase, type TeamKnockoutStatus } from "../../utils/knockout";
 import "./KnockoutPage.css";
 import "../../components/truco/ResultsLockControl.css";
 
-const PHASES: Array<{ id: KnockoutPhase; label: string }> = [
-  { id: "grupos", label: "Fase de grupos" },
-  ...BRACKET_ROUNDS.map((round) => ({ id: round as KnockoutPhase, label: BRACKET_ROUND_LABEL[round] })),
+/** Barra de fases: quatro etapas. A disputa de 3º lugar sai das semifinais, ao lado da final. */
+const STEPS = ["Fase de grupos", "Quartas", "Semifinais", "Final"] as const;
+const STEP_INDEX: Record<KnockoutPhase, number> = { grupos: 0, quartas: 1, semifinal: 2, terceiro: 3, final: 3, encerrado: 4 };
+
+/** Confrontos que a fase do momento destaca. Na fase de grupos, as quartas são a próxima etapa. */
+const CURRENT_ROUNDS: Record<KnockoutPhase, BracketRound[]> = {
+  grupos: ["quartas"], quartas: ["quartas"], semifinal: ["semifinal"], terceiro: ["final", "terceiro"], final: ["final"], encerrado: [],
+};
+
+const PHASE_TAB: Record<KnockoutPhase, KnockoutTab> = { grupos: "quartas", quartas: "quartas", semifinal: "semifinal", terceiro: "final", final: "final", encerrado: "final" };
+
+const FILTERS: Array<{ id: KnockoutFocus; label: string }> = [
+  { id: "geral", label: "Visão geral" },
+  { id: "fase", label: "Fase atual" },
+  { id: "dupla", label: "Minha dupla" },
 ];
+
+const FOCUS_KEY = "truco-do-novo:mata-mata-filtro";
+
+function readFocus(): KnockoutFocus {
+  try {
+    const saved = localStorage.getItem(FOCUS_KEY);
+    return saved === "fase" || saved === "dupla" ? saved : "geral";
+  } catch {
+    return "geral";
+  }
+}
+
+/** Situação da dupla numa palavra, lida só do que o chaveamento já decidiu. */
+function campaignBadge(campaign: TeamKnockoutStatus): { label: string; tone: string } {
+  if (campaign.outcome === "champion") return { label: "Campeã", tone: "gold" };
+  if (campaign.outcome === "podium") return { label: "No pódio", tone: "gold" };
+  if (campaign.outcome === "eliminated") return { label: "Eliminada", tone: "out" };
+  if (campaign.turn) return { label: "Em disputa", tone: "live" };
+  if (campaign.waiting) return { label: "Aguardando adversário", tone: "wait" };
+  return { label: "Classificada", tone: "live" };
+}
+
+/** Zona da posição na tabela do grupo único: 1º e 2º semifinal, 3º a 6º quartas, 7º fora. */
+const zoneOf = (position: number) => (position <= 2 ? "vaga direta na semifinal" : position <= 6 ? "vaga nas quartas" : "fora do mata-mata");
 
 const PHASE_NOTE: Record<KnockoutPhase, string> = {
   grupos: "As quartas de final começam sozinhas quando os 21 jogos do grupo terminarem.",
@@ -30,7 +66,7 @@ const PHASE_NOTE: Record<KnockoutPhase, string> = {
   encerrado: "Campeonato encerrado.",
 };
 
-const SUBTITLE = "Quartas, semifinais, disputa de 3º lugar e final da 5ª Edição";
+const SUBTITLE = "Quartas, semifinais, final e disputa de 3º lugar da 5ª Edição";
 const brl = (value: number) => `R$ ${value}`;
 
 export function KnockoutPage() {
@@ -44,6 +80,12 @@ export function KnockoutPage() {
   }, [data?.status?.syncPending, refetch]);
   // Cadeado global: fechado, o chaveamento é só leitura.
   const resultsLock = useResultsLock();
+  // Filtro do chaveamento: só muda o destaque, lembrado neste navegador.
+  const [focus, setFocus] = useState<KnockoutFocus>(readFocus);
+  const chooseFocus = (next: KnockoutFocus) => {
+    setFocus(next);
+    try { localStorage.setItem(FOCUS_KEY, next); } catch { /* sem armazenamento: vale só nesta visita */ }
+  };
   const summary = useMemo(() => (data ? summarizeKnockout(data) : null), [data]);
   // Mesmo fluxo de lançar/corrigir da tela Jogos (confirmação, toasts, 403).
   const entry = useResultEntry({
@@ -65,7 +107,7 @@ export function KnockoutPage() {
     );
   }
 
-  const currentIndex = summary.phase === "encerrado" ? PHASES.length : PHASES.findIndex((phase) => phase.id === summary.phase);
+  const currentIndex = STEP_INDEX[summary.phase];
   const note = data.status?.syncPending
     ? "Os placares salvos foram preservados. O avanço automático está pendente; não reenvie resultados."
     : summary.tiePending
@@ -90,6 +132,16 @@ export function KnockoutPage() {
   const myTeam = myTeamId ? data.teams.find((team) => team.id === myTeamId) : undefined;
   const campaign = teamKnockoutStatus(summary, data, myTeamId);
   const editionOver = data.status?.editionFinished === true;
+  const activeFocus: KnockoutFocus = focus === "dupla" && !myTeamId ? "geral" : focus;
+  // Disputa de 3º lugar: liberada com as semifinais, decidida quando tem placar.
+  const thirdState = thirdMatch?.played ? "done" : summary.phase === "terceiro" ? "current" : "future";
+  const inBracket = Boolean(myTeamId && summary.view.some((match) => [match.sideA, match.sideB].some((side) => side.teamId === myTeamId && !side.provisional)));
+  const myRow = myTeamId ? data.standings.A?.find((row) => row.teamId === myTeamId) : undefined;
+  const groupsRunning = summary.phase === "grupos";
+  // Aba do celular: a da fase atual, ou a do jogo da dupla quando o filtro é "Minha dupla".
+  const myMatch = campaign?.turn?.match ?? campaign?.waiting?.match;
+  const tab: KnockoutTab = activeFocus === "dupla" && myMatch ? myMatch.round : PHASE_TAB[summary.phase];
+  const badge = campaign ? campaignBadge(campaign) : null;
   const matchIds = summary.matchIds;
 
   /**
@@ -129,9 +181,33 @@ export function KnockoutPage() {
         <p className="results-lock-notice" role="status"><Icon name="lock" size={20} />{RESULTS_LOCKED_MESSAGE}</p>
       )}
 
-      {campaign && (campaign.headline || campaign.turn || campaign.waiting) && (
-        <section className={`knockout-campaign knockout-campaign-${campaign.outcome ?? "running"}`} aria-label="Sua dupla no mata-mata">
-          {campaign.headline && (
+      <section className="knockout-path" aria-label="Caminho até o título">
+        <div className="knockout-path-head">
+          <span className="knockout-path-kicker">{summary.phase === "encerrado" ? "Campeonato encerrado" : "Fase atual"}</span>
+          {groupsRunning && !summary.tiePending && <span className="knockout-provisional-badge">Provisório até o fim dos grupos</span>}
+        </div>
+        <ol className="knockout-steps">
+          {STEPS.map((label, index) => (
+            <li key={label} className={index < currentIndex ? "knockout-step-done" : index === currentIndex ? "knockout-step-current" : "knockout-step-next"} aria-current={index === currentIndex ? "step" : undefined}>
+              <span className="knockout-step-dot" aria-hidden="true">{index < currentIndex ? "✓" : index + 1}</span>
+              <span className="knockout-step-label">{label}</span>
+            </li>
+          ))}
+        </ol>
+        <p className={`knockout-third-branch knockout-third-${thirdState}`}>
+          3º lugar: perdedores das semifinais, junto com a final{thirdState === "done" ? " · decidido" : thirdState === "current" ? " · em disputa" : ""}
+        </p>
+        <p className="knockout-path-note" role="status">{note}</p>
+      </section>
+
+      {myTeamId && (campaign || groupsRunning) && (
+        <section className={`knockout-campaign knockout-campaign-${campaign?.outcome ?? "running"}`} aria-label="Sua dupla no mata-mata">
+          <div className="knockout-campaign-team">
+            <span className="knockout-campaign-kicker">Sua dupla</span>
+            {myTeam?.name && <strong className="knockout-campaign-name">{myTeam.name}</strong>}
+            <span className={`knockout-campaign-badge knockout-badge-${badge?.tone ?? "wait"}`}>{badge?.label ?? "Fase de grupos"}</span>
+          </div>
+          {campaign?.headline && (
             // A chave refaz a entrada quando a dupla passa de fase.
             <div className="knockout-campaign-result" key={campaign.headline}>
               <span className="knockout-campaign-icon" aria-hidden="true"><Icon name={campaign.outcome === "champion" || campaign.outcome === "podium" ? "trophy" : campaign.outcome === "advanced" ? "check" : "bracket"} size={22} /></span>
@@ -141,26 +217,52 @@ export function KnockoutPage() {
               </div>
             </div>
           )}
-          {campaign.turn && (
+          {campaign?.turn && (
             <div className="knockout-campaign-turn">
               <span className="knockout-campaign-label">Sua vez</span>
               <p className="knockout-campaign-opponent">{campaign.turn.match.label} · contra <strong>{campaign.turn.opponentName}</strong></p>
               {resultAction(campaign.turn.match, "top")}
             </div>
           )}
-          {campaign.waiting && <p className="knockout-campaign-waiting">{campaign.waiting.sentence}</p>}
+          {campaign?.waiting && <p className="knockout-campaign-waiting">{campaign.waiting.sentence}</p>}
+          {!campaign && (
+            <p className="knockout-campaign-waiting">
+              {myRow && myRow.jogos > 0
+                ? `Hoje em ${myRow.position}º lugar no grupo: ${zoneOf(myRow.position)}. A vaga só fica garantida no fim da fase de grupos.`
+                : "A vaga da sua dupla no chaveamento é definida no fim da fase de grupos."}
+            </p>
+          )}
         </section>
       )}
 
-      <section className="knockout-path" aria-label="Caminho até o título">
-        <ol>
-          {PHASES.map((phase, index) => (
-            <li key={phase.id} className={index < currentIndex ? "knockout-step-done" : index === currentIndex ? "knockout-step-current" : undefined} aria-current={index === currentIndex ? "step" : undefined}>
-              {phase.label}
-            </li>
+      <section className="knockout-board" aria-label="Chaveamento">
+        <div className="knockout-filters" role="radiogroup" aria-label="Destaque do chaveamento">
+          {FILTERS.filter((item) => item.id !== "dupla" || myTeamId).map((item) => (
+            <button key={item.id} type="button" role="radio" aria-checked={activeFocus === item.id} className="knockout-filter" onClick={() => chooseFocus(item.id)}>
+              {item.label}
+            </button>
           ))}
-        </ol>
-        <p role="status">{note}</p>
+        </div>
+        {activeFocus === "dupla" && !inBracket && (
+          <p className="knockout-focus-note" role="status">
+            {campaign?.outcome === "eliminated"
+              ? "Sua dupla terminou a fase de grupos fora das vagas e não está no chaveamento desta edição."
+              : "Sua dupla ainda não tem vaga confirmada: o caminho aparece aqui quando a fase de grupos terminar."}
+          </p>
+        )}
+        {activeFocus === "fase" && summary.phase === "encerrado" && <p className="knockout-focus-note" role="status">Campeonato encerrado: não há confronto em disputa.</p>}
+
+        <KnockoutBracket
+          view={summary.view}
+          championConfirmed={Boolean(data.status?.champion)}
+          highlightTeamId={user?.teamId}
+          provisionalLabel={summary.groupsComplete && !summary.tiePending ? "classificação final" : undefined}
+          renderActions={(match) => resultAction(match, "card")}
+          currentRounds={CURRENT_ROUNDS[summary.phase]}
+          currentLabel={groupsRunning ? "Próxima fase" : "Em disputa"}
+          focus={activeFocus}
+          initialTab={tab}
+        />
       </section>
 
       <section className="knockout-podium" aria-labelledby="knockout-podium-title">
@@ -171,29 +273,29 @@ export function KnockoutPage() {
             return (
               <li key={item.place} className={`knockout-podium-item knockout-podium-${item.place.charAt(0)}${item.side ? " is-decided" : ""}`}>
                 <span className="knockout-podium-place">{item.place}</span>
-                <div>
-                  <p className="knockout-podium-title">{item.title} · {brl(item.prize)} por dupla</p>
-                  <p className="knockout-podium-team">{item.side?.name ?? "A definir"}</p>
-                  {score && <p className="knockout-podium-score">{item.match!.label} · {score}</p>}
-                </div>
+                <p className="knockout-podium-title">{item.title}</p>
+                <p className="knockout-podium-prize">{brl(item.prize)} <small>por dupla</small></p>
+                <p className="knockout-podium-team">{item.side?.name ?? "A definir"}</p>
+                {score && <p className="knockout-podium-score">{item.match!.label} · {score}</p>}
               </li>
             );
           })}
         </ol>
       </section>
 
-      <KnockoutBracket view={summary.view} championConfirmed={Boolean(data.status?.champion)} highlightTeamId={user?.teamId} provisionalLabel={summary.groupsComplete && !summary.tiePending ? "classificação final" : undefined} renderActions={(match) => resultAction(match, "card")} />
-
-      <section className="knockout-rules" aria-labelledby="knockout-rules-title">
-        <h2 id="knockout-rules-title">Como cada posição do grupo entra</h2>
-        <ul>
-          <li className="knockout-rule-semifinal"><strong>1º e 2º</strong> direto na semifinal</li>
-          <li className="knockout-rule-quartas"><strong>3º a 6º</strong> jogam as quartas: 3º × 6º e 4º × 5º</li>
-          <li className="knockout-rule-eliminado"><strong>7º lugar</strong> eliminado</li>
-        </ul>
-        <p>Na semifinal, o 1º enfrenta o vencedor de 4º × 5º e o 2º enfrenta o vencedor de 3º × 6º. Quem vence vai à final; quem perde disputa o 3º lugar.</p>
-        <p>Cada fase nasce sozinha: as quartas com o fim do grupo, as semifinais com as quartas, e a final e a disputa de 3º lugar com as duas semifinais. Quem joga a partida lança o resultado aqui no chaveamento ou em Jogos; o vencedor avança na hora.</p>
-      </section>
+      <details className="knockout-rules-box">
+        <summary>Como funciona o chaveamento</summary>
+        <section className="knockout-rules" aria-labelledby="knockout-rules-title">
+          <h2 id="knockout-rules-title">Como cada posição do grupo entra</h2>
+          <ul>
+            <li className="knockout-rule-semifinal"><strong>1º e 2º</strong> direto na semifinal</li>
+            <li className="knockout-rule-quartas"><strong>3º a 6º</strong> jogam as quartas: 3º × 6º e 4º × 5º</li>
+            <li className="knockout-rule-eliminado"><strong>7º lugar</strong> eliminado</li>
+          </ul>
+          <p>Na semifinal, o 1º enfrenta o vencedor de 4º × 5º e o 2º enfrenta o vencedor de 3º × 6º. Quem vence vai à final; quem perde disputa o 3º lugar.</p>
+          <p>Cada fase nasce sozinha: as quartas com o fim do grupo, as semifinais com as quartas, e a final e a disputa de 3º lugar com as duas semifinais. Quem joga a partida lança o resultado aqui no chaveamento ou em Jogos; o vencedor avança na hora.</p>
+        </section>
+      </details>
 
       {entry.dialog}
     </div>

@@ -54,6 +54,20 @@ Não existe mais “Gerar mata-mata”. O administrador só abre o cadeado de re
 - **Formulário de placar no card:** em coluna estreita do chaveamento largo os quatro placares viram 2×2 e os botões empilham (container query do rodapé); alvos de 44 px; cabe em 320 px.
 - **Movimento, tudo com fim:** o painel entra subindo e refaz a entrada quando a dupla passa de fase; nome da vaga, placar e situação pulsam quando mudam (`useValueChangePulse`). A tela não desmonta ao recarregar os dados, para o pulso acontecer. Nada em laço.
 - **Jogos:** filtro “Mata-mata” sempre presente (uma seção por fase; vazio explica que os jogos aparecem sozinhos). Jogo de mata-mata não mostra “+N pts”, e o “Próximo jogo” do topo troca a leitura da tabela do grupo pela fase do confronto.
+#### Redesenho premium do Mata-mata (16/10/2026, aprovado pelo usuário)
+
+Substitui a trilha de pílulas, o pódio em lista e as regras abertas descritos acima. Ordem da tela: barra de fases → “Sua dupla” → filtros → chaveamento → 3º lugar → pódio → regras recolhidas (`<details>` “Como funciona o chaveamento”).
+
+- **Barra de fases:** quatro etapas (Fase de grupos → Quartas → Semifinais → Final) com bolinhas numeradas: concluídas em azul com ✓, atual em laranja com pulso curto (2 ciclos), futuras apagadas. A disputa de 3º lugar é um ramo abaixo (“3º lugar: perdedores das semifinais, junto com a final”), nunca uma etapa antes da final; a fase `terceiro` acende a etapa Final e o ramo. Na fase de grupos, selo “Provisório até o fim dos grupos”.
+- **Filtros** (`radiogroup`, lembrado em `localStorage` com try/catch): Visão geral, Fase atual, Minha dupla (só para jogador com dupla). Só mudam o destaque (`ko-cell-dim`); nenhum confronto some. Fase atual segue `summarizeKnockout().phase` e muda sozinha; na fase de grupos as quartas aparecem como “Próxima fase”. Minha dupla destaca só confrontos em que a dupla está confirmada (nunca vaga provisória ou futura); fora do chaveamento, aviso explícito de eliminação.
+- **“Sua dupla”:** nome e situação numa palavra (Em disputa, Aguardando adversário, Classificada, Eliminada, No pódio, Campeã), lida de `teamKnockoutStatus`. Na fase de grupos, a posição de hoje com a zona, marcada como provisória.
+- **Cores:** laranja = fase em disputa e quem avançou; azul = a dupla de quem vê; dourado = final, campeão e premiação. Final (“Grande final”) é o card maior, dourado, com R$ 400 · R$ 200; 3º lugar com R$ 100. Vaga sem dupla não mostra caixa de placar.
+- **Campeão:** `OpeningTrophy metal="gold"`, apagado até o título; confirmado ganha halo, brilho que atravessa o card uma vez e o prêmio.
+- **Pódio:** três cards, 1º no centro e mais alto (ordem do DOM continua 1º, 2º, 3º); valor grande “R$ 400 por dupla”. No celular vira lista com o valor à direita.
+- **Celular** (container < 900 px): abas Quartas · Semifinais · Final · 3º lugar (a da fase atual abre primeiro e tem ponto laranja; com “Minha dupla”, abre a do jogo da dupla) e o botão “Ver chaveamento completo”, que volta à trilha vertical. Os cards das outras abas ficam no DOM, ocultos por CSS.
+- **Movimento:** todas as animações têm fim (pulso, ponto “Em disputa”, halo); nada em laço, para os testes de “sem animação rodando” e para o celular.
+- **Testes:** `e2e/championship.spec.ts` cobre filtros, troca de fase, eliminação e as abas; `KO_SHOTS=<pasta>` gera capturas dos cinco estados nos dois temas.
+
 - **Admin (`/admin/mata-mata`):** sem botão de gerar. Explica que as fases nascem sozinhas, mostra o chaveamento, lista os jogos para “Registrar resultado” / “Corrigir resultado” (com confirmação) e, havendo empate pendente, aponta para Grupos (“Decidir o empate em Grupos”).
 
 ### Maiores Campeões e pódio histórico (redesenho de 09/10/2026)

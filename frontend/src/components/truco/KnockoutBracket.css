@@ -1,13 +1,18 @@
 /* Chaveamento do mata-mata (KnockoutBracket.tsx).
    Largo: quatro colunas (quartas → campeão) ligadas por conectores; confrontos da mesma
-   trilha ficam na mesma linha. Estreito: uma coluna só, fase por fase, sem rolagem lateral.
-   A troca usa a largura do próprio componente (container query), não a da janela. */
+   trilha ficam na mesma linha. Estreito: abas por fase ou o chaveamento completo numa
+   trilha vertical, sem rolagem lateral. A troca usa a largura do próprio componente
+   (container query), não a da janela.
+   Cores: laranja = fase em disputa e quem avançou; azul = a dupla de quem está vendo. */
 .ko {
-  --ko-gap: clamp(18px, 2.6cqi, 34px);
+  --ko-gap: clamp(22px, 3cqi, 40px);
   --ko-row-gap: 18px;
-  --ko-line: rgb(var(--rgb-white) / 0.3);
+  --ko-line: rgb(var(--rgb-white) / 0.22);
   --ko-line-on: var(--color-brand-orange);
+  --ko-gold: #d9a43a;
+  --ko-gold-soft: rgb(217 164 58 / 0.16);
   container-type: inline-size;
+  position: relative;
 }
 
 .ko-rounds {
@@ -23,34 +28,44 @@
   animation: rise-in var(--motion-reveal) backwards;
 }
 
-.ko-round-semifinal { animation-delay: 110ms; }
-.ko-round-final { animation-delay: 220ms; }
-.ko-round-champion { animation-delay: 330ms; }
-
-/* Disputa de 3º lugar: abaixo do chaveamento, mesma linguagem dos confrontos. */
-.ko-third {
-  display: grid;
-  gap: 12px;
-  margin-top: 26px;
-  animation: rise-in var(--motion-reveal) 440ms backwards;
-}
+.ko-round-semifinal { animation-delay: 90ms; }
+.ko-round-final { animation-delay: 180ms; }
+.ko-round-champion { animation-delay: 270ms; }
 
 .ko-round-title {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 0.78rem;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 0.72rem;
   font-weight: 800;
-  letter-spacing: 0.02em;
-  color: var(--color-tech-400);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
 }
 
-/* Fio que segue o título: dá o ritmo de "fase" sem precisar de caixa. */
-.ko-round-title::after {
+.ko-round-current > .ko-round-title { color: var(--color-accent-500); }
+
+/* Selo "Em disputa": a fase do momento, com um ponto que respira. */
+.ko-round-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: rgb(var(--rgb-accent) / 0.14);
+  color: var(--color-accent-500);
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+}
+
+.ko-round-live::before {
   content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--color-border);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-brand-orange);
+  animation: ko-live 1.2s ease-in-out 2;
 }
 
 .ko-round-matches {
@@ -64,34 +79,76 @@
   display: grid;
   align-items: center;
   min-width: 0;
+  transition: opacity 260ms var(--ease-out), filter 260ms var(--ease-out);
 }
+
+/* Filtros: o que está fora do recorte só recua, nunca some. */
+.ko-cell-dim { opacity: 0.38; filter: saturate(0.4); }
 
 /* ---------- Confronto ---------- */
 .ko-match {
   position: relative;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border-strong);
-  background: var(--color-surface);
+  background:
+    linear-gradient(180deg, rgb(var(--rgb-white) / 0.035), transparent 60%),
+    var(--color-surface);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
+  transition: border-color 220ms ease, box-shadow 220ms ease, transform 220ms var(--ease-out);
 }
 
-.ko-match-ready { border-color: rgb(var(--rgb-accent) / 0.55); }
+@media (hover: hover) {
+  .ko-cell:not(.ko-cell-dim) .ko-match:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+}
+
+/* Fase em disputa: fio laranja no topo e contorno quente. */
+.ko-cell-current .ko-match {
+  border-color: rgb(var(--rgb-accent) / 0.55);
+  box-shadow: 0 0 0 1px rgb(var(--rgb-accent) / 0.18), 0 14px 30px -22px rgb(var(--rgb-accent) / 0.9);
+}
+
+.ko-cell-current .ko-match::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-brand-orange), rgb(var(--rgb-accent-hi)));
+}
+
+/* Confronto da dupla de quem está vendo: azul, que é a cor "sua" no sistema. */
+.ko-cell-mine .ko-match {
+  border-color: var(--color-tech-400);
+  box-shadow: 0 0 0 2px rgb(var(--rgb-tech) / 0.22), 0 14px 30px -22px rgb(var(--rgb-tech) / 0.9);
+}
 
 .ko-match-head {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 8px;
-  padding: 7px 12px;
-  background: var(--color-surface-alt);
-  border-bottom: 1px solid var(--color-border);
-  font-size: 0.7rem;
+  padding: 8px 12px 6px;
+  font-size: 0.68rem;
   font-weight: 750;
   color: var(--color-text-muted);
 }
 
-.ko-match-label { color: var(--color-text); }
+.ko-match-label {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-text);
+  font-weight: 800;
+}
+
+.ko-match-prize {
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgb(217 164 58 / 0.45);
+  background: var(--ko-gold-soft);
+  color: var(--ko-gold);
+  font-size: 0.62rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
 
 /* Duas duplas do mesmo grupo: só acontece quando não havia como evitar. */
 .ko-match-rematch {
@@ -100,20 +157,31 @@
   padding: 1px 6px;
   border-radius: 4px;
   border: 1px dashed var(--color-text-muted);
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   font-weight: 700;
   color: var(--color-text-muted);
 }
 
-.ko-match-ready .ko-match-status { color: var(--color-accent-500); }
+.ko-match-status {
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.62rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ko-status-ready { background: var(--color-action); color: var(--color-on-action); }
+.ko-status-done { background: var(--color-surface-alt); color: var(--color-text-muted); border: 1px solid var(--color-border); }
+.ko-status-wait { border: 1px dashed var(--color-border-strong); color: var(--color-text-faint); }
 
 .ko-side {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  min-height: 52px;
+  gap: 8px;
+  padding: 7px 12px;
+  min-height: 44px;
 }
 
 .ko-side + .ko-side { border-top: 1px solid var(--color-border); }
@@ -122,7 +190,7 @@
 
 .ko-side-team strong {
   display: block;
-  font-size: 0.86rem;
+  font-size: 0.88rem;
   font-weight: 750;
   line-height: 1.25;
   color: var(--color-text);
@@ -130,45 +198,68 @@
 }
 
 .ko-side-team small {
-  display: block;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
   margin-top: 2px;
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   line-height: 1.35;
   color: var(--color-text-faint);
 }
 
 .ko-side-empty .ko-side-team strong {
   font-weight: 600;
-  color: var(--color-text-muted);
+  font-style: italic;
+  color: var(--color-text-faint);
 }
 
+/* Posição de hoje (fase de grupos): nome ainda não garantido. */
+/* Vaga sem dupla: sem caixa de placar, só o texto de espera. */
+.ko-side-empty .ko-side-sets { visibility: hidden; }
+
+.ko-side-provisional .ko-side-team strong { color: var(--color-text-muted); }
+
 .ko-side-sets {
-  min-width: 26px;
-  text-align: center;
-  font-size: 1.1rem;
+  min-width: 30px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--color-surface-alt);
+  font-size: 1rem;
   font-weight: 850;
   font-variant-numeric: tabular-nums;
   color: var(--color-text-faint);
 }
 
-/* Quem avançou: faixa laranja na borda interna e placar em destaque; quem caiu, apagado. */
+.ko-side-mark {
+  font-size: 0.55rem;
+  color: var(--color-brand-orange);
+  transform: rotate(90deg);
+}
+
+/* Quem avançou: faixa laranja e placar aceso; quem caiu, apagado e riscado de leve. */
 .ko-side-winner {
-  background: rgb(var(--rgb-accent) / 0.1);
+  background: linear-gradient(90deg, rgb(var(--rgb-accent) / 0.16), rgb(var(--rgb-accent) / 0.03) 70%);
   box-shadow: inset 3px 0 0 var(--ko-line-on);
 }
 
-.ko-side-winner .ko-side-sets { color: var(--color-accent-500); }
-.ko-side-loser .ko-side-team strong { color: var(--color-text-muted); font-weight: 600; }
+.ko-side-winner .ko-side-team strong { font-weight: 850; }
+.ko-side-winner .ko-side-sets { background: var(--color-brand-orange); color: #fff; }
+.ko-side-loser .ko-side-team strong { color: var(--color-text-faint); font-weight: 600; }
+.ko-side-loser .ko-side-sets { opacity: 0.7; }
+
+.ko-side-mine:not(.ko-side-winner) { box-shadow: inset 3px 0 0 var(--color-tech-400); }
 
 .ko-side-you {
   display: inline-block;
-  margin-left: 6px;
   padding: 1px 6px;
   border-radius: 4px;
-  background: var(--color-text);
-  color: var(--color-bg);
-  font-size: 0.62rem;
-  font-weight: 750;
+  background: var(--color-tech-400);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 800;
 }
 
 /* ---------- Lançar / editar o placar no próprio confronto ---------- */
@@ -196,7 +287,6 @@
 .ko-match-actions .score-form-cancel { flex: 1 1 auto; }
 .ko-match-actions .score-form-submit { flex: 2 1 150px; }
 
-/* Coluna estreita do chaveamento largo: placares em 2×2 e botões empilhados. */
 @container ko-actions (max-width: 219px) {
   .ko-match-actions .score-form-grid { grid-template-columns: repeat(2, 1fr); }
   .ko-match-actions .score-form-actions { flex-direction: column; }
@@ -204,24 +294,57 @@
   .ko-match-actions .score-form-actions .score-form-submit { flex: none; margin-top: 0; padding-inline: 6px; }
 }
 
+/* ---------- Final: o confronto maior, em dourado ---------- */
+.ko-cell-F .ko-match {
+  border-color: rgb(217 164 58 / 0.55);
+  background:
+    radial-gradient(120% 90% at 50% 0%, var(--ko-gold-soft), transparent 70%),
+    var(--color-surface);
+  box-shadow: 0 20px 40px -26px rgb(217 164 58 / 0.9);
+}
+
+.ko-cell-F .ko-match-head { padding-block: 10px 8px; font-size: 0.72rem; }
+.ko-cell-F .ko-match-label { color: var(--ko-gold); letter-spacing: 0.06em; text-transform: uppercase; }
+.ko-cell-F .ko-side { min-height: 54px; padding-block: 10px; }
+.ko-cell-F .ko-side-team strong { font-size: 1rem; }
+.ko-cell-F.ko-cell-mine .ko-match { border-color: var(--color-tech-400); }
+
 /* ---------- Campeão ---------- */
 .ko-champion {
-  --tw: 92px;
+  --tw: 104px;
   --trophy-shine-delay: 900ms;
+  position: relative;
   display: grid;
   justify-items: center;
   align-content: center;
-  gap: 4px;
+  gap: 3px;
   padding: 18px 14px 16px;
   border-radius: var(--radius-lg);
   border: 1px dashed var(--color-border-strong);
   background: var(--color-surface);
   text-align: center;
+  overflow: hidden;
+  transition: opacity 260ms var(--ease-out), filter 260ms var(--ease-out);
+}
+
+.ko-champion-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.ko-champion-halo {
+  position: absolute;
+  inset: -18%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(217 164 58 / 0.35), transparent 65%);
+  opacity: 0;
 }
 
 .ko-champion-trophy {
-  opacity: 0.35;
-  filter: grayscale(0.85);
+  position: relative;
+  opacity: 0.4;
+  filter: grayscale(0.9);
 }
 
 .ko-champion-name {
@@ -234,35 +357,160 @@
 }
 
 .ko-champion-note {
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: 0.7rem;
+  font-weight: 650;
   color: var(--color-text-faint);
 }
 
-.ko-champion-decided {
-  border: 1px solid rgb(var(--rgb-accent) / 0.6);
-  background:
-    radial-gradient(90% 70% at 50% 18%, rgb(var(--rgb-accent) / 0.2), transparent 70%),
-    var(--color-surface);
-  box-shadow: 0 18px 34px -22px rgb(var(--rgb-accent) / 0.8);
-  animation: ko-champion-in 760ms var(--ease-out) 520ms backwards;
+.ko-champion-prize {
+  margin-top: 6px;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  background: var(--ko-gold-soft);
+  color: var(--ko-gold);
+  font-size: 0.68rem;
+  font-weight: 800;
 }
+
+.ko-champion-decided {
+  border: 1px solid rgb(217 164 58 / 0.7);
+  background:
+    radial-gradient(90% 70% at 50% 16%, rgb(217 164 58 / 0.24), transparent 70%),
+    var(--color-surface);
+  box-shadow: 0 22px 44px -24px rgb(217 164 58 / 0.95);
+  animation: ko-champion-in 760ms var(--ease-out) 420ms backwards;
+}
+
+/* Brilho que atravessa o card uma vez quando o título é confirmado. */
+.ko-champion-decided::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.22) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: ko-sweep 1.4s var(--ease-out) 1.2s forwards;
+  pointer-events: none;
+}
+
+.ko-champion-decided .ko-champion-halo { opacity: 1; animation: ko-halo 1.6s ease-in-out 1s 1; }
 
 .ko-champion-decided .ko-champion-trophy {
   opacity: 1;
-  filter: none;
-  animation: ko-trophy-in 820ms var(--ease-out) 640ms backwards;
+  filter: drop-shadow(0 10px 18px rgb(217 164 58 / 0.45));
+  animation: ko-trophy-in 820ms var(--ease-out) 560ms backwards;
 }
 
-.ko-champion-decided .ko-champion-name { color: var(--color-text); font-size: 1.12rem; }
-.ko-champion-decided .ko-champion-note { color: var(--color-accent-500); font-weight: 750; }
+.ko-champion-decided .ko-champion-name { color: var(--color-text); font-size: 1.15rem; }
+.ko-champion-decided .ko-champion-note { color: var(--ko-gold); font-weight: 800; }
+.ko-champion-mine { border-color: var(--color-tech-400); }
+
+/* ---------- Disputa de 3º lugar: abaixo do chaveamento, ligada às semifinais ---------- */
+.ko-third {
+  display: grid;
+  gap: 12px;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px dashed var(--color-border-strong);
+  animation: rise-in var(--motion-reveal) 360ms backwards;
+}
+
+.ko-third-from {
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-text-faint);
+}
+
+.ko-third .ko-match-prize {
+  border-color: rgb(176 122 42 / 0.45);
+  background: rgb(176 122 42 / 0.14);
+  color: #c08a3e;
+}
+
+/* ---------- Navegação do celular ---------- */
+.ko-mobile-nav { display: none; }
+
+.ko-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-alt);
+}
+
+.ko-tab {
+  position: relative;
+  min-height: 40px;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 750;
+  cursor: pointer;
+  transition: background 200ms ease, color 200ms ease;
+}
+
+/* Ponto laranja: a aba da fase em disputa, mesmo quando outra está aberta. */
+.ko-tab-live::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-brand-orange);
+}
+
+.ko-tab[aria-selected="true"] {
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-sm), inset 0 -2px 0 var(--color-brand-orange);
+}
+
+.ko-tab:focus-visible,
+.ko-view-toggle:focus-visible { outline: 2px solid var(--color-tech-400); outline-offset: 2px; }
+
+.ko-view-toggle {
+  justify-self: end;
+  min-height: 36px;
+  padding: 4px 4px;
+  border: 0;
+  background: none;
+  color: var(--color-tech-400);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+@keyframes ko-live {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.7); }
+}
 
 @keyframes ko-champion-in {
-  from { opacity: 0; transform: scale(0.9); }
+  from { opacity: 0; transform: scale(0.92); }
 }
 
 @keyframes ko-trophy-in {
-  from { opacity: 0; transform: translate3d(0, 18px, 0) scale(0.7); filter: blur(5px); }
+  from { opacity: 0; transform: translate3d(0, 18px, 0) scale(0.7); }
+}
+
+@keyframes ko-sweep {
+  to { transform: translateX(120%); }
+}
+
+@keyframes ko-halo {
+  0%, 100% { opacity: 0.75; transform: scale(0.96); }
+  50% { opacity: 1; transform: scale(1.04); }
 }
 
 @keyframes ko-line-in {
@@ -273,8 +521,27 @@
   from { opacity: 0; }
 }
 
-/* ---------- Estreito: trilha vertical ---------- */
+/* ---------- Estreito: abas por fase ou trilha vertical completa ---------- */
 @container (max-width: 899px) {
+  .ko-mobile-nav {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  /* Por fase: só a aba aberta aparece. As demais ficam no DOM, fora da tela. */
+  .ko[data-view="fase"] .ko-round,
+  .ko[data-view="fase"] .ko-third { display: none; }
+  .ko[data-view="fase"][data-tab="quartas"] .ko-round-quartas,
+  .ko[data-view="fase"][data-tab="semifinal"] .ko-round-semifinal,
+  .ko[data-view="fase"][data-tab="final"] .ko-round-final,
+  .ko[data-view="fase"][data-tab="final"] .ko-round-champion,
+  .ko[data-view="fase"][data-tab="terceiro"] .ko-third { display: flex; animation: ko-tab-in 280ms var(--ease-out); }
+  .ko[data-view="fase"][data-tab="terceiro"] .ko-third { display: grid; margin-top: 0; padding-top: 0; border-top: 0; }
+  .ko[data-view="fase"] .ko-rounds { padding-left: 0; }
+  .ko[data-view="fase"] .ko-rounds::before,
+  .ko[data-view="fase"] .ko-round::before { display: none; }
+
   .ko-rounds {
     position: relative;
     padding-left: 22px;
@@ -299,7 +566,7 @@
     content: "";
     position: absolute;
     left: -22px;
-    top: 2px;
+    top: 0;
     width: 12px;
     height: 12px;
     border-radius: 50%;
@@ -307,23 +574,27 @@
     background: var(--color-bg);
   }
 
-  .ko-round-champion::before { border-color: var(--ko-line-on); }
-  .ko-champion { --tw: 84px; }
+  .ko-round-current::before { border-color: var(--ko-line-on); background: var(--ko-line-on); }
+  .ko-round-champion::before { border-color: var(--ko-gold); }
+  .ko-champion { --tw: 92px; }
   /* No celular não há conectores para alinhar: as quartas voltam à ordem 1, 2. */
   .ko-cell-Q1 { order: -1; }
+}
+
+@keyframes ko-tab-in {
+  from { opacity: 0; transform: translate3d(0, 6px, 0); }
 }
 
 /* ---------- Largo: chaveamento horizontal ---------- */
 @container (min-width: 900px) {
   .ko-rounds {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 0.86fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 0.85fr);
     gap: var(--ko-gap);
     align-items: stretch;
   }
 
   .ko-round-matches { grid-auto-rows: 1fr; }
-  .ko-round-title { justify-content: center; text-align: center; }
-  .ko-round-title::after { display: none; }
+  .ko-round-title { justify-content: center; text-align: center; min-height: 22px; }
 
   /* Conector reto até o confronto da próxima coluna, na mesma linha. */
   .ko-round-quartas .ko-cell::after,
@@ -340,7 +611,7 @@
     animation: ko-line-in 420ms var(--ease-out) 380ms backwards;
   }
 
-  .ko-round-final .ko-cell::after { animation-delay: 760ms; }
+  .ko-round-final .ko-cell::after { animation-delay: 700ms; }
 
   /* As duas semifinais se juntam na final: cotovelo que desce (ou sobe) até o meio. */
   .ko-round-semifinal .ko-cell::after {
@@ -350,21 +621,21 @@
     width: calc(var(--ko-gap) / 2);
     border: 0 solid var(--ko-line);
     border-right-width: 2px;
-    animation: ko-elbow-in 360ms ease-out 620ms backwards;
+    animation: ko-elbow-in 360ms ease-out 560ms backwards;
   }
 
   .ko-round-semifinal .ko-cell:first-child::after {
     top: 50%;
     bottom: calc(var(--ko-row-gap) / -2);
     border-top-width: 2px;
-    border-top-right-radius: 8px;
+    border-top-right-radius: 10px;
   }
 
   .ko-round-semifinal .ko-cell:last-child::after {
     top: calc(var(--ko-row-gap) / -2);
     bottom: 50%;
     border-bottom-width: 2px;
-    border-bottom-right-radius: 8px;
+    border-bottom-right-radius: 10px;
   }
 
   .ko-round-final .ko-cell::before {
@@ -377,16 +648,23 @@
     margin-top: -1px;
     background: var(--ko-line);
     transform-origin: left center;
-    animation: ko-line-in 300ms var(--ease-out) 700ms backwards;
+    animation: ko-line-in 300ms var(--ease-out) 640ms backwards;
   }
 
   /* Trilha já percorrida: o conector acende quando o jogo de origem termina. */
   .ko-round .ko-cell-played::after { background: var(--ko-line-on); border-color: var(--ko-line-on); }
   .ko-round-semifinal .ko-cell-played::after { background: none; }
+  .ko-round-final .ko-cell-played::after { background: var(--ko-gold); }
+  .ko-round-final:has(.ko-cell-F) .ko-cell::before { background: var(--ko-line); }
+  .ko-round-semifinal:has(.ko-cell-played:first-child):has(.ko-cell-played:last-child) ~ .ko-round-final .ko-cell::before { background: var(--ko-line-on); }
+
+  /* Caminho da sua dupla: o conector que sai do seu jogo fica azul. */
+  .ko-focus-dupla .ko-round .ko-cell-mine::after { background: var(--color-tech-400); border-color: var(--color-tech-400); }
+  .ko-focus-dupla .ko-round-semifinal .ko-cell-mine::after { background: none; }
 
   .ko-round-champion .ko-round-matches { align-items: center; }
 
-  .ko-third { max-width: 420px; margin-inline: auto; width: 100%; }
+  .ko-third { justify-items: center; }
   .ko-third .ko-round-title { justify-content: center; }
-  .ko-third .ko-round-title::after { display: none; }
+  .ko-third .ko-cell { width: min(100%, 380px); }
 }

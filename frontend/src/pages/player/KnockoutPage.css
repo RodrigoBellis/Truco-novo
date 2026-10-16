@@ -1,58 +1,4 @@
 /* Tela Mata-mata do jogador (KnockoutPage.tsx): caminho das fases, chaveamento e a regra de entrada. */
-.knockout-path {
-  margin-bottom: 24px;
-}
-
-.knockout-path ol {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.knockout-path li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 12px;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--color-border-strong);
-  background: var(--color-surface);
-  font-size: 0.78rem;
-  font-weight: 650;
-  color: var(--color-text-muted);
-  white-space: nowrap;
-}
-
-.knockout-path li::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--color-border-strong);
-}
-
-.knockout-path li.knockout-step-done::before { background: var(--color-tech-400); }
-
-.knockout-path .knockout-step-current {
-  border-color: var(--color-action);
-  background: var(--color-action);
-  color: var(--color-on-action);
-  font-weight: 750;
-}
-
-.knockout-path li.knockout-step-current::before { background: var(--color-on-action); }
-
-.knockout-path p {
-  margin-top: 12px;
-  max-width: 72ch;
-  font-size: 0.875rem;
-  line-height: 1.55;
-  color: var(--color-text-muted);
-}
-
 .knockout-rules {
   margin-top: 32px;
   padding-top: 22px;
@@ -102,40 +48,6 @@
 :root[data-theme="dark"] .knockout-rule-semifinal { --zone: #34d399; }
 :root[data-theme="dark"] .knockout-rule-quartas { --zone: #6ea2ff; }
 :root[data-theme="dark"] .knockout-rule-eliminado { --zone: #fb5b5b; }
-
-/* Pódio e premiação: 1º, 2º e 3º com o valor por dupla. */
-.knockout-podium { display: grid; gap: 12px; margin-bottom: 32px; }
-.knockout-podium h2 { font-size: 1rem; font-weight: 800; }
-.knockout-podium ol { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
-.knockout-podium-item {
-  --medal: #b07a2a;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  min-width: 0;
-}
-.knockout-podium-1 { --medal: #d4a017; }
-.knockout-podium-2 { --medal: #8f9aa6; }
-.knockout-podium-item.is-decided { border-color: var(--medal); box-shadow: inset 3px 0 0 var(--medal); }
-.knockout-podium-place {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  border: 2px solid var(--medal);
-  font-weight: 850;
-  color: var(--color-text);
-}
-.knockout-podium-title { font-size: 0.72rem; font-weight: 700; color: var(--color-text-muted); }
-.knockout-podium-team { font-size: 0.95rem; font-weight: 800; color: var(--color-text); overflow-wrap: anywhere; }
-.knockout-podium-item:not(.is-decided) .knockout-podium-team { color: var(--color-text-faint); font-weight: 600; }
-.knockout-podium-score { font-size: 0.7rem; color: var(--color-text-faint); }
 
 .knockout-rules p {
   margin-top: 14px;
@@ -265,4 +177,326 @@
   .knockout-campaign { padding: 16px; }
   .knockout-campaign-turn { max-width: none; }
   .knockout-campaign-turn > .btn { justify-self: stretch; }
+}
+
+/* ---------- Barra de fases: Grupos → Quartas → Semifinais → Final ----------
+   Concluídas com ✓ em azul, a atual em laranja com um pulso, as próximas apagadas.
+   O 3º lugar é um ramo das semifinais, ao lado da final, nunca uma etapa antes dela. */
+.knockout-path {
+  margin-bottom: 18px;
+  padding: 16px 18px 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background:
+    radial-gradient(80% 140% at 100% 0%, rgb(var(--rgb-tech) / 0.1), transparent 60%),
+    var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.knockout-path-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  margin-bottom: 14px;
+}
+
+.knockout-path-kicker {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.knockout-provisional-badge {
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  border: 1px dashed rgb(var(--rgb-accent) / 0.7);
+  color: var(--color-accent-500);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.knockout-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.knockout-steps li {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  min-width: 0;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-text-faint);
+}
+
+/* Trilho entre as bolinhas: acende em azul atrás de quem já passou. */
+.knockout-steps li + li::before {
+  content: "";
+  position: absolute;
+  top: 15px;
+  right: calc(50% + 20px);
+  width: calc(100% - 40px);
+  height: 2px;
+  border-radius: 1px;
+  background: var(--color-border-strong);
+}
+
+.knockout-steps li.knockout-step-done + li::before { background: var(--color-tech-400); }
+
+.knockout-step-dot {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border-strong);
+  background: var(--color-surface);
+  font-size: 0.78rem;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+}
+
+.knockout-step-label { line-height: 1.25; overflow-wrap: anywhere; }
+
+.knockout-step-done { color: var(--color-text-muted); }
+.knockout-step-done .knockout-step-dot { border-color: var(--color-tech-400); background: var(--color-tech-400); color: #fff; }
+
+.knockout-steps .knockout-step-current { color: var(--color-text); font-weight: 850; }
+.knockout-step-current .knockout-step-dot {
+  border-color: var(--color-brand-orange);
+  background: var(--color-action);
+  color: var(--color-on-action);
+  animation: knockout-step-pulse 1.2s ease-out 400ms 2;
+}
+
+@keyframes knockout-step-pulse {
+  0% { box-shadow: 0 0 0 0 rgb(var(--rgb-accent) / 0.55); }
+  70%, 100% { box-shadow: 0 0 0 10px rgb(var(--rgb-accent) / 0); }
+}
+
+.knockout-third-branch {
+  margin: 10px 0 0 auto;
+  width: fit-content;
+  max-width: 100%;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-text-faint);
+}
+
+.knockout-third-branch::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: 1px;
+}
+
+.knockout-third-current { border-color: rgb(var(--rgb-accent) / 0.6); color: var(--color-accent-500); }
+.knockout-third-done { border-color: rgb(var(--rgb-tech) / 0.5); color: var(--color-tech-400); }
+
+.knockout-path-note {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+}
+
+/* ---------- Sua dupla: nome e situação numa palavra ---------- */
+.knockout-campaign-team {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.knockout-campaign-kicker {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-tech-400);
+}
+
+.knockout-campaign-name { font-size: 0.95rem; font-weight: 850; color: var(--color-text); overflow-wrap: anywhere; }
+
+.knockout-campaign-badge {
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.knockout-badge-live { background: var(--color-action); color: var(--color-on-action); }
+.knockout-badge-wait { border: 1px dashed var(--color-border-strong); color: var(--color-text-muted); }
+.knockout-badge-out { background: var(--color-surface-alt); border: 1px solid var(--color-border-strong); color: var(--color-text-muted); }
+.knockout-badge-gold { background: rgb(217 164 58 / 0.18); border: 1px solid rgb(217 164 58 / 0.6); color: #b5811f; }
+
+/* ---------- Filtros do chaveamento ---------- */
+.knockout-board { display: grid; gap: 14px; }
+
+.knockout-filters {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  justify-self: start;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-alt);
+}
+
+.knockout-filter {
+  min-height: 38px;
+  padding: 6px 16px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 200ms ease, color 200ms ease, box-shadow 200ms ease;
+}
+
+.knockout-filter:hover { color: var(--color-text); }
+.knockout-filter:focus-visible { outline: 2px solid var(--color-tech-400); outline-offset: 2px; }
+
+.knockout-filter[aria-checked="true"] {
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-sm), inset 0 0 0 1px rgb(var(--rgb-accent) / 0.5);
+}
+
+.knockout-focus-note {
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-tech-400);
+  background: rgb(var(--rgb-tech) / 0.08);
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+/* ---------- Pódio e premiação: 1º no centro, mais alto ---------- */
+.knockout-podium { display: grid; gap: 14px; margin-top: 34px; }
+.knockout-podium h2 { font-size: 1rem; font-weight: 800; }
+
+.knockout-podium ol {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.knockout-podium-item {
+  --medal: #b07a2a;
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 18px 12px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  border-top: 3px solid var(--medal);
+  background:
+    radial-gradient(100% 80% at 50% 0%, color-mix(in srgb, var(--medal) 16%, transparent), transparent 70%),
+    var(--color-surface);
+  text-align: center;
+  min-width: 0;
+  animation: rise-in var(--motion-reveal) backwards;
+}
+
+.knockout-podium-1 { --medal: #d9a43a; order: 2; padding-block: 26px 22px; box-shadow: 0 20px 40px -28px rgb(217 164 58 / 0.9); }
+.knockout-podium-2 { --medal: #9aa6b4; order: 1; animation-delay: 80ms; }
+.knockout-podium-3 { order: 3; animation-delay: 160ms; }
+
+.knockout-podium-place {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgb(255 255 255 / 0.55) 0, transparent 45%), var(--medal);
+  color: #1b1405;
+  font-weight: 900;
+  box-shadow: 0 6px 14px -6px var(--medal);
+}
+
+.knockout-podium-1 .knockout-podium-place { width: 48px; height: 48px; font-size: 1.05rem; }
+.knockout-podium-title { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
+.knockout-podium-prize { font-size: 1.35rem; font-weight: 900; font-variant-numeric: tabular-nums; color: var(--color-text); }
+.knockout-podium-1 .knockout-podium-prize { font-size: 1.7rem; color: #b5811f; }
+.knockout-podium-prize small { font-size: 0.68rem; font-weight: 700; color: var(--color-text-faint); }
+.knockout-podium-team { margin-top: 4px; font-size: 0.92rem; font-weight: 800; color: var(--color-text); overflow-wrap: anywhere; }
+.knockout-podium-item:not(.is-decided) .knockout-podium-team { color: var(--color-text-faint); font-weight: 600; font-style: italic; }
+.knockout-podium-score { font-size: 0.7rem; color: var(--color-text-faint); }
+.knockout-podium-item.is-decided { border-color: color-mix(in srgb, var(--medal) 55%, transparent); border-top-color: var(--medal); }
+
+:root[data-theme="dark"] .knockout-podium-1 .knockout-podium-prize,
+:root[data-theme="dark"] .knockout-badge-gold { color: #e8b955; }
+
+/* ---------- Regras, recolhidas ---------- */
+.knockout-rules-box {
+  margin-top: 28px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.knockout-rules-box > summary {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  font-size: 0.88rem;
+  font-weight: 750;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.knockout-rules-box > summary:focus-visible { outline: 2px solid var(--color-tech-400); outline-offset: 2px; }
+.knockout-rules-box .knockout-rules { margin: 0; padding: 4px 16px 16px; border-top: 0; }
+
+@media (max-width: 640px) {
+  .knockout-path { padding: 14px 12px 12px; }
+  .knockout-steps li { font-size: 0.7rem; }
+  .knockout-step-dot { width: 28px; height: 28px; }
+  .knockout-steps li + li::before { top: 13px; right: calc(50% + 17px); width: calc(100% - 34px); }
+  .knockout-third-branch { margin-left: 0; }
+  .knockout-filters { justify-self: stretch; }
+  .knockout-filter { padding-inline: 8px; }
+  .knockout-podium ol { grid-template-columns: 1fr; }
+  .knockout-podium-item { grid-template-columns: auto 1fr auto; justify-items: start; text-align: left; column-gap: 12px; padding: 12px 14px; order: 0; }
+  .knockout-podium-1 { padding-block: 14px; order: 0; }
+  .knockout-podium-2 { order: 0; }
+  .knockout-podium-place { grid-row: span 3; margin: 0; }
+  .knockout-podium-prize { grid-column: 3; grid-row: 1 / span 2; align-self: center; font-size: 1.15rem; }
+  .knockout-podium-1 .knockout-podium-prize { font-size: 1.3rem; }
+  .knockout-podium-title, .knockout-podium-team, .knockout-podium-score { grid-column: 2; }
 }

@@ -1533,11 +1533,13 @@ test("Mata-mata mostra as posições antes do fim do grupo, sem prometer vaga", 
   await expect(cardSides(page, "T")).toHaveText(["Perdedor da Semifinal 1", "Perdedor da Semifinal 2"]);
   await expect(cardSides(page, "F")).toHaveText(["Vencedor da Semifinal 1", "Vencedor da Semifinal 2"]);
   await expect(page.locator(".ko-champion-name")).toHaveText("A definir");
-  await expect(page.locator(".knockout-step-current")).toHaveText("Fase de grupos");
+  await expect(page.locator(".knockout-step-current .knockout-step-label")).toHaveText("Fase de grupos");
+  await page.getByText("Como funciona o chaveamento").click();
   await expect(page.getByRole("region", { name: "Como cada posição do grupo entra" }).locator("li")).toHaveCount(3);
   // Pódio e premiação: 1º, 2º e 3º com o valor por dupla, ainda sem nomes.
   const podium = page.getByRole("region", { name: "Pódio e premiação" });
-  await expect(podium.locator(".knockout-podium-title")).toHaveText(["Campeões · R$ 400 por dupla", "Vice-campeões · R$ 200 por dupla", "Terceiro lugar · R$ 100 por dupla"]);
+  await expect(podium.locator(".knockout-podium-title")).toHaveText(["Campeões", "Vice-campeões", "Terceiro lugar"]);
+  await expect(podium.locator(".knockout-podium-prize")).toHaveText(["R$ 400 por dupla", "R$ 200 por dupla", "R$ 100 por dupla"]);
   await expect(podium.locator(".knockout-podium-team")).toHaveText(["A definir", "A definir", "A definir"]);
 
   // Com a fase de grupos em andamento, mostra quem ocupa cada posição hoje — marcado como provisório.
@@ -1564,7 +1566,7 @@ test("quartas cruzam 3º × 6º e 4º × 5º e os vencedores encontram 1º e 2º
   // Final e 3º lugar esperam as duas semifinais.
   await expect(cardSides(page, "F")).toHaveText(["Vencedor da Semifinal 1", "Vencedor da Semifinal 2"]);
   await expect(cardSides(page, "T")).toHaveText(["Perdedor da Semifinal 1", "Perdedor da Semifinal 2"]);
-  await expect(page.locator(".knockout-step-current")).toHaveText("Semifinal");
+  await expect(page.locator(".knockout-step-current .knockout-step-label")).toHaveText("Semifinais");
   await expect(page.locator(".ko-cell-S1 .ko-side-you")).toHaveText("Sua dupla");
 });
 
@@ -1575,7 +1577,8 @@ test("semifinais geram a final e o 3º lugar; a final registra o campeão e o 3�
   await expect(cardSides(page, "T")).toHaveText(["Dupla 4", "Dupla 3"]);
   await expect(page.locator(".ko-cell-F .ko-match-status")).toHaveText("A jogar");
   await expect(page.locator(".ko-cell-T .ko-match-status")).toHaveText("A jogar");
-  await expect(page.locator(".knockout-step-current")).toHaveText("Disputa de 3º lugar");
+  await expect(page.locator(".knockout-step-current .knockout-step-label")).toHaveText("Final");
+  await expect(page.locator(".knockout-third-current")).toContainText("3º lugar");
   await expect(page.getByText(/O campeonato termina quando as duas tiverem resultado/)).toBeVisible();
   await expect(page.locator(".ko-champion-decided")).toHaveCount(0);
 
@@ -1604,6 +1607,14 @@ test("o chaveamento vira colunas ligadas no desktop e uma trilha única no celul
   await mockKnockout(page, 6);
   await page.goto("/mata-mata");
   await expect(page.locator(".ko-match")).toHaveCount(6);
+  // No celular o padrão é uma fase por aba; o chaveamento completo vira a trilha única.
+  if (testInfo.project.name === "mobile-chromium") {
+    await expect(page.getByRole("tab", { name: "Final" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator(".ko-cell-Q1")).toBeHidden();
+    await page.getByRole("button", { name: "Ver chaveamento completo" }).click();
+  } else {
+    await expect(page.getByRole("tablist", { name: "Fases do mata-mata" })).toBeHidden();
+  }
   // Mede só depois da entrada: durante a cascata as colunas ainda estão subindo.
   await expect.poll(() => page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === "running").length)).toBe(0);
   const box = async (key: string) => (await page.locator(".ko-cell-" + key).boundingBox())!;
@@ -1628,6 +1639,83 @@ test("o chaveamento vira colunas ligadas no desktop e uma trilha única no celul
     await expect(page.locator(".standings-row")).toHaveCount(7);
     await expect.poll(() => page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === "running").length)).toBe(0);
     await page.screenshot({ path: process.env.MOTION_SHOTS + "/" + testInfo.project.name + "_grupos.png", fullPage: true });
+  }
+});
+
+test("filtros do Mata-mata: a fase atual acompanha o campeonato e Minha dupla mostra só o caminho real", async ({ page }) => {
+  await mockKnockout(page, 2);
+  await page.goto("/mata-mata");
+  const filter = (name: string) => page.getByRole("radio", { name });
+  await expect(filter("Visão geral")).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator(".ko-cell-dim")).toHaveCount(0);
+  // Semifinais em disputa: só elas ficam acesas; o resto recua, mas continua no chaveamento.
+  await expect(page.locator(".ko-cell-current")).toHaveCount(2);
+  await filter("Fase atual").click();
+  await expect(page.locator(".ko-cell-S1")).not.toHaveClass(/ko-cell-dim/);
+  await expect(page.locator(".ko-cell-Q1")).toHaveClass(/ko-cell-dim/);
+  await expect(page.locator(".ko-match")).toHaveCount(6);
+  // Minha dupla (Dupla 1): a semifinal em que ela já está, nunca a final que ainda não ganhou.
+  await filter("Minha dupla").click();
+  await expect(page.locator(".ko-cell-mine")).toHaveCount(1);
+  await expect(page.locator(".ko-cell-S1")).toHaveClass(/ko-cell-mine/);
+  await expect(page.locator(".ko-cell-F")).toHaveClass(/ko-cell-dim/);
+  const panel = page.getByRole("region", { name: "Sua dupla no mata-mata" });
+  await expect(panel.locator(".knockout-campaign-badge")).toHaveText("Em disputa");
+  await expect(panel).toContainText("Dupla 4");
+
+  // O campeonato avança: o destaque passa sozinho para a final e o 3º lugar, e o filtro é lembrado.
+  await mockKnockout(page, 4);
+  await page.reload();
+  await expect(filter("Minha dupla")).toHaveAttribute("aria-checked", "true");
+  await filter("Fase atual").click();
+  await expect(page.locator(".ko-cell-current")).toHaveCount(2);
+  await expect(page.locator(".ko-cell-F")).toHaveClass(/ko-cell-current/);
+  await expect(page.locator(".ko-cell-T")).toHaveClass(/ko-cell-current/);
+  await expect(page.locator(".ko-cell-S1")).toHaveClass(/ko-cell-dim/);
+
+  // Encerrado: campeã com selo dourado, nada em disputa.
+  await mockKnockout(page, 6);
+  await page.reload();
+  await expect(page.locator(".ko-cell-current")).toHaveCount(0);
+  await expect(page.locator(".knockout-step-done")).toHaveCount(4);
+  await expect(page.getByRole("region", { name: "Sua dupla no mata-mata" }).locator(".knockout-campaign-badge")).toHaveText("No pódio");
+});
+
+test("Minha dupla deixa clara a eliminação de quem ficou fora do chaveamento", async ({ page }) => {
+  await mockKnockout(page, 2);
+  await asTeam(page, "team-7");
+  await page.goto("/mata-mata");
+  await expect(page.getByRole("region", { name: "Sua dupla no mata-mata" }).locator(".knockout-campaign-badge")).toHaveText("Eliminada");
+  await page.getByRole("radio", { name: "Minha dupla" }).click();
+  await expect(page.getByText(/fora das vagas e não está no chaveamento/)).toBeVisible();
+  await expect(page.locator(".ko-cell-mine")).toHaveCount(0);
+  expect(await noSidewaysScroll(page)).toBeLessThanOrEqual(0);
+});
+
+// KO_SHOTS=<pasta> gera as capturas de cada estado do Mata-mata, nos temas escuro e claro.
+test("capturas do Mata-mata em cada fase", async ({ page }, testInfo) => {
+  test.skip(!process.env.KO_SHOTS, "só com KO_SHOTS");
+  test.setTimeout(240_000);
+  const states: Array<[string, number | null]> = [["1-grupos", null], ["2-quartas", 0], ["3-semifinais", 2], ["4-final", 4], ["5-encerrado", 6]];
+  for (const theme of ["dark", "light"]) {
+    for (const [name, played] of states) {
+      await page.unrouteAll();
+      if (played === null) {
+        await mockCoreApi(page, "jogador");
+        await page.route("**/api/groups/*/standings", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(finalStandings().map((row) => ({ ...row, jogos: 4 }))) }));
+      } else {
+        await mockKnockout(page, played);
+      }
+      await page.goto("/mata-mata");
+      await page.evaluate((value) => {
+        localStorage.setItem("truco-do-novo:appearance-version", "black-background-v1");
+        localStorage.setItem("truco-do-novo:theme", value);
+      }, theme);
+      await page.reload();
+      await expect(page.locator(".ko-match")).toHaveCount(6);
+      await page.waitForTimeout(1_500);
+      await page.screenshot({ path: `${process.env.KO_SHOTS}/${testInfo.project.name}_${theme}_${name}.png`, fullPage: true, animations: "disabled" });
+    }
   }
 });
 
@@ -1845,6 +1933,9 @@ test("editar resultado no chaveamento pede confirmação e mostra a recusa da AP
   await page.goto("/mata-mata");
   const card = page.locator(".ko-cell-Q1");
   await expect(card.locator(".ko-side-sets")).toHaveText(["2", "0"]);
+  // No celular o chaveamento abre na aba da fase atual (Final); as quartas ficam na aba delas.
+  const quartasTab = page.getByRole("tab", { name: "Quartas" });
+  if (await quartasTab.isVisible()) await quartasTab.click();
   await card.getByRole("button", { name: "Editar resultado" }).click();
   await card.getByRole("button", { name: "1x2", exact: true }).click();
   await card.getByRole("button", { name: "Salvar correção" }).click();
